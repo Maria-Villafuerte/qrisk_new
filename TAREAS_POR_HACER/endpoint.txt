@@ -1,0 +1,17 @@
+Debemos de conectar este end point a la aplicación 
+
+
+Por ahora solo tiene normalización y dice que el estado de cualquier url es "pendiente"
+
+Endpoint: https://z0k9lhdru4.execute-api.us-east-1.amazonaws.com/dev/analyze
+ejemplo de body: { "url": "HTTPS://Ejemplo.COM:443/ruta/con/espacio%20aqui/" }
+ejemplo 2 (incluye resultado F1): {"url": "https://ejemplo.com", "resultadoF1": "INCIERTO"}
+
+ejemplo resultado 2: 
+{
+"url":"https://ejemplo.com/",
+"dominio":"ejemplo.com",
+"veredicto_final":"PENDIENTE",
+"filtro_decisivo":null,
+"mensaje":"F1 fue INCIERTO. F2.1 aún no implementado (S7)."
+}

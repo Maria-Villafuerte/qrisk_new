@@ -1,0 +1,629 @@
+ORDEN DE TRABAJO — QUÉ HACER Y EN QUÉ ORDEN
+=============================================
+María José Villafuerte (22129) | Módulo Frontend
+Elaborado: 28/08/2026
+
+
+PARA QUÉ SIRVE ESTE DOCUMENTO
+-------------------------------
+tareas_majo.txt dice QUÉ falta. Este dice EN QUÉ ORDEN hacerlo.
+
+Son documentos distintos porque el archivo de tareas está organizado por las
+fases del anteproyecto, y esas fases ya no describen el estado real del
+proyecto: hay tareas de la Fase 4 terminadas y tareas de la Fase 1 abiertas.
+Seguir ese orden hoy sería trabajar contra un plan que la realidad ya superó.
+
+Aquí las tareas están reordenadas por DEPENDENCIA TÉCNICA y RIESGO. Se puede
+seguir de arriba hacia abajo sin volver a decidir qué sigue.
+
+Documentos relacionados:
+  tareas_majo.txt    — estado de cada tarea (qué está hecho, qué es mock)
+  endpoints_api.txt  — contrato de la API (entregable para Fabi)
+
+
+CRITERIO DE ORDENAMIENTO
+--------------------------
+El orden sale de aplicar tres reglas, en este orden de prioridad:
+
+  1. PRIMERO LO QUE DESBLOQUEA A OTRAS PERSONAS.
+     El tiempo de respuesta de Fabi no lo controlás vos. Si el contrato de
+     endpoints se manda hoy, Fabi puede empezar mientras vos avanzás en otra
+     cosa. Si se manda en tres semanas, se pierden esas tres semanas de trabajo
+     paralelo que ya no se recuperan.
+
+  2. DESPUÉS LO QUE MÁS RIESGO QUITA.
+     El escaneo real con cámara es la única parte del proyecto que todavía no
+     se ha probado en hardware. Todo lo demás ya se sabe que funciona, o
+     depende de código que se puede escribir con certeza. Si el escaneo no
+     alcanza las métricas, hay que saberlo cuanto antes — no en la semana de
+     la defensa.
+
+  3. AL FINAL LO QUE SOLO DEPENDE DE TIEMPO.
+     Informe, slides, ensayo. No tienen incógnitas técnicas: son horas de
+     trabajo predecibles. Van al final porque además necesitan que lo demás
+     ya esté hecho para poder describirlo.
+
+
+NOTA IMPORTANTE ANTES DE EMPEZAR
+----------------------------------
+CAMBIO RECOMENDADO RESPECTO AL ANTEPROYECTO: librerías
+
+El anteproyecto especifica react-native-vision-camera y MMKV. Al revisar la
+documentación oficial de Expo SDK 57 (la versión que usa el proyecto), resulta
+que el propio SDK ya trae equivalentes:
+
+  expo-camera        hace escaneo de QR de forma nativa, con CameraView,
+                     onBarcodeScanned, useCameraPermissions() y enableTorch.
+  expo-location      hace geocodificación inversa con reverseGeocodeAsync().
+  AsyncStorage /
+  expo-sqlite        cubren la persistencia local.
+
+Ventaja: no requieren config plugins ni pasos extra de prebuild, así que hay
+menos que puede salir mal y menos que explicar cuando algo falle.
+
+CÓMO JUSTIFICARLO EN EL INFORME Y LA DEFENSA
+  No es un recorte de alcance: es una decisión técnica de implementación. La
+  funcionalidad especificada se cumple igual y las métricas son las mismas.
+  El argumento es que se prefirió la solución nativa del SDK sobre una
+  dependencia externa que requiere configuración adicional, reduciendo
+  superficie de fallo sin sacrificar funcionalidad.
+
+  Conviene mencionárselo al asesor ANTES de escribirlo en el informe, no
+  después. Un cambio avisado es una decisión; un cambio descubierto en la
+  defensa es una desviación.
+
+  El Bloque 1 incluye un criterio de corte explícito por si expo-camera no
+  alcanza las métricas: en ese caso se migra a vision-camera y el anteproyecto
+  se cumple al pie de la letra.
+
+
+=======================================================================
+BLOQUE 0 — DESBLOQUEAR A FABI            ← HACER HOY, ANTES QUE NADA
+=======================================================================
+
+Una sola tarea. Bloquea 6 tareas posteriores y no depende de nada.
+
+-----------------------------------------------------------------------
+0.1  Enviar el contrato de endpoints a Fabi y agendar la revisión
+-----------------------------------------------------------------------
+  Depende de:  nada
+  Desbloquea:  todo el Bloque 3, y las tareas 4.2 y 4.4
+  Esfuerzo:    30 minutos (más el tiempo de respuesta de Fabi)
+
+  QUÉ HACER
+    Mandar TAREAS_POR_HACER/endpoints_api.txt y proponer una reunión para
+    cerrar los 8 puntos abiertos que están listados al final de ese archivo.
+
+  POR QUÉ VA PRIMERO
+    Es la tarea con mayor relación entre impacto y esfuerzo de todo el
+    proyecto: media hora de trabajo que desbloquea semanas de otra persona.
+    Además es el Hito M1 del anteproyecto, que sigue formalmente pendiente.
+
+  MIENTRAS FABI RESPONDE
+    No te quedes esperando. Los bloques 1 y 2 no dependen del backend y se
+    pueden hacer en paralelo desde hoy mismo.
+
+
+=======================================================================
+BLOQUE 1 — ESCANEO REAL                  ← EL RIESGO MÁS GRANDE
+=======================================================================
+
+Por qué este bloque va antes que la integración con el backend: es lo único
+que todavía no se ha probado en hardware real. Las métricas de escaneo
+(TDR ≥ 95%, T_scan ≤ 5s, clasificación ≥ 98%) son las únicas que dependen de
+que la cámara se comporte bien con QRs reales, en ángulos reales y con la
+iluminación de un parqueo. Eso no se sabe hasta probarlo.
+
+Si algo va a obligar a replantear, es esto. Mejor descubrirlo ahora.
+
+-----------------------------------------------------------------------
+1.0  Dejar listo un dispositivo Android físico para probar
+-----------------------------------------------------------------------
+  Depende de:  nada
+  Esfuerzo:    1–2 horas
+
+  QUÉ HACER
+    Android Studio con un emulador configurado, y al menos un teléfono Android
+    físico con depuración USB activada corriendo la app.
+
+  POR QUÉ ES UNA TAREA APARTE
+    El emulador NO sirve para probar la cámara: no tiene una de verdad. Todo el
+    Bloque 1 se valida en hardware real o no se valida. Esta tarea existe para
+    que 1.2 y 1.4 no se traben esperando a que aparezca un teléfono.
+
+    Es la mitad Android de la tarea de "configuración del entorno" del
+    anteproyecto. La mitad de iOS es el Bloque 5.
+
+  Conviene que el teléfono sea de gama media, no el mejor que tengas: la
+  métrica T_start ≤ 3s está definida sobre gama media y conviene medir sobre
+  algo representativo.
+
+-----------------------------------------------------------------------
+1.1  Instalar expo-camera y pedir permisos de verdad
+-----------------------------------------------------------------------
+  Depende de:  nada
+  Esfuerzo:    2–3 horas
+
+  ARCHIVOS
+    app/onboarding/camera.tsx       hoy ambos botones solo navegan
+    src/features/onboarding/PermissionScreen.tsx
+
+  QUÉ HACER
+    Instalar expo-camera. Sustituir el avance simulado por useCameraPermissions()
+    y manejar los tres estados reales: concedido, denegado, y denegado
+    permanentemente (que necesita mandar a ajustes del sistema).
+
+  CUIDADO
+    El caso "denegado permanentemente" no existe en el diseño actual. Hay que
+    decidir qué se muestra: probablemente reutilizar PermissionScreen con otro
+    copy y un botón que abra los ajustes del sistema (Linking.openSettings()).
+
+-----------------------------------------------------------------------
+1.2  Cámara real en el escáner
+-----------------------------------------------------------------------
+  Depende de:  1.1
+  Esfuerzo:    4–6 horas
+
+  Depende también de: 1.0 (hace falta un teléfono real para probar)
+
+  ARCHIVOS
+    app/scanner.tsx                          hoy tocar el marco simula el escaneo
+    src/features/scanner/ScannerFrame.tsx
+
+  QUÉ HACER
+    Montar CameraView debajo del marco visual que ya existe:
+
+      <CameraView
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={handleScan}
+        enableTorch={torchOn}
+      />
+
+    El botón de linterna YA EXISTE en la pantalla y hoy solo muestra un toast:
+    conectarlo a enableTorch es cambiar una línea.
+
+    Quitar el botón "Simular QR sin enlace", que era un atajo del prototipo.
+
+  CUIDADO
+    onBarcodeScanned dispara MUCHAS veces por segundo mientras el QR esté a la
+    vista. Hay que bloquear después de la primera lectura (una bandera con
+    useRef) o se van a lanzar decenas de análisis del mismo código.
+
+-----------------------------------------------------------------------
+1.3  Clasificación URL vs. no-URL
+-----------------------------------------------------------------------
+  Depende de:  1.2
+  Esfuerzo:    3–4 horas
+
+  ARCHIVOS
+    src/services/qr/  (nuevo)
+    app/qr/non-url.tsx    la pantalla ya existe y está completa
+
+  QUÉ HACER
+    Función pura que recibe el texto del QR y decide qué es:
+      - URL          → sigue al análisis
+      - WIFI:...     → pantalla no-URL (ya construida, con el caso Wi-Fi)
+      - otros        → pantalla no-URL genérica
+
+    Hoy nonUrlFixture tiene datos fijos de Wi-Fi. Hay que parsear el formato
+    real (WIFI:T:WPA2;S:red;P:clave;;) y llenar los campos con lo leído.
+
+  POR QUÉ ES IMPORTANTE QUE SEA UNA FUNCIÓN PURA
+    La métrica exige precisión ≥ 98%, y esto es lo más fácil de probar con
+    tests unitarios de todo el proyecto: entra un string, sale una
+    clasificación. Sirve directo para la cobertura ≥ 70% del Bloque 6.
+
+-----------------------------------------------------------------------
+1.4  Medir T_scan y TDR en dispositivo real          ← PUNTO DE DECISIÓN
+-----------------------------------------------------------------------
+  Depende de:  1.2, 1.3
+  Esfuerzo:    3–4 horas
+
+  QUÉ HACER
+    Probar con 30 QRs variando tamaño, ángulo e iluminación. Medir cuántos
+    detecta (TDR) y cuánto tarda (T_scan).
+
+  CRITERIO DE CORTE
+    Si TDR ≥ 95% y T_scan ≤ 5s (p90)  →  seguir con expo-camera.
+    Si NO se alcanza                   →  migrar a react-native-vision-camera,
+                                          como dice el anteproyecto original.
+
+    Esta medición es la razón por la que este bloque va temprano. Migrar de
+    librería de cámara es 1–2 días de trabajo; descubrir que hace falta en la
+    semana del cierre sería un problema serio.
+
+
+=======================================================================
+BLOQUE 2 — PERSISTENCIA                  ← NO DEPENDE DE NADIE
+=======================================================================
+
+Se puede hacer en paralelo al Bloque 1 y al 0. No necesita backend ni cámara.
+
+-----------------------------------------------------------------------
+2.1  Historial que sobrevive al cierre de la app
+-----------------------------------------------------------------------
+  Depende de:  nada
+  Esfuerzo:    4–5 horas
+
+  ARCHIVOS
+    src/services/storage/  (nuevo)
+    src/store/AppStateContext.tsx    hoy todo vive en memoria
+    app/history.tsx                  la pantalla ya está completa
+
+  QUÉ HACER
+    Guardar cada escaneo en almacenamiento local, con tope de 20 registros
+    (el más viejo se descarta). Al abrir la app, leer de ahí en vez de
+    historyFixture.
+
+  POR QUÉ IMPORTA
+    La métrica exige "persistencia del historial offline: 100% recuperable sin
+    conexión". Hoy los 6 registros son fijos y desaparecen al cerrar la app.
+    Es de las pocas métricas que se puede cumplir al 100% sin depender de
+    terceros.
+
+-----------------------------------------------------------------------
+2.2  Cambiar timeLabel por scannedAt
+-----------------------------------------------------------------------
+  Depende de:  2.1
+  Esfuerzo:    1–2 horas
+
+  ARCHIVOS
+    src/services/analysis/types.ts   ScanRecord
+    app/history.tsx
+
+  QUÉ HACER
+    Hoy ScanRecord guarda la fecha ya formateada ("Hoy · 12:42"). Cambiarla por
+    scannedAt en ISO 8601 y formatear al momento de pintar.
+
+  POR QUÉ
+    "Hoy" se vuelve mentira a la medianoche. Un escaneo guardado a las 11 PM
+    sigue diciendo "Hoy" al día siguiente. El texto relativo tiene que
+    calcularse contra el reloj del teléfono cada vez que se muestra, no
+    guardarse.
+
+    Este cambio ya está anotado en endpoints_api.txt, porque también afecta
+    lo que manda el backend.
+
+
+=======================================================================
+BLOQUE 3 — INTEGRACIÓN CON EL BACKEND    ← DEPENDE DEL BLOQUE 0
+=======================================================================
+
+No se puede empezar hasta que el contrato con Fabi esté acordado Y haya
+endpoints contra los cuales probar.
+
+DATO IMPORTANTE: este bloque NO debería tocar ninguna pantalla.
+Las pantallas consumen el tipo AnalysisResult, no el servicio. Mientras la
+implementación real cumpla la interfaz AnalysisService que ya existe en
+src/services/analysis/types.ts, todo el trabajo queda contenido en la capa de
+servicios. Eso fue deliberado desde el diseño y ahora se cobra el beneficio.
+
+-----------------------------------------------------------------------
+3.1  Cliente HTTP y manejo de errores
+-----------------------------------------------------------------------
+  Depende de:  0.1
+  Esfuerzo:    3–4 horas
+
+  ARCHIVOS
+    src/services/api/  (nuevo)
+
+  QUÉ HACER
+    Cliente con URL base configurable, timeouts por endpoint y traducción de
+    los códigos de error del contrato (INVALID_URL, FILTER_TIMEOUT, etc.) a
+    algo que las pantallas puedan manejar.
+
+    Los timeouts están definidos en endpoints_api.txt, sección 5.
+
+-----------------------------------------------------------------------
+3.2  Integrar F1
+-----------------------------------------------------------------------
+  Depende de:  3.1
+  Esfuerzo:    4–5 horas
+
+  ARCHIVOS
+    src/services/analysis/analysisService.ts   reemplazar MockAnalysisService
+
+  QUÉ HACER
+    POST /v1/scans + polling de GET /v1/scans/{id}. Conservar la clase mock:
+    sirve para desarrollo sin backend y para las pruebas.
+
+  CUIDADO
+    La pantalla de carga hoy avanza con temporizadores fijos (700ms, 900ms…).
+    Hay que conectarla al progreso REAL que reporta el campo "pending" del
+    response, o la animación estará mintiendo sobre lo que ocurre.
+
+-----------------------------------------------------------------------
+3.3  Integrar F2.1, F2.2 y F2.3
+-----------------------------------------------------------------------
+  Depende de:  3.2
+  Esfuerzo:    5–6 horas
+
+  QUÉ HACER
+    Los tres endpoints de filtros. F2.3 incluye mostrar el screenshot desde la
+    URL firmada de S3, respetando el expiresAt para saber cuándo recargarla.
+
+-----------------------------------------------------------------------
+3.4  Degradación elegante ante fallo parcial
+-----------------------------------------------------------------------
+  Depende de:  3.3
+  Esfuerzo:    3–4 horas
+
+  QUÉ HACER
+    Que un filtro caído no tumbe el análisis completo: veredicto "incierto",
+    aviso visible de que el análisis fue parcial, y la sección del filtro caído
+    explicando qué pasó en lenguaje llano.
+
+  POR QUÉ TIENE SU PROPIA TAREA
+    Es lo que separa una demo de un producto. En la defensa, desconectar el
+    wifi a propósito y mostrar que la app se degrada con elegancia en vez de
+    romperse es de las cosas que mejor demuestran criterio de ingeniería.
+
+    El estado "incierto" ya existe entero en la app precisamente para esto.
+
+
+=======================================================================
+BLOQUE 4 — COMPLETAR LO QUE ESTÁ A MEDIAS
+=======================================================================
+
+Todas estas pantallas ya están construidas; les falta la parte funcional.
+
+-----------------------------------------------------------------------
+4.1  Foto real en la Story Card
+-----------------------------------------------------------------------
+  Depende de:  1.1
+  Esfuerzo:    3–4 horas
+  ARCHIVOS:    app/story-card.tsx
+
+  Cámara y galería (expo-image-picker) para la foto de contexto. Hoy ambos
+  botones muestran un toast.
+
+-----------------------------------------------------------------------
+4.2  Compartir y guardar la Story Card
+-----------------------------------------------------------------------
+  Depende de:  4.1
+  Esfuerzo:    3–4 horas
+
+  Capturar la tarjeta como imagen (react-native-view-shot), compartir con
+  expo-sharing y guardar con expo-media-library.
+
+  Métrica: generación de Story Card ≥ 90% exitosa.
+
+-----------------------------------------------------------------------
+4.3  Geocodificación inversa
+-----------------------------------------------------------------------
+  Depende de:  nada (solo permisos de ubicación, que ya tienen pantalla)
+  Esfuerzo:    2–3 horas
+  ARCHIVOS:    app/onboarding/location.tsx, app/story-card.tsx, app/history.tsx
+
+  expo-location con reverseGeocodeAsync(), que devuelve name, city y district.
+
+  DECISIÓN TOMADA: se resuelve EN EL DISPOSITIVO, sin mandar coordenadas al
+  servidor. Está justificado en endpoints_api.txt sección 4.3. Es coherente
+  con lo que la app le promete al usuario en las demás pantallas ("las
+  imágenes no salen de tu teléfono", "tu reporte es anónimo").
+
+  Métrica: ≥ 85% produce un nombre de lugar legible.
+
+-----------------------------------------------------------------------
+4.4  Envío real del reporte
+-----------------------------------------------------------------------
+  Depende de:  3.1
+  Esfuerzo:    2–3 horas
+  ARCHIVOS:    app/report.tsx
+
+  POST /v1/reports. Hoy submit() solo muestra un toast y regresa.
+
+  Métrica: 100% con payload completo. Hay que validar los campos obligatorios
+  ANTES de enviar y manejar el error de red sin perder lo que el usuario
+  escribió.
+
+
+=======================================================================
+BLOQUE 5 — iOS
+=======================================================================
+
+-----------------------------------------------------------------------
+5.1  Generar el proyecto de iOS y probar en dispositivo
+-----------------------------------------------------------------------
+  Depende de:  1.2 (tener algo real que probar)
+  Esfuerzo:    1 día, más lo que aparezca
+
+  SITUACIÓN ACTUAL
+    Solo existe la carpeta android/. No hay prebuild de iOS, así que la app
+    nunca se ha ejecutado en iPhone.
+
+  POR QUÉ ESTÁ EN SU PROPIO BLOQUE
+    Requiere una Mac. Es un bloqueo LOGÍSTICO, no técnico: si no tenés acceso
+    a una, hay que conseguirlo con anticipación. No es algo que se resuelva
+    la noche anterior.
+
+  El anteproyecto compromete iOS ≥ 15 y Android ≥ 10 sin errores críticos, así
+  que no es opcional.
+
+  QUÉ SUELE FALLAR AL CRUZAR A iOS
+    - Permisos: iOS exige textos de justificación en Info.plist (cámara y
+      ubicación). Sin ellos la app se cierra al pedir el permiso.
+    - Las fuentes y el safe area suelen necesitar ajustes.
+    - El comportamiento del teclado en app/report.tsx es distinto.
+
+
+=======================================================================
+BLOQUE 6 — PRUEBAS Y MÉTRICAS
+=======================================================================
+
+-----------------------------------------------------------------------
+6.1  AGENDAR las pruebas de usabilidad            ← HACER TEMPRANO
+-----------------------------------------------------------------------
+  Depende de:  nada
+  Esfuerzo:    1 hora de coordinación
+
+  Aunque las pruebas se ejecuten al final, conseguir 5 participantes toma
+  tiempo. Contactarlos ahora y agendar una fecha tentativa.
+
+  Es la única tarea del Bloque 6 que conviene hacer desde ya: depende de la
+  disponibilidad de otras personas, igual que la tarea 0.1.
+
+-----------------------------------------------------------------------
+6.2  Pruebas unitarias de la lógica de negocio
+-----------------------------------------------------------------------
+  Depende de:  1.3, 2.1
+  Esfuerzo:    1–2 días
+  Métrica:     cobertura ≥ 70%
+
+  QUÉ PROBAR (lo que tiene lógica de verdad, no las pantallas)
+    - Clasificación URL/no-URL y parseo de Wi-Fi  (1.3)
+    - Persistencia y tope de 20 registros          (2.1)
+    - Traducción de errores del backend            (3.1)
+    - Formateo de fechas relativas                 (2.2)
+
+  Hoy no hay ninguna prueba ni framework instalado. Hay que configurar jest
+  con jest-expo.
+
+-----------------------------------------------------------------------
+6.3  Pruebas E2E del flujo completo
+-----------------------------------------------------------------------
+  Depende de:  Bloque 3 completo
+  Esfuerzo:    2–3 días
+
+  Muestra de URLs maliciosas (PhishTank, VirusTotal) y legítimas (Tranco).
+  Métricas: detección ≥ 90%, falsos positivos ≤ 5%.
+
+-----------------------------------------------------------------------
+6.4  Pruebas de rendimiento
+-----------------------------------------------------------------------
+  Depende de:  Bloque 3 completo
+  Esfuerzo:    1–2 días
+
+    T_F1     ≤ 5s   (p90 sobre 100 URLs en red 4G)
+    T_total  ≤ 35s  (flujo completo F1+F2.1+F2.2)
+    T_start  ≤ 3s   (arranque en gama media)
+
+  T_scan ya se midió en 1.4.
+
+  Nota: en 4G real, no en wifi. La métrica lo especifica y los resultados
+  cambian bastante.
+
+-----------------------------------------------------------------------
+6.5  Ejecutar las pruebas de usabilidad
+-----------------------------------------------------------------------
+  Depende de:  6.1, Bloque 4 completo
+  Esfuerzo:    2–3 días
+
+  5 participantes. Se mide comprensión del veredicto (≥ 90%), completación del
+  flujo (≥ 85%) y tiempo hasta el primer escaneo exitoso (≤ 60s).
+
+  Es la métrica más difícil de arreglar si sale mal, porque implica rediseñar
+  copy o jerarquía visual. Por eso conviene no dejarla para el último momento.
+
+-----------------------------------------------------------------------
+6.6  Corregir los defectos encontrados
+-----------------------------------------------------------------------
+  Depende de:  6.2 a 6.5
+  Esfuerzo:    depende de lo que salga — reservar 3–5 días
+
+
+=======================================================================
+BLOQUE 7 — CIERRE
+=======================================================================
+
+  7.1  Redactar el informe del módulo frontend       depende del Bloque 6
+  7.2  Revisión cruzada con el documento de Fabi     depende de 7.1
+  7.3  Incorporar retroalimentación del asesor       depende de 7.1
+  7.4  Guión de demostración y slides                depende de 7.1
+  7.5  Ensayo con simulación de preguntas            depende de 7.4
+
+  SOBRE EL GUIÓN DE DEMOSTRACIÓN (7.4)
+    Vale la pena ir anotando desde ya qué se va a demostrar. Hay momentos que
+    lucen especialmente bien y conviene tenerlos identificados:
+      - Escanear un QR malicioso real y ver el veredicto
+      - Abrir el detalle y recorrer los criterios activados
+      - Desconectar el wifi a propósito y mostrar la degradación elegante
+      - Mostrar el historial funcionando sin conexión
+
+
+=======================================================================
+RESUMEN DEL ORDEN
+=======================================================================
+
+  #    TAREA                                  DEPENDE DE    ESFUERZO
+  --------------------------------------------------------------------
+  0.1  Mandar contrato a Fabi                 —             30 min
+  1.0  Teléfono Android listo para probar     —             1–2 h
+  1.1  Permisos reales de cámara              —             2–3 h
+  1.2  Cámara real en el escáner              1.0, 1.1      4–6 h
+  1.3  Clasificación URL/no-URL               1.2           3–4 h
+  1.4  Medir T_scan y TDR      ← DECISIÓN     1.2, 1.3      3–4 h
+  2.1  Persistencia del historial             —             4–5 h
+  2.2  timeLabel → scannedAt                  2.1           1–2 h
+  6.1  Agendar usabilidad                     —             1 h
+  --------------------------------------------------------------------
+  3.1  Cliente HTTP y errores                 0.1           3–4 h
+  3.2  Integrar F1                            3.1           4–5 h
+  3.3  Integrar F2.1, F2.2, F2.3              3.2           5–6 h
+  3.4  Degradación elegante                   3.3           3–4 h
+  4.1  Foto real en Story Card                1.1           3–4 h
+  4.2  Compartir y guardar Story Card         4.1           3–4 h
+  4.3  Geocodificación inversa                —             2–3 h
+  4.4  Envío real del reporte                 3.1           2–3 h
+  5.1  iOS: prebuild y pruebas                1.2           1 día+
+  --------------------------------------------------------------------
+  6.2  Pruebas unitarias                      1.3, 2.1      1–2 días
+  6.3  Pruebas E2E                            Bloque 3      2–3 días
+  6.4  Pruebas de rendimiento                 Bloque 3      1–2 días
+  6.5  Ejecutar usabilidad                    6.1, Bl. 4    2–3 días
+  6.6  Corregir defectos                      6.2–6.5       3–5 días
+  --------------------------------------------------------------------
+  7.1  Informe                                Bloque 6      —
+  7.2  Revisión cruzada con Fabi              7.1           —
+  7.3  Retroalimentación del asesor           7.1           —
+  7.4  Guión y slides                         7.1           —
+  7.5  Ensayo de defensa                      7.4           —
+
+
+QUÉ SE PUEDE HACER EN PARALELO
+--------------------------------
+
+  DESDE HOY, SIN ESPERAR A NADIE:
+    0.1  Mandar el contrato a Fabi        (30 min, desbloquea todo el Bloque 3)
+    6.1  Agendar la usabilidad            (1 hora, depende de otras personas)
+    Bloque 1 completo                     (cámara — el riesgo más grande)
+    Bloque 2 completo                     (persistencia)
+    4.3  Geocodificación
+
+  Eso es cerca de una semana de trabajo que NO depende del backend. Si se
+  arranca por ahí, para cuando Fabi tenga endpoints listos el frontend ya está
+  esperando con la cámara funcionando y el historial persistiendo.
+
+  SOLO DESPUÉS DE QUE FABI ENTREGUE:
+    Bloque 3 completo, más 4.4
+
+  El orden de los bloques es una recomendación, no una regla rígida. Lo único
+  que sí conviene respetar es que 0.1 salga hoy y que el Bloque 1 no se deje
+  para el final: son las dos cosas cuyo retraso no se puede recuperar después.
+
+
+ADVERTENCIAS FINALES
+----------------------
+
+  1. LA TAREA 1.4 ES UN PUNTO DE DECISIÓN, NO UNA FORMALIDAD.
+     Si expo-camera no alcanza las métricas, hay que migrar a vision-camera.
+     Es 1–2 días de trabajo si se descubre temprano, y un problema serio si se
+     descubre tarde.
+
+  2. LA COBERTURA DE PRUEBAS ≥ 70% ES SOBRE LÓGICA DE NEGOCIO.
+     No sobre las pantallas. Las funciones puras del Bloque 1 y 2
+     (clasificación de QR, persistencia, formateo de fechas) son casi toda esa
+     cobertura, y son fáciles de probar. Escribir esas pruebas conforme se
+     escribe el código sale mucho más barato que hacerlas todas al final.
+
+  3. iOS NO ES OPCIONAL.
+     El anteproyecto compromete iOS ≥ 15 sin errores críticos y hoy el proyecto
+     nunca ha corrido en un iPhone. Si conseguir una Mac es difícil, resolverlo
+     ahora, no cuando falte poco.
+
+  4. LO QUE YA ESTÁ HECHO ES MUCHO Y VALE.
+     Las 12 pantallas, el design system de 20 componentes y la arquitectura de
+     servicios están terminados y bien hechos. La interfaz AnalysisService
+     existía desde el principio precisamente para que conectar el backend no
+     obligara a tocar pantallas — y eso es exactamente lo que va a pasar en el
+     Bloque 3. Eso es diseño previsor, y vale la pena decirlo en la defensa.
