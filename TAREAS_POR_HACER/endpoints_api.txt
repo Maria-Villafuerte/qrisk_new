@@ -1,0 +1,667 @@
+CONTRATO DE INTERFAZ — API DE QRISK (v1 · borrador)
+=====================================================
+Entregable del Hito M1 | Autora: María José Villafuerte (22129)
+Interlocutora: Fabi (backend) | Fecha: 28/08/2026
+
+
+PROPÓSITO
+-----------
+Este documento define los endpoints que el frontend necesita consumir.
+
+No está inventado desde cero: se escribió DESDE EL CONSUMO REAL DEL FRONTEND
+HACIA ATRÁS. Las 12 pantallas de la app ya están implementadas y funcionando
+contra datos simulados, así que los tipos de src/services/analysis/types.ts
+son una especificación ya validada — describen exactamente qué campos pinta
+cada pantalla y en qué forma los necesita.
+
+Reemplazar el mock por la API real no debería obligar a tocar ninguna pantalla
+si el backend cumple este contrato.
+
+
+CONVENCIONES GENERALES
+------------------------
+- Base URL:      https://api.qrisk.gt/v1
+- Formato:       JSON, codificación UTF-8
+- Fechas:        ISO 8601 con zona horaria (ej. "2026-08-28T12:42:00-06:00")
+- Autenticación: cabecera "X-Device-Id" (identificador anónimo del dispositivo,
+                 ver sección 4). No hay cuentas de usuario ni datos personales.
+
+REGLA DE SEGURIDAD FUNDAMENTAL DEL PRODUCTO
+  El frontend NUNCA abre la URL analizada. Solo la muestra como texto.
+  Toda visita al sitio ocurre en el entorno aislado del backend. Ningún
+  endpoint debe devolver contenido que el cliente tenga que renderizar como
+  HTML, ni redirigir al dispositivo hacia el sitio analizado.
+
+
+ÍNDICE
+--------
+  1. Núcleo del análisis: la cascada de filtros  ..... REQUERIDO
+  2. Reporte de QR malicioso  ....................... REQUERIDO
+  3. Historial  ..................................... REQUERIDO
+  4. Endpoints candidatos (aún no decididos)  ....... A DISCUTIR
+  5. Errores compartidos  ........................... REQUERIDO
+  6. Mapeo a los tipos del frontend  ................ REFERENCIA
+
+
+=======================================================================
+1. NÚCLEO DEL ANÁLISIS — LA CASCADA DE FILTROS
+=======================================================================
+
+DECISIÓN DE DISEÑO: un endpoint por filtro, no uno solo bloqueante.
+
+Razones:
+  a) El cronograma es por fases. Majo puede integrar F1 en la semana 6 sin
+     esperar a que F2.2 exista.
+  b) La métrica T_F1 ≤ 5s (p90) debe medirse aislada. Si F1 viniera empaquetado
+     con los demás filtros, sería imposible medirlo por separado.
+  c) La pantalla de carga (app/analysis/loading.tsx) ya muestra la cascada
+     etapa por etapa. Con un solo endpoint bloqueante esa animación sería
+     mentira: mostraría progreso inventado durante una espera de hasta 35s.
+
+  Resumen de la cascada:
+
+    POST /v1/scans                  → crea el análisis, devuelve F1  (≤ 5s)
+    GET  /v1/scans/{id}             → estado + todas las secciones listas
+    GET  /v1/scans/{id}/heuristics  → F2.1
+    GET  /v1/scans/{id}/behavior    → F2.2
+    GET  /v1/scans/{id}/preview     → F2.3 (URL firmada de S3)
+
+
+-----------------------------------------------------------------------
+1.1  POST /v1/scans — Crear análisis y ejecutar F1
+-----------------------------------------------------------------------
+Consume: app/analysis/loading.tsx
+Debe responder en ≤ 5 segundos (métrica T_F1).
+
+REQUEST
+  POST /v1/scans
+  Content-Type: application/json
+
+  {
+    "url": "https://pagos-multas-gt.info/pago",
+    "scannedAt": "2026-08-28T09:15:00-06:00",
+    "source": "qr_scan"
+  }
+
+  Campos:
+    url        (obligatorio) URL cruda leída del QR, sin normalizar.
+                             El backend normaliza; el frontend NO la modifica.
+    scannedAt  (obligatorio) Momento del escaneo en el dispositivo.
+    source     (obligatorio) "qr_scan" — reservado para futuros orígenes.
+
+  NOTA PARA FABI: el frontend envía la URL tal cual la leyó, incluso si está
+  malformada. Si no es una URL válida el backend responde INVALID_URL y la app
+  muestra la pantalla de contenido no-URL. La app no decide qué es "válido".
+
+RESPONSE 201
+  {
+    "scanId": "scn_8f2a91c4",
+    "status": "analyzing",
+    "url": "https://pagos-multas-gt.info/pago",
+    "domain": "pagos-multas-gt.info",
+    "verdict": "sospechoso",
+    "riskScore": 68,
+    "summary": "Este sitio tiene señales de riesgo. Ábrelo solo si confías en quien puso el código.",
+    "sections": [
+      {
+        "key": "reputation",
+        "title": "Reputación",
+        "badgeText": "SIN ALERTAS",
+        "badgeTone": "ok",
+        "findings": [
+          {
+            "tone": "ok",
+            "text": "No aparece en listas de sitios maliciosos conocidos (Google Safe Browsing, PhishTank)."
+          },
+          {
+            "tone": "warn",
+            "text": "Las listas negras no detectan dominios muy nuevos: por eso el análisis continúa."
+          }
+        ]
+      }
+    ],
+    "pending": ["heuristics", "behavior", "preview"]
+  }
+
+  Campos de la respuesta:
+    scanId     Identificador del análisis. Se usa en todos los demás endpoints
+               y en el reporte.
+    status     "analyzing" | "complete" | "failed"
+    domain     Dominio legible, ya extraído. Es lo que el usuario debe
+               reconocer, y se muestra más grande que la URL completa.
+    verdict    Veredicto PRELIMINAR basado solo en F1. Puede cambiar cuando
+               terminen los filtros siguientes.
+    summary    Recomendación en lenguaje llano, redactada por el backend.
+               Ver "Sobre los textos" más abajo.
+    pending    Filtros que aún faltan. Le dice al frontend qué esperar.
+
+
+-----------------------------------------------------------------------
+1.2  GET /v1/scans/{scanId} — Estado y resultado consolidado
+-----------------------------------------------------------------------
+Consume: app/analysis/loading.tsx (polling), app/analysis/result.tsx
+
+Devuelve el análisis completo con las secciones disponibles hasta el momento.
+Es el endpoint que el frontend consulta mientras avanza la cascada.
+
+REQUEST
+  GET /v1/scans/scn_8f2a91c4
+
+RESPONSE 200
+  {
+    "scanId": "scn_8f2a91c4",
+    "status": "complete",
+    "url": "https://pagos-multas-gt.info/pago",
+    "domain": "pagos-multas-gt.info",
+    "verdict": "sospechoso",
+    "riskScore": 68,
+    "summary": "Este sitio tiene señales de riesgo. Ábrelo solo si confías en quien puso el código.",
+    "sections": [ /* las 4 secciones completas */ ],
+    "pending": [],
+    "degraded": false
+  }
+
+  degraded  true si algún filtro falló y el veredicto se calculó sin él.
+            Ver la sección 5 sobre degradación elegante.
+
+FRECUENCIA DE POLLING
+  Propuesta del frontend: cada 1s, con timeout total de 35s (métrica T_total).
+  Si el backend prefiere Server-Sent Events o WebSocket, es negociable —
+  pero el polling es más simple de implementar y de degradar en red 4G
+  inestable, que es el escenario real de uso.
+
+
+-----------------------------------------------------------------------
+1.3  GET /v1/scans/{scanId}/heuristics — Filtro F2.1
+-----------------------------------------------------------------------
+Consume: app/analysis/details.tsx (acordeón "Heurística", abierto por defecto)
+
+Devuelve UNA sección con la estructura AnalysisSection.
+
+RESPONSE 200
+  {
+    "key": "heuristics",
+    "title": "Heurística",
+    "badgeText": "3 ALERTAS",
+    "badgeTone": "warn",
+    "findings": [
+      { "tone": "warn", "text": "Dominio registrado hace 12 días." },
+      { "tone": "warn", "text": "Terminación “.info”, poco común en sitios oficiales de gobierno." },
+      { "tone": "warn", "text": "El nombre imita a una entidad de tránsito, pero no es el dominio oficial." },
+      { "tone": "ok",   "text": "Usa conexión cifrada (HTTPS)." }
+    ]
+  }
+
+CRITERIOS QUE DEBE CUBRIR F2.1 (según el anteproyecto):
+  - Antigüedad del dominio
+  - TLD sospechoso
+  - Estructura de la URL
+  - HTTPS vs. HTTP
+
+  El frontend NO decide qué criterios mostrar ni en qué orden: pinta los
+  findings tal como llegan, en el orden del arreglo. Si Fabi agrega criterios
+  nuevos, aparecen solos sin cambiar el código de la app.
+
+
+-----------------------------------------------------------------------
+1.4  GET /v1/scans/{scanId}/behavior — Filtro F2.2 (sandbox)
+-----------------------------------------------------------------------
+Consume: app/analysis/details.tsx (acordeón "Comportamiento")
+
+RESPONSE 200
+  {
+    "key": "behavior",
+    "title": "Comportamiento",
+    "badgeText": "2 ALERTAS",
+    "badgeTone": "warn",
+    "findings": [
+      { "tone": "warn", "text": "Redirige 2 veces antes de llegar al sitio final." },
+      { "tone": "warn", "text": "Contiene un formulario que pide número de tarjeta." },
+      { "tone": "ok",   "text": "No intenta descargar archivos." }
+    ]
+  }
+
+INDICADORES DE COMPORTAMIENTO A DETECTAR (pendiente de acordar con Fabi):
+  - Redirecciones (cuántas y hacia dónde)
+  - Descargas automáticas
+  - Scripts ofuscados
+  - Formularios que piden datos sensibles
+
+  NOTA IMPORTANTE: los findings deben estar redactados para una persona sin
+  conocimientos técnicos. "Envía lo que escribes a un servidor distinto al del
+  sitio" en vez de "exfiltración de credenciales vía POST cross-origin".
+  La métrica de comprensión del veredicto es ≥ 90%.
+
+
+-----------------------------------------------------------------------
+1.5  GET /v1/scans/{scanId}/preview — Filtro F2.3 (vista previa segura)
+-----------------------------------------------------------------------
+Consume: app/analysis/details.tsx (acordeón "Vista previa")
+
+RESPONSE 200 — captura disponible
+  {
+    "key": "preview",
+    "title": "Vista previa",
+    "badgeText": "DISPONIBLE",
+    "badgeTone": "ok",
+    "findings": [],
+    "footnote": "Captura tomada en un entorno aislado. El sitio nunca se abrió en tu teléfono.",
+    "screenshot": {
+      "url": "https://qrisk-previews.s3.amazonaws.com/scn_8f2a91c4.webp?X-Amz-Signature=...",
+      "expiresAt": "2026-08-28T10:15:00-06:00",
+      "width": 1280,
+      "height": 720
+    }
+  }
+
+RESPONSE 200 — captura no disponible
+  {
+    "key": "preview",
+    "title": "Vista previa",
+    "badgeText": "NO DISPONIBLE",
+    "badgeTone": "warn",
+    "findings": [],
+    "footnote": "No se pudo generar una captura porque el sitio no respondió.",
+    "screenshot": null
+  }
+
+SOBRE LA URL FIRMADA DE S3 — puntos que Fabi debe definir:
+  - expiresAt es OBLIGATORIO. El frontend necesita saber cuánto tiempo puede
+    cachear la imagen antes de volver a pedirla. Sin este dato, una Story Card
+    o un historial abierto días después mostraría una imagen rota.
+  - TTL sugerido: 15 minutos. Suficiente para ver el detalle sin dejar la
+    captura accesible indefinidamente.
+  - width/height permiten reservar el espacio en pantalla antes de que la
+    imagen cargue, evitando que el layout salte.
+  - La imagen debe servirse ya redimensionada para móvil. Una captura de
+    escritorio a resolución completa es demasiado peso en red 4G.
+
+
+-----------------------------------------------------------------------
+REGLAS TRANSVERSALES DE LA CASCADA
+-----------------------------------------------------------------------
+
+VALORES CERRADOS — el frontend no admite valores fuera de estas listas:
+
+  verdict:    "seguro" | "sospechoso" | "malicioso" | "incierto"
+              Los cuatro tienen tema visual definido (color, tinte, borde,
+              etiqueta) en src/design-system/tokens.ts. Un quinto valor
+              rompería la app en tiempo de ejecución.
+
+  tone:       "ok" | "warn"
+  badgeTone:  "ok" | "warn"
+              Solo existen estos dos tonos. No hay "error" ni "info".
+
+  key:        "reputation" | "heuristics" | "behavior" | "preview"
+              Determina qué ícono se pinta en cada acordeón.
+
+  riskScore:  entero de 0 a 100. 0 = seguro, 100 = peligroso.
+              El componente RiskMeter ya recorta al rango por seguridad,
+              pero el backend no debería enviar valores fuera de él.
+
+SOBRE LOS TEXTOS (summary, title, findings[].text, footnote, badgeText)
+  Todos los redacta el BACKEND. El frontend no compone ni traduce texto de
+  análisis. Esto es deliberado: permite mejorar la redacción sin publicar
+  una versión nueva de la app en las tiendas.
+
+  Idioma: español de Guatemala. Segunda persona ("Ábrelo solo si confías…").
+
+  badgeText lo compone el backend porque depende del conteo de findings
+  ("3 ALERTAS", "SIN ALERTAS", "DISPONIBLE"). Es texto de presentación, lo
+  cual normalmente viviría en el cliente — pero como el conteo solo lo conoce
+  el servidor, es más simple mantenerlo allí.
+  → ESTE PUNTO ES DISCUTIBLE. Si Fabi prefiere enviar solo el número de
+    alertas y que el frontend arme la cadena, también funciona. Decidir en M1.
+
+
+=======================================================================
+2. REPORTE DE QR MALICIOSO
+=======================================================================
+
+-----------------------------------------------------------------------
+2.1  POST /v1/reports — Enviar reporte anónimo
+-----------------------------------------------------------------------
+Consume: app/report.tsx
+
+La métrica exige "envío de reportes: 100% con payload completo", así que los
+campos obligatorios están marcados explícitamente.
+
+REQUEST
+  POST /v1/reports
+  Content-Type: application/json
+
+  {
+    "scanId": "scn_8f2a91c4",
+    "url": "https://pagos-multas-gt.info/pago",
+    "verdict": "sospechoso",
+    "comment": "El código estaba pegado encima del QR original del parqueo.",
+    "place": "Parqueo Plaza Sol, Zona 10",
+    "reportedAt": "2026-08-28T09:20:00-06:00"
+  }
+
+  Campos:
+    scanId      OBLIGATORIO  Vincula el reporte con el análisis ya hecho.
+    url         OBLIGATORIO  Redundante con scanId, pero permite conservar el
+                             reporte aunque el análisis expire del almacenamiento.
+    verdict     OBLIGATORIO  Veredicto que vio el usuario al reportar.
+    reportedAt  OBLIGATORIO
+    comment     opcional     Texto libre. Máx. 500 caracteres.
+    place       opcional     Texto libre escrito por el usuario, NO coordenadas.
+                             Máx. 200 caracteres.
+
+  El reporte es ANÓNIMO: no lleva identificador de usuario ni coordenadas GPS.
+  El campo "place" es lo que la persona escribió a mano, nada más.
+
+RESPONSE 201
+  {
+    "reportId": "rpt_3c81f0",
+    "receivedAt": "2026-08-28T09:20:01-06:00"
+  }
+
+SI FALTA UN CAMPO OBLIGATORIO
+  RESPONSE 400 con code "INVALID_PAYLOAD" y la lista de campos faltantes:
+  {
+    "error": {
+      "code": "INVALID_PAYLOAD",
+      "message": "Faltan campos obligatorios.",
+      "retryable": false,
+      "missingFields": ["scanId"]
+    }
+  }
+
+
+=======================================================================
+3. HISTORIAL
+=======================================================================
+
+-----------------------------------------------------------------------
+3.1  GET /v1/scans — Últimos escaneos del dispositivo
+-----------------------------------------------------------------------
+Consume: app/history.tsx
+
+ARQUITECTURA: EL HISTORIAL ES LOCAL-FIRST.
+
+  La métrica exige "persistencia del historial offline: 100% recuperable sin
+  conexión". Por lo tanto MMKV en el dispositivo es la FUENTE DE VERDAD, no
+  el servidor.
+
+  Este endpoint existe solo para repoblar el historial después de una
+  reinstalación o un cambio de teléfono. La pantalla de historial NUNCA debe
+  quedarse esperando a la red: lee de MMKV y pinta de inmediato.
+
+  → Es válido que Fabi decida NO implementar este endpoint en v1. El historial
+    funciona completo sin él; solo se perdería al reinstalar. Decidir en M1
+    si vale la pena el costo de almacenar escaneos por dispositivo.
+
+REQUEST
+  GET /v1/scans?limit=20
+
+RESPONSE 200
+  {
+    "items": [
+      {
+        "scanId": "scn_8f2a91c4",
+        "domain": "pagos-multas-gt.info",
+        "verdict": "sospechoso",
+        "scannedAt": "2026-08-28T09:15:00-06:00",
+        "place": "Parqueo Plaza Sol"
+      }
+    ]
+  }
+
+DIFERENCIA IMPORTANTE CON EL MOCK ACTUAL
+  El mock guarda la fecha ya formateada ("Hoy · 12:42"). El backend debe
+  enviar scannedAt en ISO 8601 y dejar que el CLIENTE la formatee.
+
+  Razón: "Hoy" se rompe en cuanto cambia el día o el usuario viaja a otra zona
+  horaria. Un historial abierto a medianoche mostraría "Hoy" para escaneos de
+  ayer. El formateo relativo debe calcularse en el dispositivo, contra su
+  reloj y su zona horaria.
+
+  → Esto implica un cambio en el tipo ScanRecord del frontend: el campo
+    timeLabel (string ya formateado) pasa a ser scannedAt (ISO 8601), y el
+    formateo se hace al pintar.
+
+
+=======================================================================
+4. ENDPOINTS CANDIDATOS — NO REQUERIDOS POR EL PROTOTIPO
+=======================================================================
+
+Ninguna pantalla actual los consume. Se listan porque el proyecto los va a
+necesitar, pero son decisiones abiertas, no requisitos acordados.
+
+
+-----------------------------------------------------------------------
+4.1  POST /v1/devices — Identidad anónima de dispositivo   [CANDIDATO]
+-----------------------------------------------------------------------
+  Genera el X-Device-Id que usan las demás llamadas.
+
+  Para qué sirve: que los reportes sean atribuibles (detectar si un mismo
+  dispositivo envía cientos de reportes falsos) sin identificar a la persona.
+  También permite limitar la tasa de peticiones por dispositivo.
+
+  REQUEST   POST /v1/devices   { "platform": "ios" | "android" }
+  RESPONSE  201                { "deviceId": "dev_a91f...", "issuedAt": "..." }
+
+  El identificador se guarda en MMKV y se reutiliza. No se vincula a ningún
+  dato personal ni al identificador publicitario del sistema.
+
+
+-----------------------------------------------------------------------
+4.2  POST /v1/telemetry — Métricas de rendimiento          [CANDIDATO]
+-----------------------------------------------------------------------
+  Cuatro métricas de la Fase 5 son de rendimiento medido en el dispositivo, y
+  alguien tiene que recogerlas:
+
+    T_scan   ≤ 5s  (p90 sobre 30 QRs)
+    T_F1     ≤ 5s  (p90 sobre 100 URLs en 4G)
+    T_learn  ≤ 60s (tiempo hasta el primer escaneo exitoso)
+    T_total  ≤ 35s (flujo completo F1+F2.1+F2.2)
+
+  REQUEST   POST /v1/telemetry
+            {
+              "metric": "T_F1",
+              "valueMs": 3120,
+              "scanId": "scn_8f2a91c4",
+              "network": "4g",
+              "measuredAt": "..."
+            }
+
+  ALTERNATIVA MÁS SIMPLE: registrar estas mediciones en un archivo local
+  durante las pruebas y analizarlas a mano. Para una muestra de 100 URLs no
+  hace falta infraestructura de telemetría. Recomiendo esta opción salvo que
+  el backend ya tenga dónde almacenarlas.
+
+
+-----------------------------------------------------------------------
+4.3  GET /v1/geocode/reverse — Geocodificación inversa     [NO RECOMENDADO]
+-----------------------------------------------------------------------
+  Convierte coordenadas en nombre de lugar para la Story Card y el historial.
+
+  RECOMENDACIÓN: NO implementar este endpoint.
+
+  Razones:
+    a) expo-location resuelve la geocodificación inversa EN EL DISPOSITIVO
+       (Location.reverseGeocodeAsync), usando el servicio del sistema
+       operativo. No hace falta backend.
+    b) Mandar las coordenadas del usuario al servidor es exactamente el tipo
+       de recolección de datos que el resto de la app evita con cuidado. Sería
+       incoherente con el discurso de privacidad del producto ("las imágenes no
+       salen de tu teléfono", "tu reporte es anónimo").
+    c) Es una dependencia menos y un punto de fallo menos.
+
+  La métrica pide "≥ 85% produce nombre de lugar legible", que es alcanzable
+  con la API nativa en zonas urbanas de Guatemala.
+
+  → Se documenta aquí para dejar constancia de que se evaluó y se descartó.
+    Solo tendría sentido si la geocodificación nativa resultara insuficiente
+    en pruebas.
+
+
+=======================================================================
+5. ERRORES COMPARTIDOS
+=======================================================================
+
+FORMATO UNIFORME
+  Todos los errores, en todos los endpoints, con la misma forma:
+
+  {
+    "error": {
+      "code": "FILTER_TIMEOUT",
+      "message": "El análisis de comportamiento tardó demasiado.",
+      "retryable": true
+    }
+  }
+
+  code       Identificador estable. El frontend decide qué hacer según este
+             valor, NUNCA parseando el mensaje.
+  message    Texto en español apto para mostrar al usuario si hace falta.
+  retryable  Si true, el frontend puede reintentar. Si false, reintentar
+             daría el mismo resultado.
+
+
+CATÁLOGO DE CÓDIGOS
+
+  CÓDIGO                HTTP  RETRY  QUÉ HACE EL FRONTEND
+  ------------------------------------------------------------------------
+  INVALID_URL            400    no   Muestra la pantalla de contenido no-URL
+                                     (app/qr/non-url.tsx). El QR no llevaba
+                                     un enlace analizable.
+  INVALID_PAYLOAD        400    no   Error de programación del cliente. Se
+                                     registra; no debería ocurrir en producción.
+  SCAN_NOT_FOUND         404    no   El análisis expiró o el id es inválido.
+                                     Vuelve al escáner.
+  FILTER_TIMEOUT         504    sí   Fallo PARCIAL. Ver degradación, abajo.
+  FILTER_UNAVAILABLE     503    sí   Fallo PARCIAL. Un filtro está caído.
+  PREVIEW_UNAVAILABLE    200    no   No es un error de transporte: la sección
+                                     de vista previa llega con screenshot:null
+                                     y badgeText "NO DISPONIBLE".
+  RATE_LIMITED           429    sí   Respeta la cabecera Retry-After.
+  INTERNAL               500    sí   Un reintento; si falla, veredicto incierto.
+
+
+DEGRADACIÓN ELEGANTE — FALLO PARCIAL vs. FALLO TOTAL
+
+  La Fase 2 exige "degradación elegante ante fallo parcial de APIs". Esta
+  distinción es lo que la hace implementable:
+
+  FALLO PARCIAL — algunos filtros respondieron, otros no.
+    El backend DEBE devolver un veredicto de todos modos, calculado con lo
+    que sí tiene, y marcar "degraded": true.
+
+    Si la información faltante impide sostener el veredicto, el veredicto es
+    "incierto". Para esto existe ese estado: la app ya tiene pantalla, color,
+    copy ("No pudimos completar el análisis. Trata este enlace con
+    precaución.") y comportamiento definido para él.
+
+    La sección del filtro caído llega igual, con badgeTone "warn" y un finding
+    que lo explica en lenguaje llano:
+      { "tone": "warn", "text": "El sitio no respondió a tiempo durante el análisis." }
+
+    NUNCA se omite la sección en silencio. Un acordeón vacío sin explicación
+    le hace creer al usuario que no se encontró nada, que es lo contrario de
+    lo que pasó.
+
+  FALLO TOTAL — no hay veredicto posible (ni siquiera F1).
+    Respuesta de error con el formato de arriba. El frontend muestra un estado
+    de error con opción de reintentar, no una pantalla de resultado.
+
+  REGLA GENERAL: es preferible un veredicto "incierto" honesto a un "seguro"
+  calculado con información incompleta. Un falso "seguro" es el peor resultado
+  posible del producto — la métrica de falsos positivos es ≤ 5%, pero un falso
+  negativo es lo que expone al usuario al fraude.
+
+
+TIMEOUTS DEL LADO DEL CLIENTE
+
+  POST /v1/scans (F1)     5s   → alineado con la métrica T_F1
+  GET  /v1/scans/{id}     5s   por petición de polling
+  Flujo completo         35s   → métrica T_total; al agotarse, veredicto incierto
+  GET  .../preview       10s   la captura pesa más que el JSON
+
+
+=======================================================================
+6. MAPEO A LOS TIPOS DEL FRONTEND
+=======================================================================
+
+Referencia: src/services/analysis/types.ts
+
+AnalysisResult
+  JSON                        Tipo del frontend        Nota
+  ----------------------------------------------------------------------
+  verdict                  →  verdict: VerdictKey      4 valores cerrados
+  domain                   →  domain: string
+  url                      →  url: string              se muestra, nunca se abre
+  summary                  →  summary: string          lo redacta el backend
+  riskScore                →  riskScore: number        entero 0–100
+  sections[]               →  sections: AnalysisSection[]
+  scanId                   →  (NUEVO)                  no existe en el mock
+  status                   →  (NUEVO)                  para el polling
+  pending[]                →  (NUEVO)                  para el polling
+  degraded                 →  (NUEVO)                  para el aviso de degradación
+
+AnalysisSection
+  key                      →  key: AnalysisStageKey    4 valores cerrados
+  title                    →  title: string
+  badgeText                →  badgeText: string
+  badgeTone                →  badgeTone: Tone          "ok" | "warn"
+  findings[]               →  findings: Finding[]
+  footnote                 →  footnote?: string        solo en preview
+  screenshot               →  (NUEVO)                  solo en preview, F2.3
+
+Finding
+  tone                     →  tone: Tone               "ok" | "warn"
+  text                     →  text: string
+
+ScanRecord
+  scanId                   →  id: string
+  domain                   →  domain: string
+  verdict                  →  verdict: VerdictKey
+  scannedAt                →  timeLabel: string        ¡CAMBIA! ver más abajo
+  place                    →  place: string | null
+
+
+CAMBIOS QUE ESTE CONTRATO IMPLICA EN EL FRONTEND
+
+  1. ScanRecord.timeLabel deja de ser un texto ya formateado y pasa a ser
+     scannedAt (ISO 8601). El formateo relativo ("Hoy · 12:42") se calcula al
+     pintar, contra el reloj del dispositivo.
+
+  2. AnalysisService.analyze() deja de ser una sola llamada. Pasa a ser
+     createScan() + polling de getScan(). La interfaz del servicio cambia,
+     pero las PANTALLAS no: siguen recibiendo un AnalysisResult.
+
+  3. Aparecen campos nuevos (scanId, status, pending, degraded, screenshot)
+     que el mock no tiene.
+
+  El resto del contrato encaja con los tipos actuales sin modificaciones.
+
+
+NOTA SOBRE LA STORY CARD (app/story-card.tsx)
+
+  Hoy la tarjeta lee su fecha y su lugar de storyCardFixture, un objeto suelto
+  del mock. No necesita endpoint propio: al conectar la API, esos datos deben
+  salir del escaneo que la tarjeta está mostrando —
+
+    fecha  →  scannedAt del escaneo (formateado en el cliente)
+    lugar  →  geocodificación inversa en el dispositivo (ver 4.3)
+    QR     →  la imagen del QR escaneado, ya en el dispositivo
+
+  La foto de contexto la toma el usuario con la cámara o la elige de su
+  galería. Nunca se sube al servidor: la Story Card se compone entera en el
+  teléfono y se comparte con la hoja del sistema.
+
+
+=======================================================================
+PUNTOS A CERRAR CON FABI EN EL HITO M1
+=======================================================================
+
+  1. ¿Un endpoint por filtro, como propone este documento, o uno bloqueante?
+  2. ¿badgeText lo compone el backend, o manda solo el conteo de alertas?
+  3. ¿Se implementa GET /v1/scans (historial en servidor) en v1, o el
+     historial se queda solo en el dispositivo?
+  4. ¿TTL de la URL firmada de S3? (propuesta: 15 minutos)
+  5. ¿Polling o Server-Sent Events para seguir la cascada?
+  6. ¿Se descarta el endpoint de geocodificación a favor de expo-location?
+  7. Lista definitiva de indicadores de comportamiento de F2.2.
+  8. ¿Se implementa telemetría, o las métricas se recogen a mano en pruebas?

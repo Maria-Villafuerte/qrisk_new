@@ -1,0 +1,135 @@
+TAREAS DE MARÍA JOSÉ VILLAFUERTE (MAJO) — FRONTEND
+=====================================================
+Carné: 22129 | Módulo: Frontend React Native (iOS + Android)
+
+LEYENDA
+  [x] Hecho y verificado en el código.
+  [~] Parcial: la UI existe, pero funciona con datos simulados (mock).
+  [ ] Pendiente: sin evidencia en el repositorio.
+
+ESTADO GENERAL (revisión del 28/08/2026)
+  El repositorio contiene un prototipo de UI de alta fidelidad completo:
+  las 12 pantallas del diseño están implementadas con un design system
+  propio (20 componentes en src/design-system/). Todo el flujo es
+  recorrible de principio a fin.
+  Lo que NO existe todavía: cámara real, llamadas de red, persistencia
+  en disco y pruebas. src/services/analysis/analysisService.ts es un mock
+  que devuelve 4 casos fijos desde src/services/mock/fixtures.ts, aunque
+  ya respeta la interfaz AnalysisService — un backend real la cumpliría
+  sin tocar las pantallas.
+
+
+FASE 1 — Diseño y Configuración de Entorno (Semanas 1–2)
+----------------------------------------------------------
+[x] Diseño de la arquitectura del frontend: navegación entre pantallas, estructura de componentes React Native y estrategia de manejo de estado.
+    → Artefacto: arquitectura/frontend_architecture.drawio (3 páginas: Navegación entre Pantallas, Estructura de Componentes, Manejo de Estado)
+[~] Configuración del entorno de desarrollo móvil: React Native (New Architecture), Android Studio, Xcode, emuladores y dispositivos físicos iOS y Android.
+    → Hecho: Expo 57 + RN 0.86 + React 19, newArchEnabled: true en app.json,
+      expo-router configurado, carpeta android/ generada (prebuild).
+    → Falta: no existe la carpeta ios/ (sin prebuild de iOS); sin evidencia de
+      pruebas en dispositivo físico ni en emuladores.
+[x] Diseño de wireframes del flujo principal de interacción (escaneo → carga → resultado simple/extendido) y de las pantallas de las funcionalidades secundarias.
+    → Artefacto: "QRisk Pantallas.dc.html" (mockup de las 12 pantallas), ya
+      traducido a código en app/ y src/design-system/.
+[ ] Definición conjunta del contrato de interfaz con Fabi (esquema del response de veredicto: nivel de riesgo, detalle por filtro, indicadores activados; códigos de error compartidos).
+    → Entregable a Fabi: Wireframes del flujo principal para revisión conjunta.
+    → Hito M1 (S2): Contrato de interfaz v1 acordado y documentado.
+
+
+FASE 2 — Escaneo, F1 y Arquitectura Base del Frontend (Semanas 3–6)
+----------------------------------------------------------------------
+[ ] Implementación del módulo de escaneo con react-native-vision-camera y CodeScanner nativo en iOS y Android.
+[~] Lógica de clasificación del contenido QR: URL vs. no-URL.
+    → Hecho: existe la rama no-URL completa (app/qr/non-url.tsx, caso Wi-Fi).
+    → Falta: la clasificación real. Hoy se llega ahí por un botón de demo en
+      app/scanner.tsx, no por parsear el contenido de un QR.
+[x] Pantalla de carga con animación skeleton/shimmer.
+[x] Pantallas de resultado simple con el veredicto consolidado (SEGURO / MALICIOSO / INCIERTO).
+[~] Historial local offline con MMKV (últimos 20 escaneos).
+    → Hecho: pantalla completa (app/history.tsx) con búsqueda, filtros por
+      veredicto y estado vacío.
+    → Falta: MMKV no está en package.json. Los datos salen de historyFixture
+      (6 registros en memoria); nada se persiste ni sobrevive al cierre.
+[~] Integración del Filtro F1: consumo del endpoint de análisis, presentación del veredicto consolidado, manejo de timeouts (≤ 5 s) y degradación elegante ante fallo parcial de APIs.
+    → Hecho: presentación del veredicto consolidado (los 4 estados) y la
+      cascada de etapas en app/analysis/loading.tsx.
+    → Falta: no hay endpoint ni fetch. analysisService.analyze() es un setTimeout
+      de 3 s. Sin manejo de timeouts, sin reintentos, sin estados de error de red.
+    → Entregable a Fabi: Confirmación del formato y metadata de la URL enviada al endpoint. Retroalimentación sobre los estados post-F1 desde la perspectiva del frontend.
+    → Hito M2 (S6): Prototipo E2E funcional demostrable en dispositivo físico iOS y Android.
+
+
+FASE 3 — Pantallas de Resultado Extendido: Filtro F2.1 (Semanas 7–9)
+-----------------------------------------------------------------------
+[x] Pantalla de resultado extendido: presentación visual del score de riesgo y desglose de criterios activados (antigüedad del dominio, TLD sospechoso, estructura de la URL, HTTPS vs. HTTP).
+[~] Integración con el endpoint del Filtro F2.1; manejo de los estados SOSPECHOSO e INCIERTO en la interfaz.
+    → Hecho: ambos estados están completos en la interfaz, con su copy y su
+      tratamiento visual diferenciado.
+    → Falta: la integración con el endpoint.
+[x] Diseño de componentes reutilizables de presentación de niveles de riesgo.
+[x] Refinamiento visual de la jerarquía de información del veredicto.
+    → Entregable a Fabi: Retroalimentación sobre el response de F2.1 desde el consumo del frontend; especificación visual de los criterios a mostrar.
+    → Hito M3 (S9): Flujo escaneo → F1 → F2.1 → desglose heurístico demostrable en dispositivo físico.
+
+
+FASE 4 — Pantallas F2.2 y F2.3 + Features Adicionales (Semanas 10–12)
+------------------------------------------------------------------------
+[x] Pantalla de resultado F2.2: presentación de los indicadores de comportamiento detectados en el análisis de sandbox (redirecciones, descargas automáticas, scripts ofuscados, formularios sospechosos).
+[~] Pantalla de vista previa visual segura (F2.3): visualización del screenshot del sitio recibido mediante la URL firmada de S3, sin exponer el dispositivo del usuario.
+    → Hecho: la sección "Vista previa" existe en el acordeón, con sus estados
+      DISPONIBLE / NO DISPONIBLE y la nota de entorno aislado.
+    → Falta: no se muestra ninguna imagen. No hay consumo de URL firmada de S3.
+[~] Implementación del reporte de QR malicioso al backend.
+    → Hecho: formulario completo (app/report.tsx) con enlace, veredicto,
+      comentario y lugar.
+    → Falta: submit() solo muestra un toast; no envía nada al backend.
+[~] Implementación de la Story Card compartible: foto de contexto, QR difuminado (blureado), ubicación y resultado visual.
+    → Hecho: tarjeta 9:16 completa (app/story-card.tsx) con QR cubierto por una
+      capa opaca (decisión deliberada: un blur parcial seguiría siendo escaneable),
+      ubicación, veredicto y firma.
+    → Falta: foto de contexto real (cámara/galería son toasts), y compartir y
+      guardar tampoco están implementados.
+[ ] Geocodificación inversa para resolución de nombre de lugar y ciudad en la Story Card.
+    → Entregable a Fabi: Definición de los indicadores de comportamiento a mostrar en F2.2. Consumo de la URL firmada de S3 de F2.3. Envío del reporte con el payload completo.
+    → Hito M4 (S12): Prototipo completo con todos los filtros y features integrados.
+
+
+FASE 5 — Pruebas, Refinamiento y Documentación (Semanas 13–15)
+----------------------------------------------------------------
+[ ] Pruebas de integración E2E del flujo completo con muestra de URLs clasificadas (maliciosas de PhishTank/VirusTotal + legítimas de Tranco List).
+[ ] Pruebas de rendimiento del módulo de escaneo: T_scan (p90 sobre 30 QRs con variedad de tamaños, ángulos e iluminación).
+[ ] Pruebas de rendimiento del Filtro F1: T_F1 (p90 sobre 100 URLs en red móvil 4G).
+[ ] Pruebas de usabilidad con 5 participantes: comprensión del veredicto, tasa de completación del flujo y tiempo de primer escaneo exitoso.
+[ ] Corrección de defectos identificados en pruebas.
+[ ] Redacción del informe final del módulo frontend.
+    → Hito M5 (S14): Cierre de pruebas; defectos críticos corregidos.
+    → Hito M6 (S15): Borrador del informe entregado al asesor.
+
+
+FASE DE CIERRE — Preparación y Defensa (Semanas 16–17)
+--------------------------------------------------------
+[ ] Incorporar retroalimentación del asesor en el informe.
+[ ] Revisión cruzada de coherencia con el documento de Fabi.
+[ ] Preparación del guión de demostración y diseño de slides de defensa.
+[ ] Ensayo de la defensa con simulación de preguntas del comité evaluador.
+    → Hito M7 (S17): Defensa del trabajo de graduación.
+
+
+MÉTRICAS QUE DEBE CUMPLIR MAJO
+================================
+- T_scan ≤ 5 segundos (p90) — módulo de escaneo
+- Tasa de detección de QR (TDR) ≥ 95%
+- Precisión de clasificación URL/no-URL ≥ 98%
+- T_F1 ≤ 5 segundos (p90) — Filtro de reputación
+- Detección de maliciosos conocidos ≥ 90% | Falsos positivos ≤ 5%
+- Comprensión del veredicto por usuarios ≥ 90%
+- Tasa de completación del flujo principal ≥ 85%
+- Tiempo de primer escaneo exitoso (T_learn) ≤ 60 segundos
+- Persistencia del historial offline: 100% recuperable sin conexión
+- Envío de reportes: 100% con payload completo
+- Generación de Story Card: ≥ 90% exitosa
+- Geocodificación inversa: ≥ 85% produce nombre de lugar legible
+- Compatibilidad: iOS ≥ 15 y Android ≥ 10 sin errores críticos
+- Cobertura de pruebas unitarias (lógica de negocio): ≥ 70%
+- T_start (arranque de app) ≤ 3 segundos en gama media
+- T_total flujo completo (F1+F2.1+F2.2) ≤ 35 segundos
