@@ -1,7 +1,7 @@
-import React from 'react';
 import { useRouter } from 'expo-router';
 import { LocationIcon, palette } from '../../src/design-system';
 import { PermissionScreen } from '../../src/features/onboarding/PermissionScreen';
+import { markOnboardingSeen } from '../../src/services/storage/onboardingStorage';
 import { useAppState } from '../../src/store/AppStateContext';
 
 /**
@@ -12,8 +12,11 @@ export default function LocationPermissionRoute() {
   const router = useRouter();
   const { setLocationEnabled } = useAppState();
 
+  // Ultima pantalla del onboarding: se marca aqui, con cualquiera de las dos
+  // respuestas. Omitir la ubicacion tambien es haber completado el flujo.
   const goToScanner = (enabled: boolean) => {
     setLocationEnabled(enabled);
+    markOnboardingSeen();
     router.replace('/scanner');
   };
 

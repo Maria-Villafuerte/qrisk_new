@@ -8,6 +8,11 @@ export type { Tone, VerdictKey };
  * No incluye 'preview' (F2.3): ese filtro es del backend y todavia no existe,
  * asi que la app no lo anuncia. Al implementarse se agrega aqui, en
  * `analysisStages` y en el mapa de iconos de la pantalla de detalle.
+ *
+ * Este union es el VOCABULARIO de claves que la app sabe pintar, no la lista de
+ * filtros activos: eso vive en `enabledFilters.ts`. Un filtro puede estar aqui
+ * y apagado alli (hoy 'heuristics' y 'behavior'), porque el backend puede
+ * seguir mandando su seccion y el adaptador debe poder tiparla.
  */
 export type AnalysisStageKey = 'reputation' | 'heuristics' | 'behavior';
 
@@ -75,5 +80,4 @@ export interface ScanRecord {
  */
 export interface AnalysisService {
   analyze(url: string): Promise<AnalysisResult>;
-  getHistory(): Promise<ScanRecord[]>;
 }

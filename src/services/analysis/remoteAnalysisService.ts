@@ -1,9 +1,8 @@
 import { timeouts } from '../api/config';
 import { ApiError } from '../api/errors';
 import { postJson } from '../api/httpClient';
-import { loadHistory } from '../storage/historyStorage';
 import { adaptAnalysisResponse, degradedResult, type RemoteAnalysisResponse } from './adaptAnalysis';
-import type { AnalysisResult, AnalysisService, ScanRecord } from './types';
+import type { AnalysisResult, AnalysisService } from './types';
 
 /**
  * Implementacion real de AnalysisService contra el backend.
@@ -47,14 +46,6 @@ class RemoteAnalysisService implements AnalysisService {
       // usuario sin respuesta despues de escanear.
       return degradedResult(url, error ? reasonFor(error) : 'El análisis no pudo completarse.');
     }
-  }
-
-  /**
-   * El historial es local por diseno (la metrica pide que sea 100% recuperable
-   * sin conexion), asi que se lee del dispositivo y no del servidor.
-   */
-  async getHistory(): Promise<ScanRecord[]> {
-    return loadHistory().map((entry) => entry.record);
   }
 }
 

@@ -18,6 +18,7 @@ import {
   VerdictShield,
   verdicts,
 } from '../../src/design-system';
+import { isFilterEnabled } from '../../src/services/analysis/enabledFilters';
 import type { AnalysisStageKey } from '../../src/services/analysis/types';
 import { useAppState } from '../../src/store/AppStateContext';
 
@@ -28,13 +29,20 @@ const sectionIcons: Record<AnalysisStageKey, React.ComponentType<{ size?: number
 };
 
 /**
- * 07 · Detalle del analisis. Progressive disclosure: solo la heuristica llega
- * abierta, el resto se expande a peticion.
+ * 07 · Detalle del analisis. Progressive disclosure: la primera seccion llega
+ * abierta, el resto se expande a peticion. Solo se listan los filtros activos
+ * (ver `enabledFilters.ts`).
  */
 export default function DetailsRoute() {
   const router = useRouter();
   const { result } = useAppState();
   const theme = verdicts[result.verdict];
+
+  // Solo se pintan las secciones de los filtros que esta version anuncia. El
+  // mock trae las tres del mockup y el backend puede mandar las que quiera; la
+  // pantalla no debe ensenar el acordeon de un filtro apagado. Que filtros
+  // estan activos se decide en `enabledFilters.ts`.
+  const sections = result.sections.filter((section) => isFilterEnabled(section.key));
 
   return (
     <Screen>
@@ -66,7 +74,7 @@ export default function DetailsRoute() {
 
         <RiskMeter score={result.riskScore} verdict={result.verdict} />
 
-        {result.sections.map((section) => {
+        {sections.map((section, index) => {
           const Icon = sectionIcons[section.key];
           // El backend puede mandar una seccion que esta version no conoce
           // (por ejemplo 'preview', que todavia no esta implementado). Se
@@ -81,7 +89,11 @@ export default function DetailsRoute() {
               icon={<Icon size={19} />}
               badgeText={section.badgeText}
               badgeTone={section.badgeTone}
-              defaultOpen={section.key === 'heuristics'}
+              // La primera seccion llega abierta (progressive disclosure). Antes
+              // estaba fijo en 'heuristics', que era la mas informativa cuando
+              // se pintaban las tres; con F2.1 apagado eso dejaria todos los
+              // acordeones cerrados y la pantalla pareceria vacia.
+              defaultOpen={index === 0}
             >
               {section.findings.map((finding) => (
                 <Finding key={finding.text} tone={finding.tone}>

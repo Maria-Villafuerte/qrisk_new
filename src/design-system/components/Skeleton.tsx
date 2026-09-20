@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, DimensionValue, Easing, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { palette } from '../tokens';
 

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  BottomSheet,
   Button,
   FlagIcon,
   InfoBanner,
@@ -13,36 +12,31 @@ import {
   StoryCardIcon,
   text,
   WarningCircleIcon,
-  useToast,
   VerdictEmblem,
   VerdictPill,
-  verdicts,
 } from '../../src/design-system';
 import { useAppState } from '../../src/store/AppStateContext';
 
 /**
  * 06 · Resultado del analisis.
  *
- * La jerarquia de los botones depende del veredicto: cuando hay riesgo, la
- * accion recomendada pasa a ser "Ver mas detalles" y abrir el sitio exige una
- * confirmacion explicita. Es friccion deliberada del diseno.
+ * NO HAY BOTON PARA ABRIR EL SITIO, y es la decision de producto central de
+ * esta pantalla, no una funcionalidad que falte.
+ *
+ * Antes habia uno que mostraba un toast "Abriendo <dominio> en tu navegador…"
+ * y no abria nada: prometia y mentia, justo sobre la regla fundamental del
+ * README —"la app NUNCA abre la URL analizada"—. Implementarlo de verdad
+ * contradecia esa regla de frente; dejar el toast era peor, porque ademas
+ * enganaba. Asi que se quita y se explica por que.
+ *
+ * Si algun dia se decide lo contrario, el sitio donde va es este, y hay que
+ * cambiar antes la regla fundamental del README: no al reves.
  */
 export default function ResultRoute() {
   const router = useRouter();
-  const toast = useToast();
   const { result } = useAppState();
-  const [confirmVisible, setConfirmVisible] = useState(false);
 
-  const theme = verdicts[result.verdict];
   const isSafe = result.verdict === 'seguro';
-
-  const openSite = () => {
-    setConfirmVisible(false);
-    toast.show(`Abriendo ${result.domain} en tu navegador…`);
-  };
-
-  const riskyOpenLabel =
-    result.verdict === 'malicioso' ? 'Abrir bajo mi propio riesgo' : 'Abrir con precaución';
 
   return (
     <Screen>
@@ -69,30 +63,17 @@ export default function ResultRoute() {
       </View>
 
       <View style={styles.footer}>
-        {isSafe ? (
-          <>
-            <Button label="Abrir URL" onPress={openSite} />
-            <Button
-              label="Ver más detalles"
-              variant="secondary"
-              onPress={() => router.push('/analysis/details')}
-            />
-          </>
-        ) : (
-          <>
-            <Button
-              label="Ver más detalles"
-              onPress={() => router.push('/analysis/details')}
-            />
-            <Button
-              label={riskyOpenLabel}
-              variant="secondary"
-              accentColor={theme.color}
-              accentBorderColor={theme.ring}
-              onPress={() => setConfirmVisible(true)}
-            />
-          </>
-        )}
+        <Button label="Ver más detalles" onPress={() => router.push('/analysis/details')} />
+
+        {/*
+          Por que no hay boton de abrir. El copy cambia con el veredicto: en un
+          sitio seguro explica la regla, y en uno riesgoso ademas dice que hacer.
+        */}
+        <Text style={[text.caption, styles.noOpenNote]}>
+          {isSafe
+            ? 'QRisk no abre enlaces. Si quieres visitarlo, escribe la dirección tú mismo en tu navegador.'
+            : 'QRisk no abre enlaces, y este no deberías abrirlo. Si aun así necesitas hacerlo, escribe la dirección tú mismo en tu navegador.'}
+        </Text>
 
         <View style={styles.secondaryActions}>
           <SecondaryAction
@@ -108,22 +89,6 @@ export default function ResultRoute() {
         </View>
       </View>
 
-      <BottomSheet visible={confirmVisible} onDismiss={() => setConfirmVisible(false)}>
-        <Text style={[text.sheetTitle, styles.centered]}>¿Abrir este sitio?</Text>
-        <Text style={[text.bodySm, styles.centered, styles.sheetBody]}>
-          <Text style={styles.sheetDomain}>{result.domain}</Text> mostró señales de riesgo
-          durante el análisis. Si continúas, se abrirá en tu navegador.
-        </Text>
-
-        {/* Cancelar es la accion primaria: el diseno empuja a no continuar. */}
-        <Button label="Cancelar" onPress={() => setConfirmVisible(false)} style={styles.sheetCta} />
-        <Button
-          label="Abrir de todos modos"
-          variant="dangerGhost"
-          accentColor={palette.textPrimary}
-          onPress={openSite}
-        />
-      </BottomSheet>
     </Screen>
   );
 }
@@ -199,14 +164,9 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  sheetBody: {
-    marginBottom: 6,
-  },
-  sheetDomain: {
-    fontFamily: text.cardTitle.fontFamily,
-    color: palette.textPrimary,
-  },
-  sheetCta: {
-    marginTop: 6,
+  noOpenNote: {
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingTop: 2,
   },
 });

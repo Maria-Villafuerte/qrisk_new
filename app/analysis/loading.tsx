@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
@@ -44,10 +44,12 @@ export default function LoadingRoute() {
   /**
    * Avance visual de la cascada.
    *
-   * Las etapas avanzan por tiempo, pero la ultima NO se marca sola: se queda
-   * en curso hasta que el analisis responde de verdad. Con el mock ambos
-   * relojes coinciden; contra el backend real, que tarda lo que tarda, esto
-   * evita que la pantalla diga "listo" antes de tener el veredicto.
+   * Las etapas avanzan por tiempo, pero la ultima NO se marca sola: se queda en
+   * curso hasta que el analisis responde de verdad. Hoy solo esta activo F1 (ver
+   * `enabledFilters.ts`), asi que la lista tiene una sola etapa, `slice` no
+   * programa ningun temporizador y esa unica fila gira hasta que llega el
+   * veredicto. Es el mismo invariante de siempre: la ultima etapa la cierra el
+   * servicio, no el reloj.
    */
   useEffect(() => {
     let elapsed = 0;

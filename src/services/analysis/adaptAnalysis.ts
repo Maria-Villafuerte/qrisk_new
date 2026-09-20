@@ -1,3 +1,4 @@
+import { ENABLED_FILTERS } from './enabledFilters';
 import type {
   AnalysisResult,
   AnalysisSection,
@@ -84,13 +85,31 @@ function incompleteSection(key: AnalysisStageKey, title: string, reason: string)
   };
 }
 
-/** Las tres secciones, marcadas como no completadas. */
+/**
+ * Titulo de cada seccion de relleno, por clave. Se mantiene el mapa completo
+ * aunque hoy solo se pinte F1: reactivar un filtro en `ENABLED_FILTERS` no debe
+ * obligar a volver a escribir su titulo aqui.
+ */
+const PLACEHOLDER_TITLES: Record<AnalysisStageKey, string> = {
+  reputation: 'Reputación',
+  heuristics: 'Heurística',
+  behavior: 'Comportamiento',
+};
+
+/**
+ * Las secciones de los filtros ACTIVOS, marcadas como no completadas.
+ *
+ * Antes se rellenaban las tres siempre. Hoy solo se rellenan las que esta
+ * version anuncia (`ENABLED_FILTERS`): una seccion "SIN COMPLETAR" de un filtro
+ * que el backend ni siquiera intenta correr no informa, solo ocupa pantalla y
+ * sugiere que hubo un fallo donde no lo hubo. El contrato —nunca omitir en
+ * silencio una seccion que se anuncio— se sigue cumpliendo: lo que no se
+ * rellena es justo lo que no se anuncia.
+ */
 function placeholderSections(reason: string): AnalysisSection[] {
-  return [
-    incompleteSection('reputation', 'Reputación', reason),
-    incompleteSection('heuristics', 'Heurística', reason),
-    incompleteSection('behavior', 'Comportamiento', reason),
-  ];
+  return ENABLED_FILTERS.map((key) =>
+    incompleteSection(key, PLACEHOLDER_TITLES[key], reason),
+  );
 }
 
 /**

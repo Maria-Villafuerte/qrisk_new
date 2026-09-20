@@ -11,10 +11,6 @@ export interface ScreenProps {
    * y no pintan fondo propio: el degradado va dentro.
    */
   dark?: boolean;
-  /** Pinta el fondo claro por defecto. Desactivar cuando el hijo pinta el suyo. */
-  backgroundColor?: string;
-  /** Aplica el inset inferior del sistema (gestos / home indicator). */
-  edgeBottom?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -23,22 +19,15 @@ export interface ScreenProps {
  * los mockups del diseno dibujan la barra de estado y el home indicator del
  * iPhone, pero eso lo aporta el sistema operativo, no la app.
  */
-export function Screen({
-  children,
-  dark = false,
-  backgroundColor,
-  edgeBottom = true,
-  style,
-}: ScreenProps) {
+export function Screen({ children, dark = false, style }: ScreenProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View
       style={[
         styles.root,
-        { backgroundColor: backgroundColor ?? (dark ? 'transparent' : palette.appBg) },
-        { paddingTop: insets.top },
-        edgeBottom && { paddingBottom: insets.bottom },
+        { backgroundColor: dark ? 'transparent' : palette.appBg },
+        { paddingTop: insets.top, paddingBottom: insets.bottom },
         style,
       ]}
     >
