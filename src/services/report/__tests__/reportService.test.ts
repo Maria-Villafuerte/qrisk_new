@@ -1,3 +1,4 @@
+import { timeouts } from '../../api/config';
 import { ApiError } from '../../api/errors';
 import type { AnalysisResult } from '../../analysis/types';
 import {
@@ -123,6 +124,30 @@ describe('submitReport', () => {
     const outcome = await submitReport(result, { comment: '', place: '' });
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) expect(outcome.retryable).toBe(false);
+  });
+
+  it('corta la espera en el tope configurado', async () => {
+    // `/reports` no existe en el backend, asi que hoy SIEMPRE falla. Sin un
+    // tope, cada intento dejaria el boton inhabilitado hasta que la red se
+    // rinda sola: el usuario no sabria si su reporte se esta enviando.
+    await submitReport(result, { comment: 'hola', place: '' });
+
+    expect(postJson).toHaveBeenCalledWith(
+      '/reports',
+      expect.any(Object),
+      { timeoutMs: timeouts.analyze },
+    );
+  });
+
+  it('conserva lo escrito: el fallo no destruye el borrador', async () => {
+    // La promesa visible del producto. `submitReport` no muta lo que recibe,
+    // asi que la pantalla puede reintentar con el mismo objeto.
+    postJson.mockRejectedValue(new ApiError('NETWORK', 'x', true, null));
+    const draft = { comment: 'me lo encontre en un parqueo', place: 'Zona 10' };
+
+    await submitReport(result, draft);
+
+    expect(draft).toEqual({ comment: 'me lo encontre en un parqueo', place: 'Zona 10' });
   });
 
   it('tampoco lanza ante un error inesperado', async () => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { palette, radius, verdicts, VerdictKey } from '../tokens';
 import { text } from '../typography';

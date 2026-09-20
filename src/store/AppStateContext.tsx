@@ -1,27 +1,21 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { analysisByVerdict, nonUrlFixture } from '../services/mock/fixtures';
-import type {
-  AnalysisResult,
-  NonUrlContent,
-  ScanRecord,
-  VerdictKey,
-} from '../services/analysis/types';
+import type { AnalysisResult, NonUrlContent, ScanRecord } from '../services/analysis/types';
 import {
   appendScan,
   clearHistory as clearStoredHistory,
   loadHistory,
   type HistoryEntry,
 } from '../services/storage/historyStorage';
+import {
+  hasLocationEnabled,
+  setLocationEnabledStored,
+} from '../services/storage/locationStorage';
 
 interface AppStateValue {
   /** Resultado que ven las pantallas de resultado, detalle, reporte y story. */
   result: AnalysisResult;
   setResult: (result: AnalysisResult) => void;
-  /**
-   * Rota entre los cuatro casos de ejemplo. En el prototipo cada escaneo
-   * muestra un veredicto distinto, para poder recorrer todos los estados.
-   */
-  cycleDemoVerdict: () => AnalysisResult;
   /**
    * Contenido del ultimo QR leido que NO era un enlace. Lo escribe el
    * escaner y lo pinta la pantalla de contenido.
@@ -51,13 +45,23 @@ interface AppStateValue {
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
-/** Orden en que el prototipo recorre los veredictos al escanear. */
-const DEMO_ORDER: VerdictKey[] = ['sospechoso', 'seguro', 'malicioso', 'incierto'];
-
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [result, setResult] = useState<AnalysisResult>(analysisByVerdict.sospechoso);
   const [nonUrlContent, setNonUrlContent] = useState<NonUrlContent>(nonUrlFixture);
-  const [locationEnabled, setLocationEnabled] = useState(true);
+  // Se lee del disco igual que el historial. Antes arrancaba siempre en
+  // `false`, y como el onboarding ya no se repite nadie volvia a encenderlo:
+  // tras el primer reinicio el historial dejaba de anotar el lugar en silencio.
+  const [locationEnabled, setLocationEnabledState] = useState<boolean>(() =>
+    hasLocationEnabled(),
+  );
+
+  // La decision se persiste al tomarla, no en un efecto: asi sobrevive aunque
+  // el usuario cierre la app inmediatamente despues del onboarding.
+  const setLocationEnabled = useCallback((enabled: boolean) => {
+    setLocationEnabledStored(enabled);
+    setLocationEnabledState(enabled);
+  }, []);
+
   // Lectura sincrona en el primer render: el kv-store de expo-sqlite lo
   // permite, y asi el historial nunca aparece vacio un instante.
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
@@ -86,19 +90,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setHistory([]);
   }, []);
 
-  const cycleDemoVerdict = useCallback(() => {
-    const currentIndex = DEMO_ORDER.indexOf(result.verdict);
-    const next = DEMO_ORDER[(currentIndex + 1) % DEMO_ORDER.length];
-    const nextResult = analysisByVerdict[next];
-    setResult(nextResult);
-    return nextResult;
-  }, [result.verdict]);
-
   const value = useMemo<AppStateValue>(
     () => ({
       result,
       setResult,
-      cycleDemoVerdict,
       nonUrlContent,
       setNonUrlContent,
       locationEnabled,
@@ -110,9 +105,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       result,
-      cycleDemoVerdict,
       nonUrlContent,
       locationEnabled,
+      setLocationEnabled,
       history,
       addScan,
       openHistoryEntry,

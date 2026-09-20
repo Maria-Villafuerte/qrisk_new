@@ -4,6 +4,7 @@ import {
   domainFromUrl,
   mapVerdict,
 } from '../adaptAnalysis';
+import { ENABLED_FILTERS } from '../enabledFilters';
 
 /**
  * Pruebas contra las respuestas REALES observadas del endpoint desplegado,
@@ -85,18 +86,25 @@ describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
     expect(result.riskScore).toBe(50);
   });
 
-  it('rellena las tres secciones en vez de omitirlas', () => {
+  it('rellena solo la seccion de los filtros activos', () => {
     const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
-    // 'preview' (F2.3) no esta implementado en el backend, asi que la app no
-    // lo anuncia: solo se rellenan los tres filtros que si existen.
-    expect(result.sections.map((s) => s.key)).toEqual([
-      'reputation',
-      'heuristics',
-      'behavior',
-    ]);
+    // Hoy solo F1 esta activo (`enabledFilters.ts`): F2.1 y F2.2 no existen en
+    // el backend, asi que rellenar su seccion "SIN COMPLETAR" sugeriria un fallo
+    // donde no lo hubo. 'preview' (F2.3) no esta implementado en ninguna capa.
+    //
+    // Se compara contra ENABLED_FILTERS y no contra un literal a proposito: el
+    // sujeto de este test es "placeholderSections respeta la lista", y no debe
+    // romperse el dia que se reactive un filtro. El literal se fija una sola
+    // vez, en enabledFilters.test.ts.
+    expect(result.sections.map((s) => s.key)).toEqual(ENABLED_FILTERS);
     // El contrato lo exige: nunca se omite una seccion en silencio.
     expect(result.sections.every((s) => s.badgeTone === 'warn')).toBe(true);
     expect(result.sections.every((s) => s.findings.length > 0)).toBe(true);
+  });
+
+  it('conserva el titulo de cada seccion rellenada', () => {
+    const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
+    expect(result.sections[0].title).toBe('Reputación');
   });
 
   it('usa la URL pedida si la respuesta no la trae', () => {
@@ -169,12 +177,18 @@ describe('degradedResult', () => {
     expect(result.degraded).toBe(true);
     expect(result.domain).toBe('ejemplo.com');
     expect(result.riskScore).toBe(50);
-    expect(result.sections).toHaveLength(3);
+    expect(result.sections).toHaveLength(ENABLED_FILTERS.length);
     expect(result.sections[0].findings[0].text).toBe('No hubo conexión.');
   });
 
   it('nunca produce un veredicto seguro', () => {
     expect(degradedResult('https://x.com', 'y').verdict).not.toBe('seguro');
+  });
+
+  it('nunca se queda sin secciones que explicar', () => {
+    // Si `ENABLED_FILTERS` quedara vacia, la pantalla de detalle no pintaria
+    // ningun acordeon y el usuario no sabria por que fallo el analisis.
+    expect(degradedResult('https://x.com', 'motivo').sections.length).toBeGreaterThan(0);
   });
 });
 

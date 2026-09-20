@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';

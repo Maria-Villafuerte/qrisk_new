@@ -10,8 +10,6 @@ export interface ScreenHeaderProps {
   onBack?: () => void;
   /** Texto discreto alineado a la derecha (ej. "Ultimos 20 · sin internet"). */
   trailingText?: string;
-  /** Elemento libre a la derecha; tiene prioridad sobre `trailingText`. */
-  trailing?: React.ReactNode;
   /** Sustituye el boton de retroceso (ej. el spinner del analisis). */
   leading?: React.ReactNode;
 }
@@ -20,7 +18,6 @@ export function ScreenHeader({
   title,
   onBack,
   trailingText,
-  trailing,
   leading,
 }: ScreenHeaderProps) {
   return (
@@ -42,12 +39,11 @@ export function ScreenHeader({
         {title}
       </Text>
 
-      {trailing ??
-        (trailingText ? (
-          <Text style={text.captionSm} numberOfLines={1}>
-            {trailingText}
-          </Text>
-        ) : null)}
+      {trailingText ? (
+        <Text style={text.captionSm} numberOfLines={1}>
+          {trailingText}
+        </Text>
+      ) : null}
     </View>
   );
 }

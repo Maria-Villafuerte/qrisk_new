@@ -1,13 +1,13 @@
-import type {
-  AnalysisResult,
-  NonUrlContent,
-  ScanRecord,
-  VerdictKey,
-} from '../analysis/types';
+import type { AnalysisResult, NonUrlContent, VerdictKey } from '../analysis/types';
 
 /**
  * Datos de demostracion tomados de "QRisk Pantallas.dc.html".
  * Los textos son los del diseno: no reescribirlos sin revisar el mockup.
+ *
+ * Cada veredicto trae las tres secciones del mockup aunque la app solo pinte
+ * las de los filtros activos (`enabledFilters.ts`): son datos de diseno, no la
+ * lista de lo que se muestra. El dia que F2.1 o F2.2 se reactiven, su seccion
+ * ya esta escrita y aparece sola.
  */
 
 export const analysisByVerdict: Record<VerdictKey, AnalysisResult> = {
@@ -197,69 +197,6 @@ export const analysisByVerdict: Record<VerdictKey, AnalysisResult> = {
     ],
   },
 };
-
-/**
- * Fecha de demostracion: `daysAgo` dias atras a la hora indicada, en ISO 8601.
- * Se calcula sobre la hora actual para que el historial de ejemplo diga "Hoy"
- * y "Ayer" siempre, en vez de envejecer hasta quedar absurdo.
- */
-function demoDate(daysAgo: number, hours: number, minutes: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  date.setHours(hours, minutes, 0, 0);
-  return date.toISOString();
-}
-
-/**
- * Historial de demostracion. El orden es el que ve el usuario.
- *
- * Solo es semilla del modo demo: la fuente de verdad del historial real es el
- * almacenamiento del dispositivo (`src/services/storage/historyStorage.ts`).
- */
-export const historyFixture: ScanRecord[] = [
-  {
-    id: 'h1',
-    domain: 'menu.cafeaurora.com',
-    verdict: 'seguro',
-    scannedAt: demoDate(0, 12, 42),
-    place: 'Café Aurora, Zona 4',
-  },
-  {
-    id: 'h2',
-    domain: 'pagos-multas-gt.info',
-    verdict: 'sospechoso',
-    scannedAt: demoDate(0, 9, 15),
-    place: 'Parqueo Plaza Sol',
-  },
-  {
-    id: 'h3',
-    domain: 'banco-lndustrial-seguro.top',
-    verdict: 'malicioso',
-    scannedAt: demoDate(1, 18, 3),
-    place: 'Volante, 6a avenida',
-  },
-  {
-    id: 'h4',
-    domain: 'wa.me/50255512346',
-    verdict: 'seguro',
-    scannedAt: demoDate(1, 11, 20),
-    place: null,
-  },
-  {
-    id: 'h5',
-    domain: 'promo-verano-gt.club',
-    verdict: 'sospechoso',
-    scannedAt: demoDate(14, 10, 12),
-    place: 'C.C. Miraflores',
-  },
-  {
-    id: 'h6',
-    domain: 'menu.tacontento.com.gt',
-    verdict: 'seguro',
-    scannedAt: demoDate(16, 13, 37),
-    place: null,
-  },
-];
 
 /** QR de configuracion Wi-Fi: no lleva enlace, asi que no se analiza. */
 export const nonUrlFixture: NonUrlContent = {

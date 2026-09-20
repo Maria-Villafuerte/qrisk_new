@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { palette, radius } from '../tokens';
 import { fontFamily } from '../typography';

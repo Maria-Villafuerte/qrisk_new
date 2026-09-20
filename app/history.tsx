@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -34,7 +34,9 @@ const FILTERS: readonly FilterChipOption<FilterValue>[] = [
 
 /**
  * 08 · Historial. Filtro por veredicto y busqueda por dominio o lugar.
- * El filtro "Inciertos" no tiene registros: es el estado vacio del diseno.
+ * Los registros salen del disco, asi que la lista funciona sin conexion. Un
+ * analisis que no se pudo completar queda como "incierto", que es el caso mas
+ * frecuente cuando el backend no responde.
  */
 export default function HistoryRoute() {
   const router = useRouter();

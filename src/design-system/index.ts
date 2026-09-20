@@ -4,7 +4,6 @@ export * from './typography';
 export { Accordion } from './components/Accordion';
 export { BottomSheet } from './components/BottomSheet';
 export { Button } from './components/Button';
-export type { ButtonVariant } from './components/Button';
 export { Card } from './components/Card';
 export { EmptyState } from './components/EmptyState';
 export { FilterChips } from './components/FilterChips';
