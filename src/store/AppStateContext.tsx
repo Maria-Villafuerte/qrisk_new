@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { analysisByVerdict, nonUrlFixture } from '../services/mock/fixtures';
 import type { AnalysisResult, NonUrlContent, ScanRecord } from '../services/analysis/types';
 import {
   appendScan,
@@ -45,9 +44,42 @@ interface AppStateValue {
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
+/**
+ * Estado "todavia no se ha escaneado nada".
+ *
+ * NO SON DATOS DE DEMOSTRACION. Antes el contexto arrancaba con un caso de
+ * ejemplo del mock, asi que una pantalla abierta sin haber escaneado mostraba
+ * un veredicto inventado como si fuera real. El mock se elimino el 2026-09-20
+ * y estos valores lo reemplazan: son el vacio honesto.
+ *
+ * En la practica el usuario no los ve, porque a todas las pantallas que leen
+ * `result` se llega despues de un escaneo. Existen para que el tipo siga
+ * siendo no-nullable y las pantallas no necesiten guardas por todos lados.
+ */
+const EMPTY_RESULT: AnalysisResult = {
+  verdict: 'incierto',
+  domain: '',
+  url: '',
+  summary: 'Todavía no se ha analizado ningún enlace.',
+  // El puntaje neutro, nunca uno bajo: un falso "seguro" es el peor
+  // resultado posible del producto.
+  riskScore: 50,
+  sections: [],
+};
+
+/** Equivalente para el contenido de un QR que no es enlace. */
+const EMPTY_NON_URL: NonUrlContent = {
+  kind: 'text',
+  label: 'CONTENIDO',
+  title: 'Sin contenido',
+  description: 'Todavía no se ha leído ningún código.',
+  rows: [],
+  raw: '',
+};
+
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const [result, setResult] = useState<AnalysisResult>(analysisByVerdict.sospechoso);
-  const [nonUrlContent, setNonUrlContent] = useState<NonUrlContent>(nonUrlFixture);
+  const [result, setResult] = useState<AnalysisResult>(EMPTY_RESULT);
+  const [nonUrlContent, setNonUrlContent] = useState<NonUrlContent>(EMPTY_NON_URL);
   // Se lee del disco igual que el historial. Antes arrancaba siempre en
   // `false`, y como el onboarding ya no se repite nadie volvia a encenderlo:
   // tras el primer reinicio el historial dejaba de anotar el lugar en silencio.

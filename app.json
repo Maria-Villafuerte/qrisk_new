@@ -85,7 +85,6 @@
     ],
     "newArchEnabled": true,
     "extra": {
-      "analysisMode": "mock",
       "apiBaseUrl": "https://z0k9lhdru4.execute-api.us-east-1.amazonaws.com/dev",
       "router": {},
       "eas": {

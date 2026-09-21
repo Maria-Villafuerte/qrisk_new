@@ -1,15 +1,10 @@
-import { analysisMode, apiBaseUrl, timeouts } from '../config';
+import { apiBaseUrl, timeouts } from '../config';
 
 /**
- * La configuracion decide que implementacion corre en el dispositivo, asi que
- * el valor por defecto importa: hoy es `mock` porque el endpoint real todavia
- * responde 500 a cualquier URL valida.
+ * La configuracion decide contra que endpoint corre la app y cuanto espera.
+ * Ya no hay modo mock: la unica implementacion es la real.
  */
 describe('config', () => {
-  it('arranca en modo mock por defecto', () => {
-    expect(analysisMode).toBe('mock');
-  });
-
   it('expone la URL base sin barra final', () => {
     // Bajo jest, expo-constants no carga app.json, asi que el valor cae al
     // respaldo vacio en vez de romper. Lo que importa aqui es que NUNCA quede
@@ -18,9 +13,16 @@ describe('config', () => {
     expect(typeof apiBaseUrl).toBe('string');
   });
 
-  it('respeta los topes de las metricas', () => {
-    // T_F1 <= 5s y T_total <= 35s del anteproyecto.
-    expect(timeouts.analyze).toBe(5_000);
+  it('da margen al arranque en frio del backend', () => {
+    // Medido el 2026-09-20 sobre seis llamadas seguidas al endpoint real: 5.5 s
+    // la primera (Lambda arrancando en frio), 1.6-3.1 s las siguientes. Con el
+    // tope en 5 s el PRIMER escaneo de cada sesion se cortaba solo y degradaba
+    // a "incierto". No bajar de aqui sin volver a medir.
+    expect(timeouts.analyze).toBeGreaterThanOrEqual(10_000);
+  });
+
+  it('respeta el tope total del anteproyecto', () => {
+    // T_total <= 35s.
     expect(timeouts.total).toBe(35_000);
   });
 });
