@@ -133,7 +133,7 @@ export default function LoadingRoute() {
         <UrlChip url={analyzedUrl} muted />
 
         <Text style={[text.caption, styles.centered]}>
-          El enlace se analiza en un entorno aislado. Nunca se abre en tu teléfono.
+          El enlace se analiza en un entorno aislado, no en tu teléfono.
         </Text>
 
         <Card style={styles.stages}>
