@@ -1,5 +1,6 @@
 import { analysisMode } from '../api/config';
 import { analysisByVerdict } from '../mock/fixtures';
+import { domainFromUrl } from './adaptAnalysis';
 import { remoteAnalysisService } from './remoteAnalysisService';
 import type {
   AnalysisResult,
@@ -76,18 +77,37 @@ export const MOCK_ANALYSIS_MS = 1_600;
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
- * Implementacion de demostracion: no hace red y siempre resuelve con uno de
- * los cuatro casos de ejemplo. Se elige por el parametro `verdict` de la URL
- * interna para poder recorrer los cuatro estados del prototipo.
+ * Implementacion de demostracion: no hace red y resuelve con uno de los cuatro
+ * casos de ejemplo, elegido por la URL escaneada.
+ *
+ * IMPORTANTE: el resultado conserva la URL y el dominio que se escanearon de
+ * verdad; del fixture se toman el veredicto, el puntaje y los hallazgos.
+ *
+ * Antes devolvia el fixture entero, dominio incluido, asi que escanear
+ * cualquier QR que no fuera una de las cuatro URLs de ejemplo mostraba
+ * "pagos-multas-gt.info" —el dominio del caso "sospechoso"— en vez del sitio
+ * escaneado. Parecia que la app ignoraba el QR, que es lo peor que puede
+ * aparentar un producto cuyo valor es decirte a donde apunta el codigo.
  */
 class MockAnalysisService implements AnalysisService {
   async analyze(url: string): Promise<AnalysisResult> {
     await delay(MOCK_ANALYSIS_MS);
-    return analysisByVerdict[resolveVerdictFromUrl(url)];
+
+    const fixture = analysisByVerdict[resolveVerdictFromUrl(url)];
+
+    // Copia: nunca se entrega el fixture por referencia, para que una pantalla
+    // que mutara el resultado no corrompa los datos de ejemplo de la sesion.
+    return { ...fixture, url, domain: domainFromUrl(url) };
   }
 }
 
-/** Deduce que caso de ejemplo corresponde a una URL dada. */
+/**
+ * Deduce que caso de ejemplo corresponde a una URL dada.
+ *
+ * Las cuatro URLs de ejemplo (README §6) devuelven su veredicto exacto, que es
+ * lo que permite demostrar los cuatro estados. Cualquier otra cae en
+ * "sospechoso": en una app de seguridad, lo desconocido no se presume seguro.
+ */
 function resolveVerdictFromUrl(url: string): VerdictKey {
   const match = (Object.keys(analysisByVerdict) as VerdictKey[]).find(
     (key) => analysisByVerdict[key].url === url,
