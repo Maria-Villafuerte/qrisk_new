@@ -361,7 +361,7 @@ fundamental de §1, no al revés.
 ### Tests unitarios
 
 ```bash
-npm test               # 169 tests, 17 suites
+npm test               # 179 tests, 18 suites
 npm run test:coverage  # reporte de cobertura
 npm run test:watch     # durante el desarrollo
 ```
@@ -371,7 +371,7 @@ pide la métrica), con umbral de 70% que **corta el build** si no se cumple.
 Las pantallas quedan fuera a propósito: se validan en dispositivo y en las
 pruebas de usabilidad.
 
-Estado actual: **169 tests en verde** (17 suites), 99.4% statements, **100% lines**,
+Estado actual: **179 tests en verde** (18 suites), 99.4% statements, **100% lines**,
 96.9% branches. Muy por encima del umbral de 70% que corta el build.
 
 ### Pruebas en teléfono físico
@@ -415,7 +415,7 @@ Para que nadie tenga que adivinar el estado real:
 | Verificación | Resultado |
 |---|---|
 | `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ 171 tests, 17 suites, todo verde |
+| `npm test` | ✅ 179 tests, 18 suites, todo verde |
 | Cobertura de `src/services` | ✅ 99.4% statements, **100% lines** (umbral 70%) |
 | `npx expo export --platform android` | ✅ Exit 0, bundle de 3.2 MB. **El código JS de toda la app compila** para Android |
 | Build nativo (`gradlew assembleDebug`) | ❌ **No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build** |
@@ -467,6 +467,16 @@ En modo mock, el veredicto sale de los cuatro casos de ejemplo de
 [fixtures.ts](src/services/mock/fixtures.ts). Para ver un veredicto concreto,
 generá un QR con la URL exacta de ese caso (por ejemplo
 `https://pagos-multas-gt.info/pago` para *sospechoso*).
+
+**Qué pasa al escanear cualquier otra URL:** la pantalla muestra **el sitio que
+escaneaste** (su URL y su dominio), con el veredicto *sospechoso* y los
+hallazgos de ese caso de ejemplo. Lo desconocido no se presume seguro.
+
+> Hasta el 2026-09-20 esto era un bug visible: el mock devolvía el fixture
+> entero, dominio incluido, así que **cualquier** QR no reconocido mostraba
+> `pagos-multas-gt.info` en vez del sitio escaneado — la app parecía ignorar el
+> QR. Detectado al probar el primer APK en teléfono. Cubierto ahora por
+> [mockAnalysisService.test.ts](src/services/analysis/__tests__/mockAnalysisService.test.ts).
 
 **La demo que mejor se ve:** apagá el wifi y escaneá en modo `remote`. La app
 devuelve "incierto" con el aviso de degradación, en vez de colgarse o mentir.
