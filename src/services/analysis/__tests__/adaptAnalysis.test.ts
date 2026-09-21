@@ -218,3 +218,142 @@ describe('secciones que esta version no conoce', () => {
     expect(result.sections[0].key).toBe('preview');
   });
 });
+
+/**
+ * El backend calcula el puntaje pero no concluye el veredicto: responde
+ * "PENDIENTE" a todo, incluso a google.com. Estas pruebas usan las respuestas
+ * REALES capturadas del endpoint el 2026-09-20.
+ */
+describe('adaptAnalysisResponse · veredicto deducido del puntaje', () => {
+  /** Respuesta real del endpoint para 192.168.1.1/login.php. */
+  const ipLiteral = {
+    url: 'http://192.168.1.1/login.php',
+    dominio: '192.168.1.1',
+    veredicto_final: 'PENDIENTE',
+    filtro_decisivo: null,
+    score_heuristico: 60,
+    criterios_f2_1: [
+      { criterio: 'ip_literal', peso: 30, detalle: 'Host es una IP: 192.168.1.1' },
+      { criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' },
+      { criterio: 'palabra_clave_sospechosa', peso: 15, detalle: 'Palabra detectada: "login"' },
+    ],
+    indicadores_f2_2: [],
+    mensaje: 'F1, F2.1 y F2.2 no concluyentes.',
+  };
+
+  /** Respuesta real del endpoint para github.com. */
+  const limpio = {
+    url: 'https://github.com/',
+    dominio: 'github.com',
+    veredicto_final: 'PENDIENTE',
+    score_heuristico: 0,
+    criterios_f2_1: [],
+    indicadores_f2_2: [],
+  };
+
+  it('deduce "malicioso" de un puntaje alto en vez de rendirse en incierto', () => {
+    const result = adaptAnalysisResponse(ipLiteral, 'http://192.168.1.1/login.php');
+    expect(result.verdict).toBe('malicioso');
+  });
+
+  it('deduce "seguro" cuando no hay ninguna señal', () => {
+    expect(adaptAnalysisResponse(limpio, 'https://github.com').verdict).toBe('seguro');
+  });
+
+  it('deduce "sospechoso" en el tramo intermedio', () => {
+    // banco-lndustrial-seguro.top: TLD de riesgo (25) + sin HTTPS (15) = 40.
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 40, criterios_f2_1: [] },
+      'http://banco-lndustrial-seguro.top/acceso',
+    );
+    expect(result.verdict).toBe('sospechoso');
+  });
+
+  it('usa el puntaje del backend como puntaje de riesgo', () => {
+    expect(adaptAnalysisResponse(ipLiteral, 'http://192.168.1.1/login.php').riskScore).toBe(60);
+  });
+
+  it('un analisis concluido NO se marca degradado', () => {
+    // Antes salia el banner de "no pudimos completar todas las verificaciones"
+    // en analisis que si se completaron, porque `degraded` miraba si venian
+    // secciones en vez de si habia veredicto.
+    expect(adaptAnalysisResponse(ipLiteral, 'x').degraded).toBeUndefined();
+  });
+
+  it('sin puntaje ni veredicto sigue siendo incierto y degradado', () => {
+    const result = adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'https://x.com');
+    expect(result.verdict).toBe('incierto');
+    expect(result.degraded).toBe(true);
+  });
+});
+
+describe('adaptAnalysisResponse · el backend manda sobre la deduccion', () => {
+  it('respeta un veredicto real aunque el puntaje diga otra cosa', () => {
+    // El dia que Fabi conecte su umbral, su palabra gana: la deduccion se
+    // apaga sola sin tocar codigo.
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'SEGURO', score_heuristico: 95 },
+      'https://x.com',
+    );
+    expect(result.verdict).toBe('seguro');
+  });
+
+  it('respeta un INCIERTO explicito en vez de deducir del puntaje', () => {
+    // "INCIERTO" es una conclusion del backend; "PENDIENTE" es que no concluyo.
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'INCIERTO', score_heuristico: 0 },
+      'https://x.com',
+    );
+    expect(result.verdict).toBe('incierto');
+  });
+});
+
+describe('adaptAnalysisResponse · secciones desde los criterios reales', () => {
+  const conCriterios = {
+    veredicto_final: 'PENDIENTE',
+    score_heuristico: 40,
+    criterios_f2_1: [
+      { criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .top' },
+      { criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' },
+    ],
+  };
+
+  it('pinta cada criterio del backend como un hallazgo, con su texto', () => {
+    const result = adaptAnalysisResponse(conCriterios, 'http://x.top');
+
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
+      'TLD sospechoso: .top',
+      'La URL no usa HTTPS',
+    ]);
+  });
+
+  it('cuenta las alertas en la insignia', () => {
+    expect(adaptAnalysisResponse(conCriterios, 'http://x.top').sections[0].badgeText)
+      .toBe('2 ALERTAS');
+  });
+
+  it('usa el singular con una sola alerta', () => {
+    const result = adaptAnalysisResponse(
+      { score_heuristico: 15, criterios_f2_1: [{ detalle: 'La URL no usa HTTPS' }] },
+      'http://x.com',
+    );
+    expect(result.sections[0].badgeText).toBe('1 ALERTA');
+  });
+
+  it('sin criterios dice que no hubo alertas, no "SIN COMPLETAR"', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 0, criterios_f2_1: [] },
+      'https://github.com',
+    );
+
+    expect(result.sections[0].badgeText).toBe('SIN ALERTAS');
+    expect(result.sections[0].badgeTone).toBe('ok');
+    expect(result.sections[0].findings).toHaveLength(1);
+  });
+
+  it('ya no aparece "SIN COMPLETAR" cuando el backend si respondio', () => {
+    const result = adaptAnalysisResponse(conCriterios, 'http://x.top');
+    expect(result.sections.some((s) => s.badgeText === 'SIN COMPLETAR')).toBe(false);
+  });
+});

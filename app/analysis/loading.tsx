@@ -16,7 +16,8 @@ import {
   text,
   UrlChip,
 } from '../../src/design-system';
-import { analysisService, analysisStages } from '../../src/services/analysis/analysisService';
+import { analysisStages } from '../../src/services/analysis/analysisStages';
+import { remoteAnalysisService } from '../../src/services/analysis/remoteAnalysisService';
 import { ApiError } from '../../src/services/api/errors';
 import { getCurrentPlaceName } from '../../src/services/location';
 import { classifyQr } from '../../src/services/qr';
@@ -35,7 +36,8 @@ export default function LoadingRoute() {
   const { result, setResult, addScan, locationEnabled, setNonUrlContent } = useAppState();
 
   // Sin parametro se usa el resultado ya activo: asi la pantalla nunca queda
-  // sin URL que mostrar.
+  // sin URL que mostrar. Puede quedar vacio si se llega aqui sin haber
+  // escaneado nada (un enlace directo, por ejemplo); ver el efecto de abajo.
   const analyzedUrl = url ?? result.url;
 
   const [stageIndex, setStageIndex] = useState(0);
@@ -68,13 +70,21 @@ export default function LoadingRoute() {
   useEffect(() => {
     let active = true;
 
+    // Sin URL no hay nada que analizar: se vuelve al escaner en vez de pedirle
+    // al backend que analice una cadena vacia. Pasa si se entra directo a esta
+    // ruta sin haber escaneado (un enlace profundo, o recargar en desarrollo).
+    if (!analyzedUrl.trim()) {
+      router.replace('/scanner');
+      return;
+    }
+
     // El lugar se resuelve EN PARALELO al analisis: es informacion secundaria
     // y no puede retrasar el veredicto. Si falla o tarda, queda en null.
     const placePromise = locationEnabled
       ? getCurrentPlaceName()
       : Promise.resolve<string | null>(null);
 
-    void Promise.all([analysisService.analyze(analyzedUrl), placePromise])
+    void Promise.all([remoteAnalysisService.analyze(analyzedUrl), placePromise])
       .then(([analysis, place]) => {
         if (!active) return;
         // El analisis termino de verdad: se cierra la cascada completa.

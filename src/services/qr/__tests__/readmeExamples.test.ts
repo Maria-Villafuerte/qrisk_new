@@ -1,4 +1,3 @@
-import { analysisByVerdict } from '../../mock/fixtures';
 import { classifyQr } from '../classifyQr';
 
 /**
@@ -31,13 +30,5 @@ describe('QRs de ejemplo del README', () => {
     const result = classifyQr(raw);
     expect(result.kind).not.toBe('url');
     if (result.kind !== 'url') expect(result.content.label).toBe(label);
-  });
-
-  it('las URLs de los fixtures corresponden a su veredicto', () => {
-    // El README dice que con estas URLs se ve cada veredicto en modo mock.
-    expect(analysisByVerdict.sospechoso.url).toBe('https://pagos-multas-gt.info/pago');
-    expect(analysisByVerdict.seguro.url).toBe('https://menu.cafeaurora.com/es');
-    expect(analysisByVerdict.malicioso.url).toBe('http://banco-lndustrial-seguro.top/acceso');
-    expect(analysisByVerdict.incierto.url).toBe('https://acorta.me/x7Kq2');
   });
 });

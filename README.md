@@ -111,21 +111,19 @@ Todo vive en `app.json` → `expo.extra`:
 
 ```json
 {
-  "analysisMode": "mock",
   "apiBaseUrl": "https://z0k9lhdru4.execute-api.us-east-1.amazonaws.com/dev"
 }
 ```
 
-Se puede pisar sin tocar el archivo, con variables de entorno que Expo inyecta
-en el bundle:
+Se puede pisar sin tocar el archivo, con una variable de entorno que Expo
+inyecta en el bundle:
 
 ```bash
-EXPO_PUBLIC_ANALYSIS_MODE=remote   # mock | remote
 EXPO_PUBLIC_API_URL=https://...    # URL base, sin barra final
 ```
 
-Los dos se leen en [config.ts](src/services/api/config.ts), que es el único
-lugar donde se decide mock ↔ real.
+Se lee en [config.ts](src/services/api/config.ts), junto con los topes de
+tiempo. Ya no hay `analysisMode`: se eliminó con el mock el 2026-09-20.
 
 ---
 
@@ -161,17 +159,24 @@ Si se retoma, los pasos están en
 prebuild genera un proyecto de Xcode y corre CocoaPods, que no existen en
 Windows.
 
-### Apuntar al backend real vs. al mock
+### Contra qué backend corre
 
-Por defecto la app corre **en modo mock**, porque el endpoint real todavía no
-funciona (ver §5). Para apuntar al real:
+**Siempre contra el real.** El modo mock se eliminó el 2026-09-20, cuando el
+endpoint empezó a responder 200: ya no hay implementación de mentira que elegir,
+ni interruptor que cambiar.
+
+Para apuntar a otro despliegue (uno local, o el de producción cuando exista):
 
 ```bash
-EXPO_PUBLIC_ANALYSIS_MODE=remote npx expo run:android
+EXPO_PUBLIC_API_URL=https://otro-endpoint.com/dev npx expo run:android
 ```
 
-El mock **no es un parche temporal**: es el modo de desarrollo. Permite recorrer
-los cuatro veredictos sin red y es lo que usan las pruebas.
+Sin esa variable se usa `expo.extra.apiBaseUrl` de `app.json`.
+
+> **Consecuencia que conviene tener presente:** si el backend se cae, la app no
+> tiene de dónde sacar un veredicto. Degrada a "incierto" honesto —no se rompe—
+> pero no hay demo de respaldo. Fue una decisión explícita: el mock era la red
+> de seguridad y se quitó a cambio de que la app no pueda mentir.
 
 ---
 
@@ -184,11 +189,13 @@ los cuatro veredictos sin red y es lo que usan las pruebas.
 `eas.json` **ya está en el repo** con tres perfiles, así que **no hace falta
 correr `eas build:configure`**:
 
-| Perfil | Sale | `analysisMode` | Para qué |
-|---|---|---|---|
-| `development` | APK con dev client | el de `app.json` | Desarrollo con Metro |
-| `preview` | **APK** | forzado a `mock` | **Instalar y demostrar.** Funciona aunque el backend siga caído |
-| `production` | **AAB** | forzado a `remote` | Play Store. El mock no puede llegar a producción |
+| Perfil | Sale | Para qué |
+|---|---|---|
+| `development` | APK con dev client | Desarrollo con Metro |
+| `preview` | **APK** | **Instalar y demostrar.** Es el de la defensa |
+| `production` | **AAB** | Play Store |
+
+Los tres apuntan al backend real: ya no hay modo que forzar.
 
 ```bash
 npm install -g eas-cli
@@ -289,8 +296,7 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 - [ ] `npx tsc --noEmit` limpio.
 - [ ] `npm test` en verde y cobertura ≥ 70%.
 - [ ] `versionCode` incrementado (`app.json` → `expo.android.versionCode`).
-- [ ] `analysisMode` en `remote` (el mock no puede llegar a producción). El
-      perfil `production` de `eas.json` ya lo fuerza.
+- [ ] El backend responde 200 (`curl` a `/analyze`). Sin él no hay veredictos.
 - [ ] Respaldo del keystore guardado en un lugar seguro (`eas credentials`).
 - [ ] Probado en **dispositivo Android físico** (iOS está fuera de alcance).
 - [ ] Los permisos piden lo mínimo (`SYSTEM_ALERT_WINDOW` y `RECORD_AUDIO`
@@ -312,12 +318,12 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 |---|---|---|
 | Escaneo de QR | ✅ | Cámara real con `expo-camera`, antorcha y bloqueo tras la primera lectura. **Falta medir** T_scan y TDR en hardware (§6). |
 | Clasificación URL / no-URL | ✅ | `classifyQr` con 18 tests. Cubre https, dominios sin esquema, Wi-Fi, vCard, mailto, tel, geo y texto suelto. |
-| Análisis F1 (reputación) | 🟡 | El cliente, el adaptador y la degradación están hechos y testeados. **El endpoint real responde HTTP 500 a toda URL válida.** El servidor tarda ~16 s en fallar, pero la app **corta a los 5 s** (`timeouts.analyze`) y degrada a "incierto": el usuario nunca espera esos 16 s. Para probarlo de verdad: que el backend devuelva 200. |
-| Filtro F2.1 (heurística) | ❌ | No existe en el backend (su propio mensaje dice "F2.1 aún no implementado"). **Apagado en el frontend a propósito**: anunciarlo pintaba un acordeón "SIN COMPLETAR" que nunca se completa y una etapa de carga que mentía. Para reactivarlo: descomentar `'heuristics'` en `ENABLED_FILTERS` ([enabledFilters.ts](src/services/analysis/enabledFilters.ts)) **y** su etapa en `analysisStages` ([analysisService.ts](src/services/analysis/analysisService.ts)). El copy, el icono y los datos de ejemplo siguen escritos. |
-| Filtro F2.2 (comportamiento) | ❌ | Igual que F2.1, y se reactiva igual: descomentar `'behavior'` en `ENABLED_FILTERS` y su etapa en `analysisStages`. |
+| Análisis (backend real) | ✅ | **El endpoint responde HTTP 200 desde el 2026-09-20** y la app corre solo contra él: el mock se eliminó. Devuelve un `score_heuristico` con sus criterios; la app deriva el veredicto de ese puntaje (§5.2). Latencia medida: 5.5 s la primera llamada (arranque en frío de Lambda), 1.6-3.1 s las siguientes. |
+| Filtro F2.1 (heurística) | ✅ | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15). |
+| Filtro F2.2 (comportamiento) | 🟡 | El backend ya manda el campo `indicadores_f2_2`, pero hasta hoy siempre llegó vacío. La app lo tolera; cuando traiga datos, se pintan como los de F2.1. |
 | Filtro F2.3 (vista previa) | ❌ | **Quitado de la app a propósito.** Anunciaba una captura que no existe (la etapa "Generando vista previa segura…" y un acordeón "DISPONIBLE" siempre vacío). Para reactivarlo: agregar `'preview'` a `AnalysisStageKey`, la etapa en `analysisStages` y la entrada en `sectionIcons`; luego renderizar la imagen honrando `expiresAt`. Requiere el endpoint y la URL firmada de S3. |
 | Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. **No hay botón para abrir el sitio**, por decisión de producto (§5.1): la pantalla explica por qué. |
-| Resultado extendido | ✅ | Medidor de riesgo y la sección del filtro activo en acordeón. Solo se pintan los filtros de `ENABLED_FILTERS`, así que hoy es una sola y llega abierta. |
+| Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
 | Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
 | Reporte de QR malicioso | 🟡 | Valida, arma el payload anónimo y **no pierde lo escrito si falla la red**. **El endpoint `/reports` no existe**: hoy falla y ofrece reintentar. |
 | Story Card | ✅ | Foto real (cámara o galería), captura con `captureRef`, compartir y guardar en la galería. **Probar en teléfono físico**: los diálogos del sistema no se pueden verificar de otro modo. |
@@ -356,12 +362,56 @@ fundamental de §1, no al revés.
 
 ---
 
+### 5.2 Cómo se decide el veredicto (y por qué lo decide la app)
+
+**El backend calcula el puntaje pero no concluye el veredicto.** Su campo
+`veredicto_final` responde `"PENDIENTE"` a todo, incluso a `google.com`. Como
+`PENDIENTE` se traduce a "incierto", sin hacer nada más **todos los escaneos
+darían "incierto"** y los cuatro veredictos serían indemostrables.
+
+Respuesta real del endpoint (verificada el 2026-09-20):
+
+```json
+{
+  "url": "http://192.168.1.1/login.php",
+  "dominio": "192.168.1.1",
+  "veredicto_final": "PENDIENTE",
+  "score_heuristico": 60,
+  "criterios_f2_1": [
+    { "criterio": "ip_literal", "peso": 30, "detalle": "Host es una IP: 192.168.1.1" },
+    { "criterio": "sin_https",  "peso": 15, "detalle": "La URL no usa HTTPS" },
+    { "criterio": "palabra_clave_sospechosa", "peso": 15, "detalle": "Palabra detectada: \"login\"" }
+  ],
+  "indicadores_f2_2": []
+}
+```
+
+Así que la app deriva el veredicto del puntaje, con los cortes de
+[verdictThresholds.ts](src/services/analysis/verdictThresholds.ts):
+
+| `score_heuristico` | Veredicto | Por qué ese corte |
+|---|---|---|
+| 0–29 | **seguro** | Un solo criterio menor (sin HTTPS = 15) no basta: marcar de riesgo todo sitio sin HTTPS daría tantos falsos positivos que la app dejaría de creerse |
+| 30–59 | **sospechoso** | 30 es el peso exacto de "el host es una IP", y lo que suman dos criterios menores. Merece advertencia, no condena |
+| 60–100 | **malicioso** | Tres o más señales a la vez (IP + sin HTTPS + "login": el phishing clásico) |
+
+> **El veredicto no es inventado.** El puntaje y los criterios son del backend;
+> lo único que pone la app son los cortes, alineados con los pesos que él mismo
+> usa.
+
+**Esto se desmonta solo.** El adaptador prefiere siempre un `veredicto_final`
+real: el día que Fabi conecte su umbral y mande `SEGURO`/`SOSPECHOSO`/
+`MALICIOSO`, la derivación deja de actuar **sin tocar una línea**. Ahí se puede
+borrar `verdictThresholds.ts`.
+
+---
+
 ## 6. Cómo probar
 
 ### Tests unitarios
 
 ```bash
-npm test               # 179 tests, 18 suites
+npm test               # 200 tests, 19 suites
 npm run test:coverage  # reporte de cobertura
 npm run test:watch     # durante el desarrollo
 ```
@@ -371,8 +421,8 @@ pide la métrica), con umbral de 70% que **corta el build** si no se cumple.
 Las pantallas quedan fuera a propósito: se validan en dispositivo y en las
 pruebas de usabilidad.
 
-Estado actual: **179 tests en verde** (18 suites), 99.4% statements, **100% lines**,
-96.9% branches. Muy por encima del umbral de 70% que corta el build.
+Estado actual: **200 tests en verde** (19 suites), 99.4% statements, **100% lines**,
+97.8% branches. Muy por encima del umbral de 70% que corta el build.
 
 ### Pruebas en teléfono físico
 
@@ -415,9 +465,11 @@ Para que nadie tenga que adivinar el estado real:
 | Verificación | Resultado |
 |---|---|
 | `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ 179 tests, 18 suites, todo verde |
+| `npm test` | ✅ 200 tests, 19 suites, todo verde |
 | Cobertura de `src/services` | ✅ 99.4% statements, **100% lines** (umbral 70%) |
-| `npx expo export --platform android` | ✅ Exit 0, bundle de 3.2 MB. **El código JS de toda la app compila** para Android |
+| `npx expo export --platform android` | ✅ Exit 0. **El código JS de toda la app compila** para Android |
+| **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador: `github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |
+| Latencia del endpoint | ✅ Medida 6 veces: 5.5 s la primera (arranque en frío), 1.6–3.1 s las siguientes. Por eso el tope es 12 s |
 | Build nativo (`gradlew assembleDebug`) | ❌ **No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build** |
 | App corriendo en un teléfono | ❌ **No verificado.** No hay dispositivo ni emulador conectado a esta máquina (`adb devices` vacío) |
 | Cámara, GPS, galería, compartir | ❌ **No verificado.** Requieren hardware: ver [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) |
@@ -463,23 +515,31 @@ BEGIN:VCARD\nFN:Maria\nEND:VCARD        -> contenido, etiqueta CONTACTO
 Mesa 12                                 -> contenido, NO debe ir a análisis
 ```
 
-En modo mock, el veredicto sale de los cuatro casos de ejemplo de
-[fixtures.ts](src/services/mock/fixtures.ts). Para ver un veredicto concreto,
-generá un QR con la URL exacta de ese caso (por ejemplo
-`https://pagos-multas-gt.info/pago` para *sospechoso*).
+### QRs para la demostración
 
-**Qué pasa al escanear cualquier otra URL:** la pantalla muestra **el sitio que
-escaneaste** (su URL y su dominio), con el veredicto *sospechoso* y los
-hallazgos de ese caso de ejemplo. Lo desconocido no se presume seguro.
+Estos son los que hacen falta para enseñar los tres veredictos. **Los puntajes
+están verificados contra el endpoint real el 2026-09-20** — no son inventados:
 
-> Hasta el 2026-09-20 esto era un bug visible: el mock devolvía el fixture
-> entero, dominio incluido, así que **cualquier** QR no reconocido mostraba
-> `pagos-multas-gt.info` en vez del sitio escaneado — la app parecía ignorar el
-> QR. Detectado al probar el primer APK en teléfono. Cubierto ahora por
-> [mockAnalysisService.test.ts](src/services/analysis/__tests__/mockAnalysisService.test.ts).
+| Contenido del QR | Puntaje | Veredicto | Qué detecta el backend |
+|---|---|---|---|
+| `https://github.com` | 0 | 🟢 **seguro** | Nada. Sirve para mostrar el caso limpio |
+| `http://banco-lndustrial-seguro.top/acceso` | 40 | 🟡 **sospechoso** | TLD `.top` de riesgo + sin HTTPS |
+| `http://192.168.1.1/login.php` | 60 | 🔴 **malicioso** | Host que es una IP + sin HTTPS + palabra "login" |
 
-**La demo que mejor se ve:** apagá el wifi y escaneá en modo `remote`. La app
-devuelve "incierto" con el aviso de degradación, en vez de colgarse o mentir.
+> Los puntajes los calcula el backend en vivo, así que **pueden cambiar** si
+> Fabi ajusta los pesos. Conviene volver a pasar estas tres URLs por `curl`
+> antes de la defensa:
+>
+> ```bash
+> curl -X POST "$API/analyze" -H "Content-Type: application/json" >   -d '{"url":"http://192.168.1.1/login.php"}'
+> ```
+
+**La demo que mejor se ve:** escanear las tres en orden. Cambian el emblema, el
+color, el medidor de riesgo y —lo más convincente— los criterios del acordeón,
+que son texto real del backend: *"Host es una IP: 192.168.1.1"*.
+
+**La segunda mejor:** apagá el wifi y escaneá. La app devuelve "incierto" con el
+aviso de degradación, en vez de colgarse o mentir.
 
 ---
 
@@ -496,7 +556,7 @@ src/
   design-system/         ~20 componentes + tokens. Sin librerías de UI
   features/              Piezas compartidas de pantalla
   services/
-    analysis/            Contrato + mock + adaptador + servicio real
+    analysis/            Contrato + adaptador + servicio real + umbrales
     api/                 Cliente HTTP, config, traducción de errores
     qr/                  Clasificación y métrica T_scan (lógica pura)
     storage/             Historial, onboarding y ubicación en disco
@@ -540,24 +600,28 @@ vacío, el onboarding se repite y la ubicación queda apagada. Ninguno tumba la 
 > **dejaba de anotar el lugar para siempre, y en silencio**. Las dos
 > persistencias tienen que ir juntas.
 
-### Por qué `AnalysisService` es una interfaz
+### Por qué `AnalysisService` sigue siendo una interfaz
 
-Las pantallas consumen un `AnalysisResult`, no una implementación. Eso permite:
-
-- Desarrollar sin backend (y, hoy, **a pesar** del backend).
-- Testear sin red.
-- Cambiar mock ↔ real **sin tocar ninguna pantalla**.
+Las pantallas consumen un `AnalysisResult`, no una implementación:
 
 ```
 app/analysis/loading.tsx
-        ↓ analysisService.analyze(url)
+        ↓ remoteAnalysisService.analyze(url)
   AnalysisService  (interfaz, types.ts)
-        ├── mockAnalysisService      setTimeout + fixtures
         └── remoteAnalysisService    HTTP + adaptador + degradación
+                 ↓
+           adaptAnalysis.ts          traduce la respuesta real y
+                                     deduce el veredicto del puntaje (§5.2)
 ```
 
-El cambio se decide en [config.ts](src/services/api/config.ts), no en las
-pantallas.
+Hoy hay una sola implementación —el mock se eliminó— así que la interfaz ya no
+sirve para elegir entre dos. Se conserva porque sigue haciendo dos cosas: los
+tests inyectan dobles sin tocar la red, y el día que haya que cambiar de
+proveedor o meter caché, entra ahí sin que ninguna pantalla se entere.
+
+El único lugar donde vive la traducción del backend es
+[adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts): las pantallas nunca
+ven la forma cruda de la respuesta.
 
 ### Qué filtros se anuncian, y por qué es una lista aparte
 
@@ -583,7 +647,7 @@ Quién lee la lista:
 - `placeholderSections()` en [adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts)
   → solo rellena "SIN COMPLETAR" para filtros activos.
 - [details.tsx](app/analysis/details.tsx) → solo pinta sus acordeones.
-- `analysisStages` en [analysisService.ts](src/services/analysis/analysisService.ts)
+- `analysisStages` en [analysisStages.ts](src/services/analysis/analysisStages.ts)
   → la pantalla de carga. **Este es el único que no se ajusta solo**: sus etapas
   llevan copy y tiempos, así que están comentadas en su sitio y hay que
   descomentarlas aparte.
@@ -622,16 +686,20 @@ apagado, la conserva en el `AnalysisResult`. Solo la pantalla decide no pintarla
 
 Por prioridad, con lo que desbloquea cada uno.
 
-1. **El endpoint real devuelve HTTP 500 a toda URL válida.** Su validación sí
-   funciona (400 con URL inválida, con `ftp://`, sin `url`), pero la ruta feliz
-   crashea tras ~16 s. Verificado el 2026-09-09 contra cuatro dominios. La app
-   no espera ese rato: corta a los 5 s (`timeouts.analyze` en
-   [config.ts](src/services/api/config.ts)) y degrada a "incierto".
-   → **Desbloquea:** Fabi. Con el 500 arreglado, basta cambiar `analysisMode` a
-   `remote`. Conviene pasarle el detalle: la validación le anda, la ruta feliz no.
-   Cuando además entregue F2.1 o F2.2, hay un segundo paso: descomentar su línea
-   en [`ENABLED_FILTERS`](src/services/analysis/enabledFilters.ts) y su etapa en
-   `analysisStages`.
+1. **El backend no concluye el veredicto: responde `"PENDIENTE"` a todo**,
+   incluso a `google.com`. El puntaje y los criterios sí los calcula bien, así
+   que la app deduce el veredicto del `score_heuristico` (§5.2). Funciona, pero
+   los cortes los está poniendo el frontend y deberían ser del backend.
+   → **Desbloquea:** Fabi. Solo le falta mapear su propio puntaje a
+   `SEGURO`/`SOSPECHOSO`/`MALICIOSO` en `veredicto_final`. En cuanto lo haga, la
+   app prefiere su veredicto automáticamente y se puede borrar
+   [verdictThresholds.ts](src/services/analysis/verdictThresholds.ts).
+   Conviene pasarle también dos detalles menores: `indicadores_f2_2` siempre
+   llega vacío, y el campo `mensaje` viene con el encoding roto (`aÃºn` en vez
+   de `aún`) — este último no afecta porque la app no usa ese campo.
+
+   > **Resuelto el 2026-09-20:** el endpoint devolvía HTTP 500 a toda URL
+   > válida. Ya responde 200 en 1.6–5.5 s. Por eso se eliminó el mock.
 
 2. **Generar el APK.** El build local de Gradle se cuelga en esta máquina (dos
    intentos el 2026-09-20, ninguno produjo artefacto; ver la nota de §4). No es
@@ -708,20 +776,21 @@ Decisiones conscientes de **no** arreglar en esta entrega:
   correcto es un `useEffect` sobre `history`. No se tocó porque es el camino por
   el que pasa **todo** escaneo y el riesgo de romperlo hoy supera al del bug,
   que nadie ha observado.
-- **`analysisService.ts` está excluido de la cobertura**
-  ([jest.config.js](jest.config.js)) con una justificación ya vencida — dice que
-  "es todavía el mock", y desde entonces existe `remoteAnalysisService`. El
-  efecto real es que la línea que elige mock ↔ remoto no está cubierta. Se deja
-  anotado en vez de cambiar el alcance de la métrica de cobertura el día de la
-  entrega.
 - **`timeouts.total` (35 s) está definido y nunca se usa.** El presupuesto por
-  petición (5 s) sí se aplica; el de la cascada completa no tiene sentido hasta
+  petición (12 s) sí se aplica; el de la cascada completa no tiene sentido hasta
   que haya más de un filtro corriendo.
 - **`paddingBottom: 24` fijo en el pie de las 7 pantallas**, que se suma al
   `insets.bottom` que ya aplica `Screen`. En un Android con navegación por
   gestos el pie queda un poco más holgado de lo que dice el mockup. Es un patrón
   consistente en toda la app, no un descuido suelto: tocarlo cambia el layout de
   las siete pantallas a la vez y no hay teléfono donde verificarlo hoy.
-- **Los fixtures del mock traen las tres secciones** aunque la app pinte una.
-  Es deliberado: son copy aprobado del mockup, y son justamente lo que
-  demuestra que el filtro de `ENABLED_FILTERS` funciona.
+- **Los umbrales de veredicto los pone el frontend** (§5.2). Es una
+  responsabilidad que pertenece al backend, y está así porque él no concluye.
+  Aislado en un archivo propio y se desmonta solo cuando Fabi lo conecte.
+- **Sin respaldo si el backend se cae.** Al eliminar el mock, la app depende por
+  completo del endpoint. Degrada a "incierto" honesto en vez de romperse, pero
+  no hay demo alternativa. Fue una decisión explícita.
+- **El `timeout` de análisis es de 12 s, no de los 5 s de la métrica T_F1.** No
+  es lo mismo: T_F1 mide lo que tarda el backend, no cuándo la app se rinde. Con
+  5 s, la primera llamada de cada sesión (arranque en frío de Lambda: 5.5 s
+  medidos) se cortaba sola y degradaba un análisis bueno a "incierto".

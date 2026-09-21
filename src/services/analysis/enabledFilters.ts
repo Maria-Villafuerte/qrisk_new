@@ -17,7 +17,7 @@ import type { AnalysisStageKey } from './types';
  * COMO REACTIVAR UN FILTRO:
  *   1. Descomentar su linea en `ENABLED_FILTERS`, aqui abajo.
  *   2. Solo para la pantalla de carga: descomentar tambien su etapa en
- *      `analysisStages` (analysisService.ts), que es la que lleva el copy y los
+ *      `analysisStages` (analysisStages.ts), que es la que lleva el copy y los
  *      tiempos de la cascada.
  * No hay paso 3: las secciones de relleno (adaptAnalysis.ts) y los acordeones
  * del detalle (app/analysis/details.tsx) leen esta lista y se ajustan solos. El
