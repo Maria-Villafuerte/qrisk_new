@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import {
+  BottomSheet,
   Button,
   FlagIcon,
   InfoBanner,
@@ -11,32 +13,63 @@ import {
   spacing,
   StoryCardIcon,
   text,
+  useToast,
   WarningCircleIcon,
   VerdictEmblem,
   VerdictPill,
+  verdicts,
 } from '../../src/design-system';
 import { useAppState } from '../../src/store/AppStateContext';
 
 /**
  * 06 · Resultado del analisis.
  *
- * NO HAY BOTON PARA ABRIR EL SITIO, y es la decision de producto central de
- * esta pantalla, no una funcionalidad que falte.
+ * SOBRE EL BOTON DE ABRIR. La regla del producto es que la app nunca abre una
+ * URL por su cuenta: el analisis ocurre en el entorno aislado del backend y el
+ * telefono jamas visita el sitio para analizarlo. Abrir es otra cosa: una
+ * accion explicita de la persona, ya informada del veredicto.
  *
- * Antes habia uno que mostraba un toast "Abriendo <dominio> en tu navegador…"
- * y no abria nada: prometia y mentia, justo sobre la regla fundamental del
- * README —"la app NUNCA abre la URL analizada"—. Implementarlo de verdad
- * contradecia esa regla de frente; dejar el toast era peor, porque ademas
- * enganaba. Asi que se quita y se explica por que.
+ * La friccion escala con el riesgo, que es donde vive el valor del producto:
+ *   - seguro      -> abre directo, sin estorbar.
+ *   - lo demas    -> hoja de confirmacion que repite el dominio y las alertas
+ *                    encontradas, con "Cancelar" como accion primaria.
  *
- * Si algun dia se decide lo contrario, el sitio donde va es este, y hay que
- * cambiar antes la regla fundamental del README: no al reves.
+ * La app informa y encarece la decision riesgosa; no la prohibe. Decidir queda
+ * del lado de la persona, que es la unica que sabe si confia en quien puso el
+ * codigo.
  */
 export default function ResultRoute() {
   const router = useRouter();
+  const toast = useToast();
   const { result } = useAppState();
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
+  const theme = verdicts[result.verdict];
   const isSafe = result.verdict === 'seguro';
+
+  /** Cuenta las alertas reales que trajo el analisis, para el copy de la hoja. */
+  const alertCount = result.sections.reduce(
+    (total, section) => total + section.findings.filter((f) => f.tone === 'warn').length,
+    0,
+  );
+
+  /**
+   * Abre el sitio en el navegador del sistema, NUNCA dentro de la app: fuera
+   * de QRisk la pagina no puede hacerse pasar por una pantalla nuestra.
+   */
+  const openSite = async () => {
+    setConfirmVisible(false);
+    try {
+      await Linking.openURL(result.url);
+    } catch {
+      // Un esquema que el telefono no sabe abrir, o sin navegador instalado.
+      // Se avisa en vez de dejar el toque sin respuesta.
+      toast.show('No se pudo abrir el enlace en tu navegador.');
+    }
+  };
+
+  const riskyOpenLabel =
+    result.verdict === 'malicioso' ? 'Abrir bajo mi propio riesgo' : 'Abrir con precaución';
 
   return (
     <Screen>
@@ -63,17 +96,33 @@ export default function ResultRoute() {
       </View>
 
       <View style={styles.footer}>
-        <Button label="Ver más detalles" onPress={() => router.push('/analysis/details')} />
-
         {/*
-          Por que no hay boton de abrir. El copy cambia con el veredicto: en un
-          sitio seguro explica la regla, y en uno riesgoso ademas dice que hacer.
+          La jerarquia se invierte con el riesgo: en un sitio seguro la accion
+          recomendada es abrir; en uno con señales, es mirar los detalles. El
+          boton de abrir no desaparece —decidir es de la persona— pero deja de
+          ser el camino facil.
         */}
-        <Text style={[text.caption, styles.noOpenNote]}>
-          {isSafe
-            ? 'QRisk no abre enlaces. Si quieres visitarlo, escribe la dirección tú mismo en tu navegador.'
-            : 'QRisk no abre enlaces, y este no deberías abrirlo. Si aun así necesitas hacerlo, escribe la dirección tú mismo en tu navegador.'}
-        </Text>
+        {isSafe ? (
+          <>
+            <Button label="Abrir sitio" onPress={openSite} />
+            <Button
+              label="Ver más detalles"
+              variant="secondary"
+              onPress={() => router.push('/analysis/details')}
+            />
+          </>
+        ) : (
+          <>
+            <Button label="Ver más detalles" onPress={() => router.push('/analysis/details')} />
+            <Button
+              label={riskyOpenLabel}
+              variant="secondary"
+              accentColor={theme.color}
+              accentBorderColor={theme.ring}
+              onPress={() => setConfirmVisible(true)}
+            />
+          </>
+        )}
 
         <View style={styles.secondaryActions}>
           <SecondaryAction
@@ -89,6 +138,30 @@ export default function ResultRoute() {
         </View>
       </View>
 
+      {/*
+        Confirmacion para los veredictos con riesgo. Repite el dominio y cuantas
+        alertas se encontraron: la persona decide viendo el dato concreto, no
+        una advertencia generica que ya se acostumbro a ignorar.
+      */}
+      <BottomSheet visible={confirmVisible} onDismiss={() => setConfirmVisible(false)}>
+        <Text style={[text.sheetTitle, styles.centered]}>¿Abrir este sitio?</Text>
+        <Text style={[text.bodySm, styles.centered, styles.sheetBody]}>
+          <Text style={styles.sheetDomain}>{result.domain}</Text>
+          {alertCount > 0
+            ? ` tiene ${alertCount} ${alertCount === 1 ? 'señal' : 'señales'} de riesgo. `
+            : ' mostró señales de riesgo durante el análisis. '}
+          Si continúas, se abrirá en tu navegador, fuera de QRisk.
+        </Text>
+
+        {/* Cancelar es la accion primaria: el diseno empuja a no continuar. */}
+        <Button label="Cancelar" onPress={() => setConfirmVisible(false)} style={styles.sheetCta} />
+        <Button
+          label="Abrir de todos modos"
+          variant="dangerGhost"
+          accentColor={palette.textPrimary}
+          onPress={openSite}
+        />
+      </BottomSheet>
     </Screen>
   );
 }
@@ -164,9 +237,14 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  noOpenNote: {
-    textAlign: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingTop: 2,
+  sheetBody: {
+    marginBottom: 6,
+  },
+  sheetDomain: {
+    fontFamily: text.cardTitle.fontFamily,
+    color: palette.textPrimary,
+  },
+  sheetCta: {
+    marginTop: 6,
   },
 });

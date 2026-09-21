@@ -36,14 +36,18 @@ export interface AnalysisResult {
   verdict: VerdictKey;
   /** Dominio legible, lo que el usuario debe reconocer. */
   domain: string;
-  /** URL completa. Se muestra pero nunca se abre desde la app. */
+  /**
+   * URL completa. La app nunca la visita por su cuenta: solo se abre si la
+   * persona lo pide desde la pantalla de resultado, y en el navegador del
+   * sistema, nunca dentro de la app.
+   */
   url: string;
   /** Recomendacion en lenguaje llano. */
   summary: string;
   /** 0 = seguro, 100 = peligroso. */
   riskScore: number;
   sections: AnalysisSection[];
-  /** Identificador del analisis en el backend. Ausente en el mock. */
+  /** Identificador del analisis en el backend. Opcional: hoy no lo manda. */
   scanId?: string;
   /** true si algun filtro fallo y el veredicto se calculo sin el. */
   degraded?: boolean;
@@ -75,8 +79,9 @@ export interface ScanRecord {
 }
 
 /**
- * Contrato del analisis. La implementacion actual es un mock local; un
- * backend real cumpliria esta misma firma sin tocar las pantallas.
+ * Contrato del analisis. Hoy lo cumple una sola implementacion,
+ * `remoteAnalysisService`; se conserva como interfaz para poder inyectar
+ * dobles en los tests y para cambiar de proveedor sin tocar las pantallas.
  */
 export interface AnalysisService {
   analyze(url: string): Promise<AnalysisResult>;

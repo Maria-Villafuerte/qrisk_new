@@ -25,11 +25,29 @@ analiza en un entorno aislado y devuelve un veredicto en lenguaje llano:
 
 ### Regla de seguridad fundamental
 
-> **La app NUNCA abre la URL analizada.** Solo la muestra como texto.
-> Toda visita al sitio ocurre en el entorno aislado del backend.
+> **La app NUNCA visita la URL por su cuenta.** El análisis ocurre siempre en
+> el entorno aislado del backend: el teléfono no carga el sitio para
+> analizarlo, ni lo abre en segundo plano, ni lo previsualiza. Hasta que la
+> persona lo pida, el enlace es solo texto en pantalla.
 
-Esta regla manda sobre cualquier otra decisión de producto. De ella se derivan
-tres más, que explican cosas que de otro modo parecen arbitrarias:
+Esta regla manda sobre cualquier otra decisión de producto.
+
+**Lo que sí puede hacer la persona: abrir el sitio a propósito.** Después de ver
+el veredicto hay un botón para hacerlo, y la fricción escala con el riesgo:
+
+| Veredicto | Qué pasa al tocar "Abrir" |
+|---|---|
+| Seguro | Abre directo en el navegador del sistema |
+| Sospechoso / Malicioso / Incierto | Hoja de confirmación con el dominio y cuántas señales de riesgo se encontraron. **"Cancelar" es el botón primario** |
+
+Dos cosas que esto **no** rompe: el análisis nunca dejó de ocurrir en el
+sandbox, y el sitio se abre **fuera** de QRisk, en el navegador del sistema —
+nunca embebido, donde una página podría hacerse pasar por una pantalla de la
+app. La app informa y encarece la decisión riesgosa; no la prohíbe, porque
+quien sabe si confía en quien puso el código es la persona, no nosotros.
+
+De la regla se derivan tres más, que explican cosas que de otro modo parecen
+arbitrarias:
 
 - **Un "incierto" honesto es mejor que un "seguro" calculado con información
   incompleta.** Un falso "seguro" es el peor resultado posible del producto.
@@ -322,43 +340,58 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 | Filtro F2.1 (heurística) | ✅ | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15). |
 | Filtro F2.2 (comportamiento) | 🟡 | El backend ya manda el campo `indicadores_f2_2`, pero hasta hoy siempre llegó vacío. La app lo tolera; cuando traiga datos, se pintan como los de F2.1. |
 | Filtro F2.3 (vista previa) | ❌ | **Quitado de la app a propósito.** Anunciaba una captura que no existe (la etapa "Generando vista previa segura…" y un acordeón "DISPONIBLE" siempre vacío). Para reactivarlo: agregar `'preview'` a `AnalysisStageKey`, la etapa en `analysisStages` y la entrada en `sectionIcons`; luego renderizar la imagen honrando `expiresAt`. Requiere el endpoint y la URL firmada de S3. |
-| Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. **No hay botón para abrir el sitio**, por decisión de producto (§5.1): la pantalla explica por qué. |
+| Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles. |
 | Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
 | Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
 | Reporte de QR malicioso | 🟡 | Valida, arma el payload anónimo y **no pierde lo escrito si falla la red**. **El endpoint `/reports` no existe**: hoy falla y ofrece reintentar. |
 | Story Card | ✅ | Foto real (cámara o galería), captura con `captureRef`, compartir y guardar en la galería. **Probar en teléfono físico**: los diálogos del sistema no se pueden verificar de otro modo. |
 | Geocodificación inversa | ✅ | `expo-location` **en el dispositivo**, nunca en el servidor. Si falla, devuelve `null` y la UI oculta la fila. **Probar en teléfono** con GPS. |
 | iOS | ⛔ | **Fuera del alcance de esta entrega**, que es solo Android. La configuración se conserva por si alguien lo retoma: `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de `Info.plist`, la safe area y el teclado. No se borró nada. |
-| Abrir el sitio analizado | ✅ | **Decidido: la app no abre enlaces, y lo dice.** Antes había un botón que mostraba "Abriendo… en tu navegador" y no abría nada: prometía y mentía sobre la regla fundamental. Ahora el resultado explica por qué no se abre y sugiere escribir la dirección a mano. Ver §5.1. |
+| Abrir el sitio analizado | ✅ | Botón real: abre en el **navegador del sistema**, nunca embebido. En un sitio seguro abre directo; con cualquier señal de riesgo pide confirmación mostrando el dominio y cuántas alertas se hallaron, con "Cancelar" como acción primaria. Ver §1 y §5.1. |
 
 ---
 
 ### 5.1 Decisión: qué hace "Abrir el sitio"
 
-Estaba pendiente desde el prototipo y se cerró en esta entrega.
+Estuvo abierta desde el prototipo y se cerró en esta entrega.
 
 **Qué había:** un botón que mostraba un toast *"Abriendo `dominio` en tu
-navegador…"* y no abría nada.
+navegador…"* y no abría nada. Prometía y mentía.
 
-**Qué hay ahora:** no hay botón. El resultado explica que QRisk no abre enlaces
-y sugiere escribir la dirección a mano si la persona insiste. El copy cambia
-según el veredicto: en uno seguro explica la regla, en uno riesgoso además
-recomienda no hacerlo.
+**Qué hay ahora:** un botón que abre de verdad, con fricción proporcional al
+riesgo.
 
-**Por qué.** Las tres opciones se evaluaron así:
-
-| Opción | Coste | Riesgo en la defensa |
+| Veredicto | Botón primario | Al tocar "Abrir" |
 |---|---|---|
-| Navegador externo con advertencia | ~2 h | **Alto.** Contradice de frente la regla que el README declara por encima de cualquier otra decisión de producto. Invita a la pregunta *"¿entonces para qué sirve la app?"*. |
-| Copiar al portapapeles | ~1 h | **Medio.** No viola la regla, pero deja al usuario a un pegado de distancia del sitio malicioso. |
-| **Deshabilitado y explicado** ← elegida | ~1 h | **Bajo.** Es coherente con la regla fundamental y se defiende en una frase: *no lo abrimos, ese es el punto*. |
+| Seguro | **Abrir sitio** | Abre directo en el navegador del sistema |
+| Sospechoso | Ver más detalles | *"Abrir con precaución"* → hoja de confirmación |
+| Malicioso | Ver más detalles | *"Abrir bajo mi propio riesgo"* → hoja de confirmación |
 
-El toast era la peor de las cuatro posibilidades, porque a la contradicción le
-sumaba el engaño: decía que abría y no abría.
+La hoja repite el dominio y **cuántas señales de riesgo se encontraron** —el
+dato concreto, no una advertencia genérica que ya nadie lee— y pone
+**"Cancelar" como botón primario**.
 
-Si alguna vez se decide lo contrario, el lugar es
-[result.tsx](app/analysis/result.tsx) — y hay que cambiar antes la regla
-fundamental de §1, no al revés.
+**Por qué esta opción y no las otras dos:**
+
+- *No abrir nunca* era coherente, pero convertía en limitación permanente algo
+  que el usuario va a hacer igual, solo que copiando la URL a mano y sin ningún
+  aviso de por medio. La app se quedaba sin influir justo en el momento que
+  importa.
+- *Copiar al portapapeles* dejaba a la persona a un pegado de distancia del
+  sitio malicioso, con la misma exposición y menos información.
+
+**Dos cosas que no se negociaron:**
+
+1. **El análisis sigue ocurriendo solo en el sandbox del backend.** El teléfono
+   nunca carga el sitio para analizarlo. Eso es lo que siempre dijo la regla de
+   §1, y sigue intacto.
+2. **Se abre en el navegador del sistema, nunca embebido** (`Linking.openURL`).
+   Dentro de un WebView, una página de phishing podría hacerse pasar por una
+   pantalla de QRisk; fuera, la barra de direcciones del navegador es una
+   defensa más.
+
+Si el análisis falló, el veredicto es "incierto" y también pide confirmación:
+ante la duda, la fricción se queda.
 
 ---
 
