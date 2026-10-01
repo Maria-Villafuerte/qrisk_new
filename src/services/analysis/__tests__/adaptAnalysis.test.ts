@@ -357,3 +357,44 @@ describe('adaptAnalysisResponse · secciones desde los criterios reales', () => 
     expect(result.sections.some((s) => s.badgeText === 'SIN COMPLETAR')).toBe(false);
   });
 });
+
+/**
+ * F2.3: la captura que el backend toma del sitio en su entorno aislado.
+ * Aparecio el 2026-09-30. Es una URL firmada de S3 que caduca en una hora.
+ */
+describe('adaptAnalysisResponse · captura de pantalla (F2.3)', () => {
+  const conCaptura = {
+    veredicto_final: 'PENDIENTE',
+    score_heuristico: 0,
+    criterios_f2_1: [],
+    screenshot_url: 'https://qrisk-screenshots.s3.amazonaws.com/abc.png?X-Amz-Expires=3600',
+  };
+
+  it('conserva la URL de la captura cuando viene', () => {
+    const result = adaptAnalysisResponse(conCaptura, 'https://ejemplo.com');
+    expect(result.screenshotUrl).toBe(conCaptura.screenshot_url);
+  });
+
+  it('omite el campo cuando el backend no la pudo generar', () => {
+    // Ausente, no presente-con-undefined: el historial guardaria un campo
+    // muerto en cada entrada.
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 0 },
+      'https://ejemplo.com',
+    );
+    expect('screenshotUrl' in result).toBe(false);
+  });
+
+  it('ignora una cadena vacia en vez de guardarla', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', screenshot_url: '' },
+      'https://ejemplo.com',
+    );
+    expect('screenshotUrl' in result).toBe(false);
+  });
+
+  it('la captura no cambia el veredicto', () => {
+    // Es informacion para que la persona mire, no una señal de riesgo.
+    expect(adaptAnalysisResponse(conCaptura, 'https://ejemplo.com').verdict).toBe('seguro');
+  });
+});

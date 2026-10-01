@@ -57,11 +57,26 @@ export function saveHistory(entries: HistoryEntry[]): void {
 }
 
 /**
+ * Quita del analisis lo que no sobrevive al paso del tiempo.
+ *
+ * Hoy solo `screenshotUrl`: es una URL firmada de S3 que caduca en una hora,
+ * asi que guardarla llena el disco de enlaces que naceran muertos. La pantalla
+ * de detalle ya oculta la imagen si falla al cargar, pero mas vale no guardar
+ * basura que depender de ese rescate.
+ */
+function withoutExpiring(analysis: AnalysisResult): AnalysisResult {
+  if (!analysis.screenshotUrl) return analysis;
+  const { screenshotUrl: _omitted, ...rest } = analysis;
+  return rest;
+}
+
+/**
  * Agrega un escaneo al frente y devuelve la lista resultante. El mas reciente
  * primero, que es el orden en que se pinta.
  */
 export function appendScan(entries: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
-  const next = [entry, ...entries].slice(0, HISTORY_LIMIT);
+  const stored: HistoryEntry = { ...entry, analysis: withoutExpiring(entry.analysis) };
+  const next = [stored, ...entries].slice(0, HISTORY_LIMIT);
   saveHistory(next);
   return next;
 }

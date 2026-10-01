@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Accordion,
@@ -38,6 +38,12 @@ export default function DetailsRoute() {
   const { result } = useAppState();
   const theme = verdicts[result.verdict];
 
+  // La captura puede fallar al cargar: su URL firmada caduca en una hora, asi
+  // que una entrada vieja del historial la tendria vencida. Se oculta en vez de
+  // dejar un hueco gris con un icono de imagen rota.
+  const [shotFailed, setShotFailed] = useState(false);
+  const screenshotUrl = shotFailed ? undefined : result.screenshotUrl;
+
   // Solo se pintan las secciones de los filtros que esta version anuncia. El
   // mock trae las tres del mockup y el backend puede mandar las que quiera; la
   // pantalla no debe ensenar el acordeon de un filtro apagado. Que filtros
@@ -73,6 +79,30 @@ export default function DetailsRoute() {
         </View>
 
         <RiskMeter score={result.riskScore} verdict={result.verdict} />
+
+        {/*
+          Vista previa (F2.3). La captura la toma el backend en su entorno
+          aislado: es la prueba visible de que alguien ya entro al sitio por
+          vos. Se muestra como imagen estatica —nunca un WebView— para que la
+          pagina no pueda ejecutar nada ni hacerse pasar por la app.
+        */}
+        {screenshotUrl ? (
+          <View style={styles.preview}>
+            <View style={styles.previewHeader}>
+              <Text style={text.badge}>VISTA PREVIA</Text>
+              <Text style={[text.caption, styles.previewHint]}>
+                Capturada en un entorno aislado
+              </Text>
+            </View>
+            <Image
+              source={{ uri: screenshotUrl }}
+              style={styles.previewImage}
+              resizeMode="cover"
+              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+              onError={() => setShotFailed(true)}
+            />
+          </View>
+        ) : null}
 
         {sections.map((section, index) => {
           const Icon = sectionIcons[section.key];
@@ -148,6 +178,32 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     letterSpacing: 0.96,
+  },
+  preview: {
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+    backgroundColor: palette.surface,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  previewHint: {
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  previewImage: {
+    width: '100%',
+    // 16:10 deja ver la parte de arriba de la pagina, que es donde vive lo que
+    // delata a un sitio falso: el logo, el titulo, la barra de navegacion.
+    aspectRatio: 16 / 10,
+    backgroundColor: palette.appBg,
   },
   footnote: {
     lineHeight: 18,

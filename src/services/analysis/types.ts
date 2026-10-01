@@ -53,6 +53,14 @@ export interface AnalysisResult {
   degraded?: boolean;
   /** Filtros que aun no respondieron. Vacio o ausente = cascada completa. */
   pending?: AnalysisStageKey[];
+  /**
+   * Captura del sitio (F2.3), tomada por el backend en su entorno aislado.
+   *
+   * Es una URL firmada de S3 que CADUCA EN UNA HORA, asi que no sirve para el
+   * historial: una fila vieja la mostraria rota. Solo se pinta en el detalle
+   * del analisis recien hecho. Ausente si el backend no pudo generarla.
+   */
+  screenshotUrl?: string;
 }
 
 /** Contenido de un QR que no es un enlace y por tanto no se analiza. */
