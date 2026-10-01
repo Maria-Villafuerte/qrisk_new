@@ -1,12 +1,28 @@
-# Pruebas en teléfono físico — Story Card y geocodificación
+# Pruebas en teléfono físico
 
-Lo que no se puede verificar desde la computadora: diálogos del sistema, GPS
-real y la galería. Son dos pruebas cortas, se corren juntas en una sentada.
+Todo lo que no se puede verificar desde la computadora: diálogos del sistema,
+GPS real, la galería, y el análisis contra el backend de verdad. **~50 min** en
+una sentada, siguiendo el orden de abajo.
 
-**Antes de empezar:** instalar la app, **desinstalando primero** cualquier
-versión anterior. Así los permisos arrancan limpios y se ve el onboarding.
+| Bloque | Qué cubre | Tiempo |
+|---|---|---|
+| **A** | Arranque en frío y onboarding | 5 min |
+| **A2** | Los tres veredictos, timeout, vista previa, abrir el sitio | 10 min |
+| **B** | Geocodificación (métrica ≥ 85 %) | 10 min |
+| **C** | Story Card (métrica ≥ 90 %) | 15 min |
+| **D** | Camino sin conexión | 5 min |
+| **E** | Teclado y safe area | 5 min |
 
-    npx expo run:android
+**Antes de empezar:**
+
+1. **Desinstalá cualquier QRisk anterior.** No es opcional: si queda la vieja,
+   Android conserva permisos y almacenamiento, y no vas a ver el onboarding.
+2. Instalá el APK nuevo (el enlace lo da `eas build:list`).
+3. **Necesitás conexión a internet.** Ya no hay modo mock: todos los veredictos
+   salen del backend real.
+
+> Si algún paso falla, anotá **cuál** y **qué viste**. Un paso que falla con el
+> dato de qué pasó vale más que diez marcados en verde.
 
 ---
 
@@ -24,6 +40,60 @@ Esto valida el cambio más nuevo del repo: el onboarding corre **una sola vez**.
 
 > Si en A4 vuelve a salir el onboarding, la marca no se guardó:
 > `onboardingStorage.ts`. Es el fallo que hay que reportar.
+
+---
+
+## A2 · El análisis real (10 min)
+
+Esto es lo más nuevo de la app y nada de ello se ha probado en hardware.
+**Necesitás conexión**: ya no hay modo mock, todo sale del backend.
+
+Generá estos tres QR (cualquier generador online) y escanealos **en orden**:
+
+| # | QR | Veredicto esperado | Qué mirar además | ✓ |
+|---|----|--------------------|------------------|---|
+| V1 | `https://github.com` | 🟢 **Seguro** | Acordeón "SIN ALERTAS". Botón **"Abrir sitio"** arriba | |
+| V2 | `http://banco-lndustrial-seguro.top/acceso` | 🟡 **Sospechoso** | "2 ALERTAS": TLD `.top`, sin HTTPS | |
+| V3 | `http://192.168.1.1/login.php` | 🔴 **Malicioso** | "3 ALERTAS": IP, sin HTTPS, "login" | |
+
+> Si alguno da **"incierto"**, anotá **cuál y cuánto tardó**. Puede ser el
+> backend sin concluir (conocido) o un timeout.
+
+### El arreglo del timeout
+
+| # | Paso | Qué debe pasar | ✓ |
+|---|------|----------------|---|
+| T1 | Escanear un QR de un sitio **que nadie haya escaneado antes** (tu blog, una noticia cualquiera) | Completa y da veredicto. **No** "incierto" | |
+| T2 | Mirar el reloj mientras tanto | Puede tardar ~15 s. A los **8 s** debe aparecer *"Esto está tardando un poco más de lo normal…"* | |
+| T3 | Escanear **el mismo** QR otra vez | Ahora responde en ~1 s (el backend lo tiene en caché) | |
+
+> T1 es el arreglo de hoy: antes **todo sitio nuevo se cortaba a los 12 s** y
+> daba "incierto". Si vuelve a pasar, el backend empeoró y hay que medirlo.
+
+### La vista previa (F2.3)
+
+| # | Paso | Qué debe pasar | ✓ |
+|---|------|----------------|---|
+| P1 | En cualquier resultado, **Ver más detalles** | Bajo el medidor sale **VISTA PREVIA** con una captura del sitio | |
+| P2 | Mirar la captura | Es una **imagen fija**, no una página navegable. No se puede tocar ni hacer scroll dentro | |
+| P3 | Abrir esa misma fila **desde el Historial** | La captura **no** aparece (su enlace caduca en 1 h). El resto se ve bien, **sin** imagen rota | |
+
+> P3 es a propósito: la URL de la captura caduca, así que no se guarda.
+
+### Abrir el sitio
+
+| # | Paso | Qué debe pasar | ✓ |
+|---|------|----------------|---|
+| O1 | En el resultado **seguro** (V1), tocar **"Abrir sitio"** | Abre en el navegador del sistema. **Se ve la barra de direcciones** | |
+| O2 | Volver a la app | El resultado sigue ahí | |
+| O3 | En el **malicioso** (V3), tocar **"Abrir bajo mi propio riesgo"** | Sale una hoja con el dominio y **"3 señales de riesgo"** | |
+| O4 | Mirar la hoja | **"Cancelar" es el botón destacado**, arriba | |
+| O5 | Tocar Cancelar | Se cierra. **No** abre nada | |
+| O6 | Volver a abrir y tocar "Abrir de todos modos" | Ahora sí abre, en el navegador | |
+
+> O1: que se vea la barra de direcciones **no es un detalle**. Si la página se
+> abriera dentro de la app, un sitio de phishing podría hacerse pasar por una
+> pantalla de QRisk.
 
 ---
 
