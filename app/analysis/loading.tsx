@@ -25,6 +25,9 @@ import { useAppState } from '../../src/store/AppStateContext';
 
 type StageStatus = 'done' | 'running' | 'pending';
 
+/** Cuanto se espera antes de avisar que el analisis esta tardando. */
+const LONG_WAIT_NOTICE_MS = 8_000;
+
 /**
  * 05 · Analisis en curso. Recorre la cascada de filtros mientras el servicio
  * resuelve, y sustituye la pantalla al terminar (`replace`) para que el boton
@@ -41,7 +44,21 @@ export default function LoadingRoute() {
   const analyzedUrl = url ?? result.url;
 
   const [stageIndex, setStageIndex] = useState(0);
+  const [takingLong, setTakingLong] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  /**
+   * Aviso de espera larga.
+   *
+   * Un sitio que el backend no vio antes tarda ~15 s, porque F2.3 le toma una
+   * captura con un navegador headless. Sin decir nada, quince segundos de
+   * spinner se leen como "la app se colgo" y la persona cierra o reintenta.
+   * A los 8 s se explica que sigue trabajando y por que tarda.
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => setTakingLong(true), LONG_WAIT_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   /**
    * Avance visual de la cascada.
@@ -133,7 +150,9 @@ export default function LoadingRoute() {
         <UrlChip url={analyzedUrl} muted />
 
         <Text style={[text.caption, styles.centered]}>
-          El enlace se analiza en un entorno aislado, no en tu teléfono.
+          {takingLong
+            ? 'Esto está tardando un poco más de lo normal. Seguimos revisando el enlace en un entorno aislado.'
+            : 'El enlace se analiza en un entorno aislado, no en tu teléfono.'}
         </Text>
 
         <Card style={styles.stages}>

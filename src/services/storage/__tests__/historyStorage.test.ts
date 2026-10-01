@@ -125,3 +125,53 @@ describe('datos corruptos', () => {
     expect(loaded.map((e) => e.record.id)).toEqual(['scn_1', 'scn_2']);
   });
 });
+
+/**
+ * La captura de F2.3 es una URL firmada que caduca en una hora. Guardarla en
+ * el historial seria llenar el disco de enlaces muertos.
+ */
+describe('appendScan · la captura no se persiste', () => {
+  const conCaptura: HistoryEntry = {
+    record: {
+      id: 'scn_1',
+      domain: 'ejemplo.com',
+      verdict: 'seguro',
+      scannedAt: '2026-09-30T12:00:00.000Z',
+      place: null,
+    },
+    analysis: {
+      verdict: 'seguro',
+      domain: 'ejemplo.com',
+      url: 'https://ejemplo.com',
+      summary: 'Sin señales de riesgo.',
+      riskScore: 0,
+      sections: [],
+      screenshotUrl: 'https://s3.amazonaws.com/shot.png?X-Amz-Expires=3600',
+    },
+  };
+
+  it('descarta la URL de la captura al guardar', () => {
+    const [guardado] = appendScan([], conCaptura);
+    expect('screenshotUrl' in guardado.analysis).toBe(false);
+  });
+
+  it('conserva todo lo demas del analisis', () => {
+    const [guardado] = appendScan([], conCaptura);
+    expect(guardado.analysis.verdict).toBe('seguro');
+    expect(guardado.analysis.domain).toBe('ejemplo.com');
+    expect(guardado.record.id).toBe('scn_1');
+  });
+
+  it('tampoco la deja en el disco', () => {
+    appendScan([], conCaptura);
+    expect(JSON.stringify(loadHistory())).not.toContain('X-Amz-Expires');
+  });
+
+  it('no estorba cuando el analisis no trae captura', () => {
+    const sinCaptura: HistoryEntry = {
+      ...conCaptura,
+      analysis: { ...conCaptura.analysis, screenshotUrl: undefined },
+    };
+    expect(() => appendScan([], sinCaptura)).not.toThrow();
+  });
+});

@@ -13,12 +13,15 @@ describe('config', () => {
     expect(typeof apiBaseUrl).toBe('string');
   });
 
-  it('da margen al arranque en frio del backend', () => {
-    // Medido el 2026-09-20 sobre seis llamadas seguidas al endpoint real: 5.5 s
-    // la primera (Lambda arrancando en frio), 1.6-3.1 s las siguientes. Con el
-    // tope en 5 s el PRIMER escaneo de cada sesion se cortaba solo y degradaba
-    // a "incierto". No bajar de aqui sin volver a medir.
-    expect(timeouts.analyze).toBeGreaterThanOrEqual(10_000);
+  it('da margen a lo que de verdad tarda el backend', () => {
+    // Medido el 2026-09-30 contra el endpoint real: 14.2-14.5 s para una URL
+    // que el backend no haya visto antes (la captura de F2.3 abre un navegador
+    // headless), 0.3 s si ya esta en cache. Con el tope en 12 s, TODO escaneo
+    // de un sitio nuevo se cortaba y degradaba a "incierto".
+    //
+    // No bajar de aqui sin volver a medir con una URL nueva: una URL repetida
+    // responde desde cache y da un numero enganosamente bueno.
+    expect(timeouts.analyze).toBeGreaterThanOrEqual(20_000);
   });
 
   it('respeta el tope total del anteproyecto', () => {

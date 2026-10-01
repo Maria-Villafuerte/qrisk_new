@@ -25,22 +25,32 @@ export const apiBaseUrl: string = (
 ).replace(/\/+$/, '');
 
 /**
- * Topes de tiempo, alineados con las metricas del anteproyecto.
+ * Topes de tiempo.
  *
- * `analyze` son 12 s y NO los 5 s que pide la metrica T_F1, por una razon
- * medida: el backend corre en Lambda y la primera llamada tras un rato de
- * inactividad paga el arranque en frio. Medido el 2026-09-20 sobre seis
- * llamadas seguidas: 5.5 s la primera, luego 1.6-3.1 s. Con el tope en 5 s el
- * PRIMER escaneo de una sesion se cortaba solo y degradaba a "incierto" —
- * justo el escaneo que mas se mira en una demo.
+ * `analyze` son 25 s y NO los 5 s que pide la metrica T_F1, por una razon
+ * medida contra el backend real. Historial de la medicion:
  *
- * El tope no es la metrica: T_F1 se mide sobre lo que tarda el backend en
- * responder, no sobre cuando la app se rinde. Cortar antes de tiempo no mejora
- * el numero, solo convierte analisis buenos en inciertos.
+ *   2026-09-20: 5.5 s la primera llamada (Lambda en frio), 1.6-3.1 s el resto.
+ *   2026-09-30: **14.2-14.5 s** para una URL que el backend no haya visto
+ *               antes; 0.3 s si ya la tiene en cache. El salto coincide con la
+ *               aparicion de F2.3 (la captura de pantalla), que abre un
+ *               navegador headless y cuesta ~10 s.
+ *
+ * Con el tope en 12 s, TODO escaneo de un sitio nuevo se cortaba solo y
+ * degradaba a "incierto": justo el caso normal, porque un QR interesante
+ * apunta a algo que el backend no vio antes. 25 s deja casi 11 s de margen
+ * sobre el peor caso medido.
+ *
+ * El tope no es la metrica: T_F1 mide lo que tarda el backend en responder, no
+ * cuando la app se rinde. Cortar antes no mejora el numero, solo convierte
+ * analisis buenos en inciertos.
+ *
+ * Si Fabi baja la latencia (ver README §8), hay que volver a medir y bajar
+ * esto: 25 s de espera es mucho pedirle a una persona con el telefono en alto.
  */
 export const timeouts = {
-  /** Corte del POST /analyze. Cubre el arranque en frio de Lambda. */
-  analyze: 12_000,
+  /** Corte del POST /analyze. Cubre la captura de F2.3 en una URL nueva. */
+  analyze: 25_000,
   /** T_total <= 35s para toda la cascada. */
   total: 35_000,
 } as const;

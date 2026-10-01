@@ -338,8 +338,8 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 | Clasificación URL / no-URL | ✅ | `classifyQr` con 18 tests. Cubre https, dominios sin esquema, Wi-Fi, vCard, mailto, tel, geo y texto suelto. |
 | Análisis (backend real) | ✅ | **El endpoint responde HTTP 200 desde el 2026-09-20** y la app corre solo contra él: el mock se eliminó. Devuelve un `score_heuristico` con sus criterios; la app deriva el veredicto de ese puntaje (§5.2). Latencia medida: 5.5 s la primera llamada (arranque en frío de Lambda), 1.6-3.1 s las siguientes. |
 | Filtro F2.1 (heurística) | ✅ | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15). |
-| Filtro F2.2 (comportamiento) | 🟡 | El backend ya manda el campo `indicadores_f2_2`, pero hasta hoy siempre llegó vacío. La app lo tolera; cuando traiga datos, se pintan como los de F2.1. |
-| Filtro F2.3 (vista previa) | ❌ | **Quitado de la app a propósito.** Anunciaba una captura que no existe (la etapa "Generando vista previa segura…" y un acordeón "DISPONIBLE" siempre vacío). Para reactivarlo: agregar `'preview'` a `AnalysisStageKey`, la etapa en `analysisStages` y la entrada en `sectionIcons`; luego renderizar la imagen honrando `expiresAt`. Requiere el endpoint y la URL firmada de S3. |
+| Filtro F2.2 (comportamiento) | ✅ | **Funciona: consulta VirusTotal.** Verificado el 2026-09-30 con sitios de prueba de malware reales (`malware.wicar.org` → 18 motores lo marcan). Cuando concluye, `filtro_decisivo` dice `F2.2`. |
+| Filtro F2.3 (vista previa) | ✅ | **El backend ya la genera y la app la muestra.** Apareció el 2026-09-30: viene en `screenshot_url` como URL firmada de S3 (PNG real, verificado). Se pinta en el detalle como **imagen estática, nunca un WebView**. No siempre viene: si falla, la sección se omite. |
 | Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles. |
 | Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
 | Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
@@ -397,10 +397,21 @@ ante la duda, la fricción se queda.
 
 ### 5.2 Cómo se decide el veredicto (y por qué lo decide la app)
 
-**El backend calcula el puntaje pero no concluye el veredicto.** Su campo
-`veredicto_final` responde `"PENDIENTE"` a todo, incluso a `google.com`. Como
-`PENDIENTE` se traduce a "incierto", sin hacer nada más **todos los escaneos
-darían "incierto"** y los cuatro veredictos serían indemostrables.
+**El backend concluye a veces, y cuando lo hace la app respeta su palabra.**
+Estado medido el **2026-09-30**:
+
+| Caso | `veredicto_final` | Qué hace la app |
+|---|---|---|
+| VirusTotal reporta detecciones | `SOSPECHOSO` (decide F2.2) | Lo usa tal cual |
+| F2.1 da puntaje alto | `SOSPECHOSO` (decide F2.1) | Lo usa tal cual |
+| Nada reporta nada | **`PENDIENTE`** | Deriva el veredicto del puntaje |
+
+El caso `PENDIENTE` sigue siendo el más común —`github.com` y `google.com` caen
+ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos dirían
+"incierto" y los veredictos serían indemostrables.
+
+> **Techo conocido:** hoy el backend **nunca devuelve `MALICIOSO`**, ni con 18
+> motores de VirusTotal marcando el sitio. Ver §8.
 
 Respuesta real del endpoint (verificada el 2026-09-20):
 
@@ -415,9 +426,17 @@ Respuesta real del endpoint (verificada el 2026-09-20):
     { "criterio": "sin_https",  "peso": 15, "detalle": "La URL no usa HTTPS" },
     { "criterio": "palabra_clave_sospechosa", "peso": 15, "detalle": "Palabra detectada: \"login\"" }
   ],
-  "indicadores_f2_2": []
+  "indicadores_f2_2": [],
+  "screenshot_url": "https://qrisk-screenshots-….s3.amazonaws.com/….png?X-Amz-Expires=3600"
 }
 ```
+
+**Sobre `screenshot_url` (F2.3):** es una captura real del sitio tomada en el
+entorno aislado del backend. Se muestra en el detalle como **imagen estática**,
+nunca en un WebView: una página en un WebView podría ejecutar código y hacerse
+pasar por una pantalla de la app. La URL **caduca en una hora**, así que
+[historyStorage.ts](src/services/storage/historyStorage.ts) la descarta al
+guardar — si se persistiera, el historial se llenaría de enlaces muertos.
 
 Así que la app deriva el veredicto del puntaje, con los cortes de
 [verdictThresholds.ts](src/services/analysis/verdictThresholds.ts):
@@ -444,7 +463,7 @@ borrar `verdictThresholds.ts`.
 ### Tests unitarios
 
 ```bash
-npm test               # 200 tests, 19 suites
+npm test               # 208 tests, 19 suites
 npm run test:coverage  # reporte de cobertura
 npm run test:watch     # durante el desarrollo
 ```
@@ -454,7 +473,7 @@ pide la métrica), con umbral de 70% que **corta el build** si no se cumple.
 Las pantallas quedan fuera a propósito: se validan en dispositivo y en las
 pruebas de usabilidad.
 
-Estado actual: **200 tests en verde** (19 suites), 99.4% statements, **100% lines**,
+Estado actual: **208 tests en verde** (19 suites), 99.4% statements, **100% lines**,
 97.8% branches. Muy por encima del umbral de 70% que corta el build.
 
 ### Pruebas en teléfono físico
@@ -498,11 +517,12 @@ Para que nadie tenga que adivinar el estado real:
 | Verificación | Resultado |
 |---|---|
 | `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ 200 tests, 19 suites, todo verde |
+| `npm test` | ✅ 208 tests, 19 suites, todo verde |
 | Cobertura de `src/services` | ✅ 99.4% statements, **100% lines** (umbral 70%) |
 | `npx expo export --platform android` | ✅ Exit 0. **El código JS de toda la app compila** para Android |
 | **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador: `github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |
-| Latencia del endpoint | ✅ Medida 6 veces: 5.5 s la primera (arranque en frío), 1.6–3.1 s las siguientes. Por eso el tope es 12 s |
+| Latencia del endpoint | ⚠️ Medida de nuevo el **2026-09-30**: **14.2–14.5 s en una URL nueva**, 0.3 s si está en caché. Por eso el tope subió a 25 s y la pantalla avisa a los 8 s |
+| Captura de F2.3 | ✅ Verificada: el `screenshot_url` descarga un PNG real (HTTP 200, 70 KB, firma válida 1 h) |
 | Build nativo (`gradlew assembleDebug`) | ❌ **No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build** |
 | App corriendo en un teléfono | ❌ **No verificado.** No hay dispositivo ni emulador conectado a esta máquina (`adb devices` vacío) |
 | Cámara, GPS, galería, compartir | ❌ **No verificado.** Requieren hardware: ver [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) |
@@ -719,34 +739,43 @@ apagado, la conserva en el `AnalysisResult`. Solo la pantalla decide no pintarla
 
 Por prioridad, con lo que desbloquea cada uno.
 
-1. **El backend no concluye el veredicto: responde `"PENDIENTE"` a todo**,
-   incluso a `google.com`. El puntaje y los criterios sí los calcula bien, así
-   que la app deduce el veredicto del `score_heuristico` (§5.2). Funciona, pero
-   los cortes los está poniendo el frontend y deberían ser del backend.
-   → **Desbloquea:** Fabi. Solo le falta mapear su propio puntaje a
-   `SEGURO`/`SOSPECHOSO`/`MALICIOSO` en `veredicto_final`. En cuanto lo haga, la
-   app prefiere su veredicto automáticamente y se puede borrar
-   [verdictThresholds.ts](src/services/analysis/verdictThresholds.ts).
-   Conviene pasarle también dos detalles menores: `indicadores_f2_2` siempre
-   llega vacío, y el campo `mensaje` viene con el encoding roto (`aÃºn` en vez
-   de `aún`) — este último no afecta porque la app no usa ese campo.
+1. **El backend nunca devuelve `MALICIOSO`.** Verificado el 2026-09-30: ni con
+   **18 motores de VirusTotal** marcando el sitio (`malware.wicar.org`), ni con
+   puntaje heurístico 80 (`paypal.com.seguridad-verificacion.top`). El techo es
+   `SOSPECHOSO`.
+   → **Impacto:** la métrica *"detección de maliciosos ≥90%"* da **0% por
+   construcción**, no por fallo de detección.
+   → **Desbloquea:** Fabi. Propuesta: ≥3 motores maliciosos → `MALICIOSO`;
+   y que un puntaje ≥60 de F2.1 también lo dé.
 
-   > **Resuelto el 2026-09-20:** el endpoint devolvía HTTP 500 a toda URL
-   > válida. Ya responde 200 en 1.6–5.5 s. Por eso se eliminó el mock.
+2. **El backend tarda ~14.5 s en una URL nueva.** Medido el 2026-09-30 sobre
+   cinco URLs nunca vistas: 14.2–14.5 s. Si ya la tiene en caché, 0.3 s. El
+   salto coincide con la aparición de F2.3 (la captura abre un navegador
+   headless). La app subió su tope a 25 s para no cortar análisis buenos, pero
+   **15 segundos mirando una pantalla de carga es mucho**.
+   → **Mitigado de este lado:** a los 8 s la pantalla avisa que está tardando.
+   → **Desbloquea:** Fabi. Generar la captura en paralelo con los otros
+   filtros, o devolver el veredicto primero y la captura aparte.
 
-2. **Generar el APK.** El build local de Gradle se cuelga en esta máquina (dos
+3. **`PENDIENTE` cuando el sitio está limpio.** Si F2.1 da 0 y VirusTotal no
+   reporta nada, eso es evidencia de limpio, no de desconocido. Hoy
+   `github.com` devuelve `PENDIENTE`, y es **imposible obtener `SEGURO`** sin
+   pasarle `resultadoF1` a mano. La app lo suple derivando del puntaje (§5.2).
+   → **Desbloquea:** Fabi.
+
+4. **Generar el APK.** El build local de Gradle se cuelga en esta máquina (dos
    intentos el 2026-09-20, ninguno produjo artefacto; ver la nota de §4). No es
    del código: el bundle JS exporta limpio. `eas.json` ya está configurado, así
    que el camino es `eas build -p android --profile preview`.
    → **Desbloquea:** una cuenta de Expo (gratuita) para `eas login`. Es el único
    requisito para el APK de `preview`.
 
-3. **Correr la prueba 1.4** (T_scan y TDR). Es la única métrica de escaneo que
+5. **Correr la prueba 1.4** (T_scan y TDR). Es la única métrica de escaneo que
    falta y decide si se sigue con `expo-camera` o se migra a
    `react-native-vision-camera`.
    → **Desbloquea:** un teléfono Android físico y 30 QRs impresos.
 
-4. **iOS: fuera del alcance de esta entrega.** No es un pendiente — la entrega
+6. **iOS: fuera del alcance de esta entrega.** No es un pendiente — la entrega
    es **solo Android**, por decisión explícita y por no disponer de una Mac.
    Todo lo que no requiere macOS quedó configurado y **no se borró nada**:
    `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de
@@ -754,27 +783,20 @@ Por prioridad, con lo que desbloquea cada uno.
    están en [ios_en_la_mac.md](TAREAS_POR_HACER/ios_en_la_mac.md) y hacen falta
    una Mac más una cuenta Apple Developer (US$99/año).
 
-5. **El endpoint `/reports` no existe.** El cliente está hecho y testeado.
+7. **El endpoint `/reports` no existe.** El cliente está hecho y testeado.
    → **Desbloquea:** Fabi.
 
-6. **Los 8 puntos abiertos del contrato** (`endpoints_api.txt`): un endpoint por
+8. **Los 8 puntos abiertos del contrato** (`endpoints_api.txt`): un endpoint por
    filtro o uno bloqueante, quién compone `badgeText`, TTL de la URL de S3,
    polling o SSE, etc. Mientras no se cierren, el adaptador apunta al
    comportamiento **real observado**, no al contrato en papel.
    → **Desbloquea:** la reunión del hito M1.
 
-7. **Reponer la vista previa (F2.3)** cuando exista el backend. Hoy está quitada
-   de la app a propósito: anunciaba una captura inexistente. Volverla a poner son
-   tres pasos (ver la fila de F2.3 en §5) más renderizar la imagen honrando
-   `expiresAt`, o un vacío elegante si venció. El contrato sigue vigente en
-   `TAREAS_POR_HACER/endpoints_api.txt` §1.5.
-   → **Desbloquea:** que el backend mande la URL firmada.
-
-8. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
+9. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
    finalización del flujo y T_learn.
    → **Desbloquea:** agendar a los participantes.
 
-9. **Sin detección de conectividad.** La app no distingue "modo avión" de
+10. **Sin detección de conectividad.** La app no distingue "modo avión" de
    "servidor caído": las dos degradan a `incierto` con el mismo mensaje
    genérico. Es honesto pero poco específico. Distinguirlas pide una dependencia
    nueva (`@react-native-community/netinfo`), que quedó fuera del alcance de
@@ -810,7 +832,7 @@ Decisiones conscientes de **no** arreglar en esta entrega:
   el que pasa **todo** escaneo y el riesgo de romperlo hoy supera al del bug,
   que nadie ha observado.
 - **`timeouts.total` (35 s) está definido y nunca se usa.** El presupuesto por
-  petición (12 s) sí se aplica; el de la cascada completa no tiene sentido hasta
+  petición (25 s) sí se aplica; el de la cascada completa no tiene sentido hasta
   que haya más de un filtro corriendo.
 - **`paddingBottom: 24` fijo en el pie de las 7 pantallas**, que se suma al
   `insets.bottom` que ya aplica `Screen`. En un Android con navegación por
@@ -823,7 +845,7 @@ Decisiones conscientes de **no** arreglar en esta entrega:
 - **Sin respaldo si el backend se cae.** Al eliminar el mock, la app depende por
   completo del endpoint. Degrada a "incierto" honesto en vez de romperse, pero
   no hay demo alternativa. Fue una decisión explícita.
-- **El `timeout` de análisis es de 12 s, no de los 5 s de la métrica T_F1.** No
-  es lo mismo: T_F1 mide lo que tarda el backend, no cuándo la app se rinde. Con
-  5 s, la primera llamada de cada sesión (arranque en frío de Lambda: 5.5 s
-  medidos) se cortaba sola y degradaba un análisis bueno a "incierto".
+- **El `timeout` de análisis es de 25 s, no de los 5 s de la métrica T_F1.** No
+  es lo mismo: T_F1 mide lo que tarda el backend, no cuándo la app se rinde. El
+  backend tarda 14.5 s en una URL nueva (§8.2), así que cortar antes convertiría
+  análisis buenos en "inciertos". Hay que bajarlo cuando Fabi mejore la latencia.

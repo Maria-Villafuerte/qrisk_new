@@ -47,6 +47,11 @@ export interface RemoteAnalysisResponse {
   criterios_f2_1?: RemoteCriterion[];
   /** Indicadores de comportamiento. Hasta hoy siempre llego vacio. */
   indicadores_f2_2?: RemoteCriterion[];
+  /**
+   * F2.3: captura del sitio en el entorno aislado. URL firmada de S3 que
+   * caduca en 1 hora. No siempre viene: el backend la omite si fallo.
+   */
+  screenshot_url?: string;
   // Campos del contrato, por si el backend se alinea antes que esta app.
   domain?: string;
   verdict?: string;
@@ -276,6 +281,9 @@ export function adaptAnalysisResponse(
           : NEUTRAL_RISK_SCORE,
     sections,
     ...(response.scanId ? { scanId: response.scanId } : {}),
+    // La captura solo se incluye si vino: una clave presente con undefined
+    // haria que el historial guardara un campo muerto.
+    ...(response.screenshot_url ? { screenshotUrl: response.screenshot_url } : {}),
     ...(degraded ? { degraded: true } : {}),
     ...(response.pending?.length ? { pending: response.pending } : {}),
   };
