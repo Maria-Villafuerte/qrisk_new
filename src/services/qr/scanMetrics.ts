@@ -80,10 +80,16 @@ export function markScanDetected(data: string): number | null {
  */
 export function markScanFailed(count = 1): void {
   failedCount += Math.max(0, Math.trunc(count));
-  // Se cancela cualquier medicion abierta: ese cronometro ya no corresponde a
-  // ninguna lectura, y si quedara vivo contaminaria la siguiente muestra con
-  // el tiempo que se paso peleando con el QR anterior.
-  startedAt = null;
+
+  // REARRANCA el cronometro, no lo cancela. Es la diferencia entre medir y no
+  // medir: durante la prueba 1.4 no se sale del escaner entre codigo y codigo,
+  // y `markScanStarted()` solo corre cuando la pantalla recupera el foco. Si
+  // aqui se dejara en null, la siguiente lectura buena devolveria null y la
+  // muestra se perderia en silencio.
+  //
+  // Y tiene que ser un reinicio, no dejarlo correr: el tiempo que se paso
+  // peleando con el QR fallido no es parte de la lectura siguiente.
+  startedAt = Date.now();
 }
 
 /** Copia de las muestras de la sesion. */

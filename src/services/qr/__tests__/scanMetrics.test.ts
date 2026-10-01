@@ -208,13 +208,29 @@ describe('TDR', () => {
     expect(s.meetsTdr).toBe(false);
   });
 
-  it('un fallo cancela la medicion abierta', () => {
-    // Si el cronometro siguiera corriendo, el tiempo que se paso peleando con
-    // el QR fallido se le sumaria a la siguiente lectura.
+  it('un fallo rearranca el cronometro en vez de cancelarlo', () => {
+    // Durante la prueba 1.4 no se sale del escaner entre codigo y codigo, y
+    // `markScanStarted()` solo corre al recuperar el foco. Si un fallo dejara
+    // el cronometro muerto, la siguiente lectura buena no se mediria y la
+    // muestra se perderia en silencio.
     markScanStarted();
     markScanFailed();
-    expect(markScanDetected('https://x.com')).toBeNull();
-    expect(summarizeScanMetrics().count).toBe(0);
+
+    expect(markScanDetected('https://x.com')).not.toBeNull();
+    expect(summarizeScanMetrics().count).toBe(1);
+  });
+
+  it('el tiempo del QR fallido no se le suma a la lectura siguiente', () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    // t=0 empieza; a t=9000 se da por fallido; la lectura buena cierra a
+    // t=9500, asi que debe medir 500 ms, no 9500.
+    nowSpy.mockReturnValueOnce(0).mockReturnValueOnce(9000).mockReturnValueOnce(9500);
+    markScanStarted();
+    markScanFailed();
+    const elapsed = markScanDetected('https://x.com');
+    nowSpy.mockRestore();
+
+    expect(elapsed).toBe(500);
   });
 
   it('resetScanSamples tambien borra los fallos', () => {
