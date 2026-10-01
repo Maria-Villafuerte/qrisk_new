@@ -463,7 +463,7 @@ borrar `verdictThresholds.ts`.
 ### Tests unitarios
 
 ```bash
-npm test               # 208 tests, 19 suites
+npm test               # 218 tests, 19 suites
 npm run test:coverage  # reporte de cobertura
 npm run test:watch     # durante el desarrollo
 ```
@@ -473,7 +473,7 @@ pide la métrica), con umbral de 70% que **corta el build** si no se cumple.
 Las pantallas quedan fuera a propósito: se validan en dispositivo y en las
 pruebas de usabilidad.
 
-Estado actual: **208 tests en verde** (19 suites), 99.4% statements, **100% lines**,
+Estado actual: **218 tests en verde** (19 suites), 99.4% statements, **100% lines**,
 97.8% branches. Muy por encima del umbral de 70% que corta el build.
 
 ### Pruebas en teléfono físico
@@ -494,16 +494,24 @@ de Metro:
 [T_scan] 842 ms · OK · muestra 1 · android
 ```
 
-Y el resumen se saca desde el debugger:
+Y el resumen —**las dos métricas, ya calculadas**— se saca desde el debugger:
 
 ```js
 import { summarizeScanMetrics } from './src/services/qr/scanMetrics';
 summarizeScanMetrics();
-// { count, medianMs, p90Ms, maxMs, meetsTarget }
+// { count, failed, presented, medianMs, p90Ms, maxMs,
+//   tdrPct, meetsTarget, meetsTdr }
 ```
 
-`meetsTarget` aplica el criterio de ≤ 5 s al p90. `resetScanSamples()` separa
-tandas. Las muestras viven en memoria: se pierden al recargar.
+`meetsTarget` aplica el criterio T_scan p90 ≤ 5 s; `meetsTdr`, el de TDR ≥ 95 %.
+
+> **Los QRs que NO se leen hay que anotarlos**: `markScanFailed()` desde el
+> debugger cada vez que te rindas con un código. La app no puede saber sola que
+> hubo un QR enfrente que nunca decodificó, y sin ese dato el TDR da 100 % y
+> miente.
+
+`resetScanSamples()` separa tandas (borra tiempos y fallos). Las muestras viven
+en memoria: se pierden al recargar.
 
 > **Por qué p90 y no el promedio ni el máximo:** una sola lectura lenta no debe
 > descalificar la app, pero tampoco se puede esconder en un promedio. Hay un
@@ -517,7 +525,7 @@ Para que nadie tenga que adivinar el estado real:
 | Verificación | Resultado |
 |---|---|
 | `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ 208 tests, 19 suites, todo verde |
+| `npm test` | ✅ 218 tests, 19 suites, todo verde |
 | Cobertura de `src/services` | ✅ 99.4% statements, **100% lines** (umbral 70%) |
 | `npx expo export --platform android` | ✅ Exit 0. **El código JS de toda la app compila** para Android |
 | **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador: `github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |

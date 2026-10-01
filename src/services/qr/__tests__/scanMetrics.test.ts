@@ -1,10 +1,12 @@
 import {
   getScanSamples,
   markScanDetected,
+  markScanFailed,
   markScanStarted,
   resetScanSamples,
   summarizeScanMetrics,
   T_SCAN_TARGET_MS,
+  TDR_TARGET_PCT,
 } from '../scanMetrics';
 
 /**
@@ -72,6 +74,12 @@ describe('summarizeScanMetrics', () => {
       p90Ms: 0,
       maxMs: 0,
       meetsTarget: false,
+      // El TDR se suma al resumen desde que la prueba 1.4 lo necesita: sin
+      // nada presentado es 0%, nunca un 100% enganoso.
+      failed: 0,
+      presented: 0,
+      tdrPct: 0,
+      meetsTdr: false,
     });
   });
 
@@ -126,5 +134,97 @@ describe('summarizeScanMetrics', () => {
   it('cumple la metrica justo en el limite de 5s', () => {
     for (let i = 0; i < 10; i++) record(T_SCAN_TARGET_MS);
     expect(summarizeScanMetrics().meetsTarget).toBe(true);
+  });
+});
+
+/**
+ * TDR (tasa de deteccion) de la prueba 1.4: detectados / presentados.
+ *
+ * La app no puede saber sola que hubo un QR enfrente que no logro leer, asi
+ * que los fallos los anota quien corre la prueba. Sin este contador habria que
+ * llevar la cuenta en papel mientras se escanean 30 codigos.
+ */
+describe('TDR', () => {
+  beforeEach(() => resetScanSamples());
+
+  /** Simula una lectura correcta. */
+  const leer = () => {
+    markScanStarted();
+    markScanDetected('https://ejemplo.com');
+  };
+
+  it('es 100% si todo se leyo', () => {
+    leer();
+    leer();
+    const s = summarizeScanMetrics();
+    expect(s.tdrPct).toBe(100);
+    expect(s.presented).toBe(2);
+    expect(s.meetsTdr).toBe(true);
+  });
+
+  it('cuenta los fallos en el denominador', () => {
+    leer();
+    markScanFailed();
+    const s = summarizeScanMetrics();
+    expect(s.count).toBe(1);
+    expect(s.failed).toBe(1);
+    expect(s.presented).toBe(2);
+    expect(s.tdrPct).toBe(50);
+  });
+
+  it('permite anotar varios fallos de una vez', () => {
+    leer();
+    markScanFailed(3);
+    expect(summarizeScanMetrics().failed).toBe(3);
+  });
+
+  it('redondea a un decimal, como la tabla de la prueba', () => {
+    // 29 de 30 = 96.666…% -> 96.7%
+    for (let i = 0; i < 29; i += 1) leer();
+    markScanFailed();
+    expect(summarizeScanMetrics().tdrPct).toBe(96.7);
+  });
+
+  it('aplica el criterio de >= 95%', () => {
+    // 19 de 20 = 95% exacto: cumple.
+    for (let i = 0; i < 19; i += 1) leer();
+    markScanFailed();
+    const s = summarizeScanMetrics();
+    expect(s.tdrPct).toBe(TDR_TARGET_PCT);
+    expect(s.meetsTdr).toBe(true);
+  });
+
+  it('no cumple por debajo del criterio', () => {
+    // 9 de 10 = 90%.
+    for (let i = 0; i < 9; i += 1) leer();
+    markScanFailed();
+    expect(summarizeScanMetrics().meetsTdr).toBe(false);
+  });
+
+  it('sin nada presentado no da un 100% enganoso', () => {
+    const s = summarizeScanMetrics();
+    expect(s.presented).toBe(0);
+    expect(s.tdrPct).toBe(0);
+    expect(s.meetsTdr).toBe(false);
+  });
+
+  it('un fallo cancela la medicion abierta', () => {
+    // Si el cronometro siguiera corriendo, el tiempo que se paso peleando con
+    // el QR fallido se le sumaria a la siguiente lectura.
+    markScanStarted();
+    markScanFailed();
+    expect(markScanDetected('https://x.com')).toBeNull();
+    expect(summarizeScanMetrics().count).toBe(0);
+  });
+
+  it('resetScanSamples tambien borra los fallos', () => {
+    markScanFailed(5);
+    resetScanSamples();
+    expect(summarizeScanMetrics().failed).toBe(0);
+  });
+
+  it('ignora un conteo negativo', () => {
+    markScanFailed(-3);
+    expect(summarizeScanMetrics().failed).toBe(0);
   });
 });

@@ -25,6 +25,16 @@ export const T_SCAN_TARGET_MS = 5000;
 /** Muestras de la sesion. No se persisten: la prueba 1.4 es de una sentada. */
 const samples: ScanSample[] = [];
 
+/**
+ * QRs que se presentaron a la camara y NO se pudieron leer.
+ *
+ * El TDR es detectados / presentados, asi que sin este contador la metrica
+ * habria que llevarla a mano en papel mientras se escanean 30 codigos. Lo
+ * registra quien hace la prueba, con `markScanFailed()`, porque la app no
+ * puede saber que hubo un QR enfrente si nunca lo decodifico.
+ */
+let failedCount = 0;
+
 let startedAt: number | null = null;
 
 /** Arranca el cronometro. Lo llama el escaner cada vez que queda listo. */
@@ -61,6 +71,21 @@ export function markScanDetected(data: string): number | null {
   return elapsedMs;
 }
 
+/**
+ * Registra un QR que se presento y no se pudo leer. Lo llama quien corre la
+ * prueba 1.4 desde el depurador, cuando se rinde con un codigo.
+ *
+ * `after` permite anotar varios de golpe si se conto a mano: por ejemplo
+ * `markScanFailed(3)` al final de una tanda.
+ */
+export function markScanFailed(count = 1): void {
+  failedCount += Math.max(0, Math.trunc(count));
+  // Se cancela cualquier medicion abierta: ese cronometro ya no corresponde a
+  // ninguna lectura, y si quedara vivo contaminaria la siguiente muestra con
+  // el tiempo que se paso peleando con el QR anterior.
+  startedAt = null;
+}
+
 /** Copia de las muestras de la sesion. */
 export function getScanSamples(): ScanSample[] {
   return [...samples];
@@ -69,6 +94,7 @@ export function getScanSamples(): ScanSample[] {
 /** Vacia las muestras, para separar tandas de prueba. */
 export function resetScanSamples(): void {
   samples.length = 0;
+  failedCount = 0;
   startedAt = null;
 }
 
@@ -84,6 +110,9 @@ function percentile(sorted: number[], p: number): number {
   return sorted[low] + (sorted[high] - sorted[low]) * (rank - low);
 }
 
+/** Tope de la metrica del anteproyecto: TDR >= 95%. */
+export const TDR_TARGET_PCT = 95;
+
 export interface ScanMetricsSummary {
   /** Lecturas correctas registradas. */
   count: number;
@@ -93,15 +122,33 @@ export interface ScanMetricsSummary {
   maxMs: number;
   /** Si el p90 cumple el criterio de corte de la tarea 1.4. */
   meetsTarget: boolean;
+  /** QRs que se presentaron y no se pudieron leer (`markScanFailed`). */
+  failed: number;
+  /** Leidos + fallidos. Es el denominador del TDR. */
+  presented: number;
+  /** Tasa de deteccion, 0-100 con un decimal. 0 si no se presento nada. */
+  tdrPct: number;
+  /** Si el TDR cumple el criterio de >= 95%. */
+  meetsTdr: boolean;
 }
 
 /**
- * Resume las muestras de la sesion. El TDR no se calcula aqui: depende de
- * cuantos QRs se presentaron y eso solo lo sabe quien hace la prueba.
+ * Resume las muestras de la sesion: las dos metricas de la prueba 1.4 de una
+ * sola llamada, para no tener que calcular nada a mano con el telefono en la
+ * otra mano.
+ *
+ * El TDR solo sale bien si los fallos se fueron anotando con
+ * `markScanFailed()`: la app no puede saber que hubo un QR enfrente si nunca
+ * llego a decodificarlo. Sin anotarlos, `tdrPct` da 100% y miente.
  */
 export function summarizeScanMetrics(): ScanMetricsSummary {
   const sorted = samples.map((sample) => sample.elapsedMs).sort((a, b) => a - b);
   const p90Ms = percentile(sorted, 0.9);
+
+  const presented = sorted.length + failedCount;
+  // Se redondea a un decimal: 29/30 es 96.666…%, y en la tabla de la prueba
+  // se anota 96.7%.
+  const tdrPct = presented === 0 ? 0 : Math.round((sorted.length / presented) * 1000) / 10;
 
   return {
     count: sorted.length,
@@ -109,5 +156,9 @@ export function summarizeScanMetrics(): ScanMetricsSummary {
     p90Ms,
     maxMs: sorted.length ? sorted[sorted.length - 1] : 0,
     meetsTarget: sorted.length > 0 && p90Ms <= T_SCAN_TARGET_MS,
+    failed: failedCount,
+    presented,
+    tdrPct,
+    meetsTdr: presented > 0 && tdrPct >= TDR_TARGET_PCT,
   };
 }

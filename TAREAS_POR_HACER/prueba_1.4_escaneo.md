@@ -87,22 +87,49 @@ siguiente: ese fallo cuenta contra el TDR.)
 
 ## Cómo se calculan los resultados
 
-**TDR** = detectados ÷ 30 × 100
+**No hace falta calcular nada a mano.** La app lleva las dos métricas, pero
+hay que anotarle los fallos: no puede saber sola que hubo un QR enfrente que
+nunca llegó a leer.
 
-**T_scan p90**: ordenar los tiempos de menor a mayor y tomar el que deja al
-90 % por debajo. Con 30 muestras es el valor en la posición 27.
+### Durante la prueba
 
-En vez de calcularlo a mano, desde el depurador de Metro:
+Cada QR que **sí** se lee se registra solo. Cada QR que **no** se logra leer
+(te rendiste tras ~10 s) hay que anotarlo desde el depurador de Metro:
+
+```js
+import { markScanFailed } from './src/services/qr/scanMetrics';
+markScanFailed();        // un QR que no se pudo leer
+markScanFailed(3);       // o tres de golpe, si los contaste aparte
+```
+
+> **Si no anotás los fallos, el TDR va a dar 100 % y va a estar mal.**
+> Es el único dato que la app no puede deducir.
+
+### Al terminar
 
 ```js
 import { summarizeScanMetrics } from './src/services/qr/scanMetrics';
 summarizeScanMetrics();
-// { count, medianMs, p90Ms, maxMs, meetsTarget }
+// {
+//   count: 29, failed: 1, presented: 30,
+//   medianMs: 820, p90Ms: 1900, maxMs: 4100,
+//   tdrPct: 96.7, meetsTarget: true, meetsTdr: true
+// }
 ```
 
-`meetsTarget` aplica directamente el criterio de ≤ 5 s.
+Eso llena la sección **Resultado** de abajo directamente:
 
-Para separar tandas de prueba: `resetScanSamples()`.
+| Campo del resumen | Va en |
+|---|---|
+| `tdrPct` · `meetsTdr` | TDR (criterio ≥ 95 %) |
+| `p90Ms` · `meetsTarget` | T_scan p90 (criterio ≤ 5000 ms) |
+| `medianMs` | T_scan mediana |
+
+**Las fórmulas, por si hay que revisarlas a mano:** TDR = detectados ÷
+presentados × 100. T_scan p90 = ordenar los tiempos y tomar el que deja al
+90 % por debajo; con 30 muestras es el de la posición 27.
+
+Para separar tandas de prueba: `resetScanSamples()` (borra tiempos y fallos).
 
 Nota: las muestras viven en memoria y se pierden al recargar la app. Conviene
 anotar los tiempos en la tabla conforme salen, no confiar en leerlos al final.
