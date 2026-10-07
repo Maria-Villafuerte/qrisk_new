@@ -14,7 +14,11 @@ describe('ENABLED_FILTERS', () => {
     expect(ENABLED_FILTERS).toEqual(['reputation']);
   });
 
-  it('no anuncia F2.1 ni F2.2: no existen en el backend', () => {
+  // El backend SI implementa F2.1 y F2.2 (verificado el 2026-10-01). Lo que no
+  // hace es reportarlos como etapas separadas, que es lo que haria falta para
+  // anunciarlos aqui. Sus señales se muestran igual, dentro de la seccion
+  // activa: ver el adaptador y los tests de indicadores de F2.2.
+  it('no los anuncia por separado: el backend no los reporta como etapas', () => {
     expect(ENABLED_FILTERS).not.toContain('heuristics');
     expect(ENABLED_FILTERS).not.toContain('behavior');
   });

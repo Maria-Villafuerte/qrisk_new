@@ -8,11 +8,22 @@ import type { AnalysisStageKey } from './types';
  * cualquiera de esas claves y el adaptador la respeta—, este es una decision de
  * producto sobre que se muestra hoy.
  *
- * Hoy solo esta activo F1. F2.1 y F2.2 no existen en el backend —el propio
- * endpoint responde "F2.1 aun no implementado (S7)"—, asi que anunciarlos
- * significa pintar un acordeon "SIN COMPLETAR" que nunca se va a completar y
- * una etapa de carga que miente sobre lo que esta pasando. Se prefiere ensenar
- * un filtro honesto que tres, dos de ellos decorativos.
+ * Hoy solo esta activa una entrada. OJO CON EL PORQUE, que cambio:
+ *
+ * F2.1 y F2.2 SI EXISTEN en el backend —verificado el 2026-10-01: devuelve
+ * `criterios_f2_1` poblados y `indicadores_f2_2` con el recuento de motores de
+ * VirusTotal—. Lo que no hace es reportarlos como ETAPAS SEPARADAS: manda una
+ * sola respuesta plana con todo dentro, sin decir que filtro corrio cuando.
+ *
+ * Por eso siguen apagados aqui. Encenderlos pintaria tres acordeones y tres
+ * etapas de carga para una sola respuesta: la pantalla diria "Observando el
+ * comportamiento en entorno aislado..." como si fuera un paso aparte que se
+ * puede ver empezar y terminar, y no lo es. Lo que SI llega de esos filtros no
+ * se pierde: `adaptAnalysis.ts` junta las dos listas en la seccion activa, asi
+ * que la evidencia de VirusTotal se muestra aunque 'behavior' este apagado.
+ *
+ * Se prefiere ensenar una seccion honesta con todas las señales dentro, que
+ * tres secciones que fingen una cascada que el backend no reporta.
  *
  * COMO REACTIVAR UN FILTRO:
  *   1. Descomentar su linea en `ENABLED_FILTERS`, aqui abajo.

@@ -103,8 +103,10 @@ describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
   });
 
   it('conserva el titulo de cada seccion rellenada', () => {
+    // Mismo titulo que la seccion completada: no puede cambiar de nombre
+    // segun si el analisis llego al final o no.
     const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
-    expect(result.sections[0].title).toBe('Reputación');
+    expect(result.sections[0].title).toBe('Análisis del enlace');
   });
 
   it('usa la URL pedida si la respuesta no la trae', () => {
@@ -396,5 +398,244 @@ describe('adaptAnalysisResponse · captura de pantalla (F2.3)', () => {
   it('la captura no cambia el veredicto', () => {
     // Es informacion para que la persona mire, no una señal de riesgo.
     expect(adaptAnalysisResponse(conCaptura, 'https://ejemplo.com').verdict).toBe('seguro');
+  });
+});
+
+/**
+ * F2.2: los indicadores de comportamiento, que hoy son VirusTotal.
+ *
+ * POR QUE ESTE BLOQUE EXISTE. El adaptador declaraba `indicadores_f2_2` en su
+ * interfaz y nunca lo leia, asi que la evidencia mas fuerte que produce el
+ * sistema no llegaba a la pantalla: un sitio que 18 motores marcan como
+ * malicioso se veia con una sola alerta, "La URL no usa HTTPS".
+ */
+describe('adaptAnalysisResponse · indicadores de comportamiento (F2.2)', () => {
+  /**
+   * Respuesta LITERAL del endpoint para `malware.wicar.org`, capturada el
+   * 2026-10-01. No es inventada: si el backend cambia de forma, este test se
+   * cae y avisa.
+   */
+  const conVirusTotal = {
+    url: 'http://malware.wicar.org/data/eicar.com',
+    dominio: 'malware.wicar.org',
+    veredicto_final: 'SOSPECHOSO',
+    filtro_decisivo: 'F2.2',
+    score_heuristico: 15,
+    criterios_f2_1: [{ criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' }],
+    indicadores_f2_2: [
+      {
+        indicador: 'virustotal_motores_maliciosos',
+        detalle: '18 motores lo marcan como malicioso',
+      },
+      {
+        indicador: 'virustotal_motores_sospechosos',
+        detalle: '1 motores lo marcan como sospechoso',
+      },
+    ],
+  };
+
+  it('muestra los indicadores de VirusTotal, que antes se perdian', () => {
+    const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
+
+    expect(result.sections[0].findings.map((f) => f.text)).toContain(
+      '18 motores lo marcan como malicioso',
+    );
+  });
+
+  it('pinta las dos listas juntas: primero la heuristica, luego el comportamiento', () => {
+    const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
+
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
+      'La URL no usa HTTPS',
+      '18 motores lo marcan como malicioso',
+      '1 motores lo marcan como sospechoso',
+    ]);
+  });
+
+  it('cuenta los indicadores en la insignia junto con los criterios', () => {
+    // Antes decia "1 ALERTA" teniendo tres señales que mostrar.
+    expect(adaptAnalysisResponse(conVirusTotal, conVirusTotal.url).sections[0].badgeText)
+      .toBe('3 ALERTAS');
+  });
+
+  it('el veredicto lo sigue decidiendo el backend, no los indicadores', () => {
+    // Mostrar mas evidencia no es recalcular el veredicto: el backend dijo
+    // SOSPECHOSO y su palabra manda (ver `backendConcluded`).
+    const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
+    expect(result.verdict).toBe('sospechoso');
+    expect(result.riskScore).toBe(15);
+  });
+
+  it('con indicadores pero sin criterios NO cae en "SIN COMPLETAR"', () => {
+    // El backend puede concluir por F2.2 sin que la heuristica marque nada.
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        criterios_f2_1: [],
+        indicadores_f2_2: [{ detalle: '5 motores lo marcan como malicioso' }],
+      },
+      'http://x.com',
+    );
+
+    expect(result.sections[0].badgeText).toBe('1 ALERTA');
+    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
+      '5 motores lo marcan como malicioso',
+    ]);
+  });
+
+  it('sin la clave de criterios, los indicadores solos bastan para armar la seccion', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'SOSPECHOSO', indicadores_f2_2: [{ detalle: 'algo raro' }] },
+      'http://x.com',
+    );
+
+    expect(result.sections.some((s) => s.badgeText === 'SIN COMPLETAR')).toBe(false);
+    expect(result.sections[0].findings.map((f) => f.text)).toEqual(['algo raro']);
+  });
+
+  it('una lista de indicadores vacia se comporta como antes', () => {
+    // No regresion: es el caso de los tres QRs de la demostracion.
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'PENDIENTE',
+        score_heuristico: 40,
+        criterios_f2_1: [{ detalle: 'TLD sospechoso: .top' }],
+        indicadores_f2_2: [],
+      },
+      'http://x.top',
+    );
+
+    expect(result.sections[0].badgeText).toBe('1 ALERTA');
+    expect(result.verdict).toBe('sospechoso');
+  });
+});
+
+/**
+ * Un puntaje fuera de la escala 0-100 no puede pintar el medidor ni deducir un
+ * veredicto: significa que el backend cambio de escala, no que el sitio sea
+ * "mas que seguro" o "mas que malicioso".
+ */
+describe('adaptAnalysisResponse · puntaje fuera de la escala', () => {
+  it('un puntaje negativo no produce un falso "seguro"', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: -20 },
+      'https://x.com',
+    );
+
+    expect(result.verdict).toBe('incierto');
+    expect(result.verdict).not.toBe('seguro');
+    expect(result.degraded).toBe(true);
+  });
+
+  it('no deja el medidor fuera de 0-100', () => {
+    // La barra se dibuja sobre 100: un 150 la pintaria desbordada.
+    const alto = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 150 },
+      'https://x.com',
+    );
+    const bajo = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: -20 },
+      'https://x.com',
+    );
+
+    expect(alto.riskScore).toBe(50);
+    expect(bajo.riskScore).toBe(50);
+  });
+
+  it('tambien sanea el `riskScore` del contrato', () => {
+    const result = adaptAnalysisResponse(
+      { verdict: 'SOSPECHOSO', riskScore: 999 },
+      'https://x.com',
+    );
+    expect(result.riskScore).toBe(50);
+  });
+
+  it('los puntajes validos no se tocan', () => {
+    // No regresion: los tres QRs de la demostracion.
+    for (const [score, esperado] of [
+      [0, 'seguro'],
+      [40, 'sospechoso'],
+      [60, 'malicioso'],
+    ] as const) {
+      const r = adaptAnalysisResponse(
+        { veredicto_final: 'PENDIENTE', score_heuristico: score },
+        'https://x.com',
+      );
+      expect(r.riskScore).toBe(score);
+      expect(r.verdict).toBe(esperado);
+    }
+  });
+});
+
+/**
+ * `sections[]` es la forma del contrato que el endpoint todavia no manda. El
+ * dia que la mande, lo que llegue se pinta: una seccion mal formada reventaria
+ * la pantalla de detalle DESPUES de que la persona escaneo algo.
+ */
+describe('adaptAnalysisResponse · secciones del backend mal formadas', () => {
+  const buena = {
+    key: 'reputation',
+    title: 'R',
+    badgeText: '1 ALERTA',
+    badgeTone: 'warn',
+    findings: [{ tone: 'warn', text: 'algo' }],
+  };
+
+  it('descarta una seccion sin findings utilizables', () => {
+    const result = adaptAnalysisResponse(
+      {
+        verdict: 'SOSPECHOSO',
+        sections: [buena, { ...buena, findings: 'no soy un arreglo' }],
+      } as never,
+      'https://x.com',
+    );
+
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0].title).toBe('R');
+  });
+
+  it('descarta una seccion con un tono que la app no sabe pintar', () => {
+    const result = adaptAnalysisResponse(
+      { verdict: 'SOSPECHOSO', sections: [{ ...buena, badgeTone: 'explosivo' }] } as never,
+      'https://x.com',
+    );
+
+    // Sin secciones utilizables cae al relleno honesto, no a una pantalla rota.
+    expect(result.sections.every((s) => s.badgeTone === 'ok' || s.badgeTone === 'warn')).toBe(true);
+  });
+
+  it('descarta un hallazgo mal formado dentro de una seccion', () => {
+    const result = adaptAnalysisResponse(
+      {
+        verdict: 'SOSPECHOSO',
+        sections: [{ ...buena, findings: [{ tone: 'warn' }] }],
+      } as never,
+      'https://x.com',
+    );
+
+    expect(result.sections.every((s) => s.findings.every((f) => typeof f.text === 'string'))).toBe(
+      true,
+    );
+  });
+
+  it('no se queda sin nada que explicar si todas vienen rotas', () => {
+    const result = adaptAnalysisResponse(
+      { verdict: 'SOSPECHOSO', sections: [null, 'texto', 42] } as never,
+      'https://x.com',
+    );
+
+    expect(result.sections.length).toBeGreaterThan(0);
+    expect(result.sections[0].findings.length).toBeGreaterThan(0);
+  });
+
+  it('una seccion valida pasa intacta', () => {
+    // No regresion con la forma del contrato bien formada.
+    const result = adaptAnalysisResponse(
+      { verdict: 'SOSPECHOSO', sections: [buena] } as never,
+      'https://x.com',
+    );
+
+    expect(result.sections).toEqual([buena]);
   });
 });

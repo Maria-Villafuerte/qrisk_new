@@ -6,7 +6,7 @@ import type {
   Finding,
   VerdictKey,
 } from './types';
-import { verdictFromScore } from './verdictThresholds';
+import { SCORE_MAX, SCORE_MIN, verdictFromScore } from './verdictThresholds';
 
 /**
  * Adaptador entre la respuesta del backend y lo que pintan las pantallas.
@@ -45,7 +45,12 @@ export interface RemoteAnalysisResponse {
   score_heuristico?: number;
   /** Criterios que sumaron al puntaje. Vienen redactados en espanol. */
   criterios_f2_1?: RemoteCriterion[];
-  /** Indicadores de comportamiento. Hasta hoy siempre llego vacio. */
+  /**
+   * Indicadores de comportamiento (F2.2), hoy VirusTotal. Verificado el
+   * 2026-10-01: `malware.wicar.org` devuelve "18 motores lo marcan como
+   * malicioso". Se pintan junto a los criterios de F2.1 (ver
+   * `sectionFromCriteria`). Llega vacio cuando VirusTotal no reporta nada.
+   */
   indicadores_f2_2?: RemoteCriterion[];
   /**
    * F2.3: captura del sitio en el entorno aislado. URL firmada de S3 que
@@ -83,6 +88,21 @@ const VERDICT_MAP: Record<string, VerdictKey> = {
  */
 const NEUTRAL_RISK_SCORE = 50;
 
+/**
+ * El puntaje que pinta el medidor, saneado.
+ *
+ * El medidor es una barra 0-100: un puntaje fuera de escala la dibujaria
+ * desbordada (un 150 "mas que llena") o vacia de mas (un -20). Cuando el valor
+ * no esta en la escala que entendemos, se usa el neutro, que es lo mismo que
+ * hace `verdictFromScore` al negarse a deducir un veredicto de el: no se
+ * inventa precision que no se tiene, ni hacia arriba ni hacia abajo.
+ */
+function usableScore(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < SCORE_MIN || value > SCORE_MAX) return null;
+  return value;
+}
+
 /** Traduce el veredicto; lo desconocido cae en "incierto". */
 export function mapVerdict(raw: string | undefined): VerdictKey {
   if (!raw) return 'incierto';
@@ -104,24 +124,48 @@ function backendConcluded(raw: string | undefined): boolean {
 }
 
 /**
- * Convierte los criterios del backend en la seccion del filtro de reputacion.
+ * Convierte las señales del backend en la seccion que pinta el detalle.
  *
- * Los `detalle` vienen ya redactados en espanol ("Host es una IP: 192.168.1.1",
- * "TLD sospechoso: .top"), asi que se muestran tal cual: el backend es el que
- * sabe por que marco lo que marco, y reescribirlo aqui seria inventar.
+ * Entran LAS DOS listas que manda el endpoint:
  *
- * Solo hay dos tonos disponibles, 'ok' y 'warn' (design-system/tokens.ts): un
- * criterio detectado siempre es 'warn', y la ausencia de criterios es 'ok'.
+ *   - `criterios_f2_1`: la heuristica ("Host es una IP: 192.168.1.1").
+ *   - `indicadores_f2_2`: el comportamiento, que hoy es VirusTotal
+ *     ("18 motores lo marcan como malicioso").
+ *
+ * POR QUE LAS DOS EN UNA SOLA SECCION. F2.2 tiene su propia clave
+ * ('behavior'), pero esta apagada en `ENABLED_FILTERS` porque el backend no
+ * reporta los filtros como etapas separadas: manda una sola respuesta con
+ * todo dentro. Encender 'behavior' anunciaria una etapa de carga que no
+ * ocurre por separado; pero dejar los indicadores fuera tiraba a la basura la
+ * evidencia MAS fuerte que produce el sistema: un sitio que 18 motores de
+ * VirusTotal marcan como malicioso se veia en pantalla con una sola alerta,
+ * "La URL no usa HTTPS". Mientras el backend no separe las etapas, las dos
+ * listas se muestran juntas: el usuario necesita ver la señal, no saber que
+ * filtro la encontro.
+ *
+ * Los `detalle` vienen ya redactados en espanol, asi que se muestran tal cual:
+ * el backend es el que sabe por que marco lo que marco, y reescribirlo aqui
+ * seria inventar.
+ *
+ * Solo hay dos tonos disponibles, 'ok' y 'warn' (design-system/tokens.ts): una
+ * señal detectada siempre es 'warn', y la ausencia de señales es 'ok'.
  */
-function sectionFromCriteria(criteria: RemoteCriterion[]): AnalysisSection {
-  const findings: Finding[] = criteria.map((item) => ({
+function sectionFromCriteria(
+  criteria: RemoteCriterion[],
+  indicators: RemoteCriterion[],
+): AnalysisSection {
+  const findings: Finding[] = [...criteria, ...indicators].map((item) => ({
     tone: 'warn',
     text: item.detalle,
   }));
 
   return {
+    // La CLAVE sigue siendo 'reputation': es parte de `AnalysisStageKey`, un
+    // tipo publico, y es la que `ENABLED_FILTERS` tiene encendida. Lo que
+    // cambia es el titulo que lee el usuario, que antes prometia una consulta
+    // a listas de reputacion que el backend no hace (ver `analysisStages`).
     key: 'reputation',
-    title: 'Reputación',
+    title: 'Análisis del enlace',
     badgeText:
       findings.length === 0
         ? 'SIN ALERTAS'
@@ -132,6 +176,40 @@ function sectionFromCriteria(criteria: RemoteCriterion[]): AnalysisSection {
         ? findings
         : [{ tone: 'ok', text: 'No se detectaron señales de riesgo en el enlace.' }],
   };
+}
+
+/**
+ * Valida una seccion que manda el backend, antes de dejarla pasar a la UI.
+ *
+ * POR QUE VALIDAR AQUI. `sections[]` es la forma del contrato que el endpoint
+ * todavia no cumple, asi que hoy no llega nunca; pero el dia que llegue, lo
+ * que venga se pinta tal cual. Un `findings` que no sea arreglo revienta el
+ * `.map` de la pantalla de detalle, y un `badgeTone` inesperado busca un color
+ * que no existe: las dos cosas son una pantalla en blanco DESPUES de que la
+ * persona escaneo algo, que es justo cuando mas necesita una respuesta.
+ *
+ * El criterio es el mismo que usa `isHistoryEntry` con lo que sale del disco:
+ * comprobar la forma minima que las pantallas necesitan y descartar lo demas,
+ * en vez de confiar en un `as`.
+ */
+function isRenderableSection(value: unknown): value is AnalysisSection {
+  if (typeof value !== 'object' || value === null) return false;
+  const section = value as Partial<AnalysisSection>;
+
+  return (
+    typeof section.key === 'string' &&
+    typeof section.title === 'string' &&
+    typeof section.badgeText === 'string' &&
+    (section.badgeTone === 'ok' || section.badgeTone === 'warn') &&
+    Array.isArray(section.findings) &&
+    section.findings.every(
+      (finding) =>
+        typeof finding === 'object' &&
+        finding !== null &&
+        typeof (finding as Finding).text === 'string' &&
+        ((finding as Finding).tone === 'ok' || (finding as Finding).tone === 'warn'),
+    )
+  );
 }
 
 /** Saca el dominio de una URL sin abrirla, solo como texto. */
@@ -163,7 +241,9 @@ function incompleteSection(key: AnalysisStageKey, title: string, reason: string)
  * obligar a volver a escribir su titulo aqui.
  */
 const PLACEHOLDER_TITLES: Record<AnalysisStageKey, string> = {
-  reputation: 'Reputación',
+  // Mismo titulo que usa `sectionFromCriteria`, para que la seccion no cambie
+  // de nombre segun si el analisis se completo o no.
+  reputation: 'Análisis del enlace',
   heuristics: 'Heurística',
   behavior: 'Comportamiento',
 };
@@ -234,15 +314,25 @@ export function adaptAnalysisResponse(
    * mientras se tiraban a la basura los criterios que el backend SI habia
    * mandado. Eso era perder la parte mas util de la respuesta.
    */
-  const hasSections = Array.isArray(response.sections) && response.sections.length > 0;
+  // Solo las secciones que la pantalla puede pintar sin romperse. Se filtra en
+  // vez de confiar en el `as`: ver `isRenderableSection`.
+  const validSections = Array.isArray(response.sections)
+    ? response.sections.filter(isRenderableSection)
+    : [];
+  const hasSections = validSections.length > 0;
   const criteria = response.criterios_f2_1;
-  const hasCriteria = Array.isArray(criteria);
+  const indicators = response.indicadores_f2_2;
+  // Basta con que llegue UNA de las dos listas: el backend puede concluir por
+  // F2.2 sin que la heuristica haya marcado nada (y al reves). Si solo se
+  // mirara `criterios_f2_1`, una respuesta con los indicadores de VirusTotal
+  // pero sin criterios caeria en "SIN COMPLETAR" teniendo evidencia que dar.
+  const hasCriteria = Array.isArray(criteria) || Array.isArray(indicators);
 
   let sections: AnalysisSection[];
   if (hasSections) {
-    sections = response.sections as AnalysisSection[];
+    sections = validSections;
   } else if (hasCriteria) {
-    sections = [sectionFromCriteria(criteria)];
+    sections = [sectionFromCriteria(criteria ?? [], indicators ?? [])];
   } else {
     sections = placeholderSections(
       'El análisis no se completó, así que esta parte no pudo revisarse.',
@@ -271,14 +361,12 @@ export function adaptAnalysisResponse(
     domain,
     url,
     summary,
-    // El puntaje del medidor es el de la heuristica cuando viene; si no, el
-    // neutro, que no miente hacia ningun lado.
+    // El puntaje del medidor es el de la heuristica cuando viene y esta en la
+    // escala 0-100; si no, el neutro, que no miente hacia ningun lado.
     riskScore:
-      typeof response.riskScore === 'number'
-        ? response.riskScore
-        : typeof response.score_heuristico === 'number'
-          ? response.score_heuristico
-          : NEUTRAL_RISK_SCORE,
+      usableScore(response.riskScore) ??
+      usableScore(response.score_heuristico) ??
+      NEUTRAL_RISK_SCORE,
     sections,
     ...(response.scanId ? { scanId: response.scanId } : {}),
     // La captura solo se incluye si vino: una clave presente con undefined
