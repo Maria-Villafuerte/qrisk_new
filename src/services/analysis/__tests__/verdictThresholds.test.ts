@@ -50,6 +50,36 @@ describe('verdictFromScore · casos reales del backend', () => {
   });
 });
 
+/**
+ * Un puntaje fuera de 0-100 significa que el backend cambio de escala, no que
+ * el sitio sea "muy seguro" o "muy malicioso". Interpretarlo con la tabla
+ * vieja es como se produce un veredicto equivocado con aspecto de correcto.
+ */
+describe('verdictFromScore · puntaje fuera de la escala 0-100', () => {
+  it('un puntaje negativo NO es seguro: es incierto', () => {
+    // Lo peligroso de verdad: con la tabla vieja, -20 daba "seguro".
+    expect(verdictFromScore(-20)).toBeNull();
+    expect(verdictFromScore(-1)).toBeNull();
+  });
+
+  it('un puntaje mayor que 100 tampoco se interpreta', () => {
+    expect(verdictFromScore(150)).toBeNull();
+    expect(verdictFromScore(101)).toBeNull();
+  });
+
+  it('los extremos validos siguen funcionando', () => {
+    // 0 y 100 son escala valida: el corte es estrictamente fuera de ella.
+    expect(verdictFromScore(0)).toBe('seguro');
+    expect(verdictFromScore(100)).toBe('malicioso');
+  });
+
+  it('nunca devuelve seguro ante una escala que no entendemos', () => {
+    for (const score of [-100, -1, 101, 1000]) {
+      expect(verdictFromScore(score)).not.toBe('seguro');
+    }
+  });
+});
+
 describe('verdictFromScore · sin puntaje', () => {
   it('devuelve null si el backend no mando puntaje', () => {
     // No se presume "seguro": quien llama lo deja en "incierto".

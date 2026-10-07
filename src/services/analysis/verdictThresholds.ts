@@ -39,15 +39,28 @@ export const VERDICT_THRESHOLDS = {
   malicious: 60,
 } as const;
 
+/** El puntaje del backend es una escala 0-100. */
+export const SCORE_MIN = 0;
+export const SCORE_MAX = 100;
+
 /**
  * Veredicto que corresponde a un puntaje.
  *
  * Un puntaje ausente o que no es un numero devuelve `null`, no un veredicto
  * optimista: quien llama decide que hacer con eso (hoy, dejarlo en "incierto").
  * En una app de seguridad, la falta de informacion nunca se pinta de verde.
+ *
+ * FUERA DE 0-100 TAMBIEN ES `null`, y por la misma razon. Un -20 o un 150 no
+ * son "muy seguro" y "muy malicioso": son la señal de que el backend cambio de
+ * escala y que estos cortes ya no significan lo que creemos. Interpretarlos
+ * con la tabla vieja es justo como se produce un veredicto equivocado con
+ * aspecto de correcto —un -20 daria "seguro"—, y un falso "seguro" es el peor
+ * resultado posible del producto. Ante una escala que no entendemos, la app
+ * dice "incierto", que es la verdad.
  */
 export function verdictFromScore(score: number | undefined): VerdictKey | null {
   if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+  if (score < SCORE_MIN || score > SCORE_MAX) return null;
 
   if (score >= VERDICT_THRESHOLDS.malicious) return 'malicioso';
   if (score >= VERDICT_THRESHOLDS.suspicious) return 'sospechoso';
