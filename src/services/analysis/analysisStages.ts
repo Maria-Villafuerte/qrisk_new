@@ -24,8 +24,15 @@ export const analysisStages: {
 }[] = [
   {
     key: 'reputation',
-    runningLabel: 'Consultando listas de reputación…',
-    doneLabel: 'Reputación — sin coincidencias en listas negras',
+    // El copy describe lo que el backend HACE, no lo que decia el mockup.
+    // Antes esta etapa decia "Consultando listas de reputacion..." y al
+    // terminar "sin coincidencias en listas negras": ninguna de las dos cosas
+    // ocurre. El backend devuelve criterios heuristicos (F2.1) e indicadores
+    // de VirusTotal (F2.2), y afirmar "sin coincidencias en listas negras"
+    // podia aparecer justo encima de "18 motores lo marcan como malicioso".
+    // Una app de seguridad no puede afirmar una verificacion que no hizo.
+    runningLabel: 'Analizando el enlace…',
+    doneLabel: 'Análisis del enlace completado',
     durationMs: 700,
   },
   // --- F2.1 (heuristica) y F2.2 (comportamiento): DESACTIVADAS ---
