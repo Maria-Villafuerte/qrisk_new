@@ -20,6 +20,8 @@ function reasonFor(error: ApiError): string {
       return 'No hubo conexión para completar esta parte del análisis.';
     case 'RATE_LIMITED':
       return 'Se alcanzó el límite de consultas; intenta de nuevo en un momento.';
+    case 'CANCELLED':
+      return 'El análisis se canceló antes de terminar.';
     default:
       return 'El servicio de análisis no respondió correctamente.';
   }

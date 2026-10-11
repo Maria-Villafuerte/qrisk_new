@@ -58,6 +58,9 @@ describe('analyze · degradacion', () => {
     ['sin red', new ApiError('NETWORK', 'x', true, null), 'No hubo conexión'],
     ['500 del servidor', new ApiError('INTERNAL', 'x', true, 500), 'no respondió correctamente'],
     ['limite de consultas', new ApiError('RATE_LIMITED', 'x', true, 429), 'límite de consultas'],
+    // Cancelado tiene motivo propio: decirle "tardo demasiado" a quien salio
+    // de la pantalla a proposito es describir un error que no ocurrio.
+    ['cancelado por el usuario', new ApiError('CANCELLED', 'x', false, null), 'se canceló'],
   ];
 
   it.each(cases)('ante %s devuelve un incierto honesto', async (_name, error, motivo) => {

@@ -19,6 +19,7 @@ import {
   VerdictPill,
   verdicts,
 } from '../../src/design-system';
+import { isFilterEnabled } from '../../src/services/analysis/enabledFilters';
 import { useAppState } from '../../src/store/AppStateContext';
 
 /**
@@ -47,11 +48,50 @@ export default function ResultRoute() {
   const theme = verdicts[result.verdict];
   const isSafe = result.verdict === 'seguro';
 
-  /** Cuenta las alertas reales que trajo el analisis, para el copy de la hoja. */
-  const alertCount = result.sections.reduce(
-    (total, section) => total + section.findings.filter((f) => f.tone === 'warn').length,
-    0,
-  );
+  /**
+   * Cuenta las alertas reales que trajo el analisis, para el copy de la hoja.
+   *
+   * Se cuentan SOLO las secciones de los filtros activos, que son las mismas
+   * que pinta la pantalla de detalle (`details.tsx` filtra con el mismo
+   * `isFilterEnabled`). El numero de la hoja tiene que ser comprobable: si la
+   * hoja dijera "3 señales" y el detalle mostrara 1, la persona que va a
+   * decidir si abre un enlace peligroso pierde la confianza en el dato justo
+   * cuando mas lo necesita. Hoy no diverge porque el backend no manda
+   * `sections[]`, pero el adaptador conserva a proposito las secciones de
+   * filtros apagados, asi que divergiria en cuanto el contrato se alinee.
+   */
+  const alertCount = result.sections
+    .filter((section) => isFilterEnabled(section.key))
+    .reduce(
+      (total, section) => total + section.findings.filter((f) => f.tone === 'warn').length,
+      0,
+    );
+
+  /**
+   * Atras: vuelve a la pantalla de la que se vino.
+   *
+   * A esta pantalla se llega por dos caminos y antes los dos terminaban en el
+   * escaner, porque el boton hacia `replace('/scanner')` sin mirar:
+   *
+   *   escaner -> loading -> (replace) result    el escaner queda debajo
+   *   historial -> (push) result                el historial queda debajo
+   *
+   * En el segundo, `replace('/scanner')` DESTRUIA el historial: la persona
+   * abria una fila, tocaba atras y aparecia en la camara, sin forma de volver
+   * a la lista que estaba mirando. `back()` respeta los dos casos, porque en
+   * el primero lo que hay debajo es justamente el escaner.
+   *
+   * El `replace` se conserva como salida de emergencia: si no hay nada debajo
+   * (un enlace profundo directo a esta ruta), el boton tiene que llevar a
+   * alguna parte.
+   */
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/scanner');
+  };
 
   /**
    * Abre el sitio en el navegador del sistema, NUNCA dentro de la app: fuera
@@ -73,7 +113,7 @@ export default function ResultRoute() {
 
   return (
     <Screen>
-      <ScreenHeader title="Resultado del análisis" onBack={() => router.replace('/scanner')} />
+      <ScreenHeader title="Resultado del análisis" onBack={goBack} />
 
       <View style={styles.body}>
         <VerdictEmblem verdict={result.verdict} />

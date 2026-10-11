@@ -1,11 +1,13 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
+Plantilla_para_Trabajos_de_Graduación_UVG_2/
+
 # dependencies
 node_modules/
 
 # Expo
 .expo/
-dist/
+dist
 web-build/
 expo-env.d.ts
 

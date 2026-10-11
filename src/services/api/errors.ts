@@ -19,6 +19,8 @@ export type ApiErrorCode =
   | 'INTERNAL'
   | 'NETWORK'
   | 'TIMEOUT'
+  /** El llamador cancelo la peticion a proposito (salio de la pantalla). */
+  | 'CANCELLED'
   | 'UNKNOWN';
 
 export class ApiError extends Error {
@@ -68,6 +70,8 @@ function codeFromStatus(status: number): ApiErrorCode {
  * mismo resultado y solo hace esperar mas al usuario.
  */
 function isRetryable(code: ApiErrorCode): boolean {
+  // 'CANCELLED' no esta aqui a proposito: si la persona salio de la pantalla,
+  // reintentar seria traer una respuesta que ya nadie espera.
   return (
     code === 'FILTER_TIMEOUT' ||
     code === 'FILTER_UNAVAILABLE' ||
@@ -135,11 +139,20 @@ export function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(code, message, retryable, status);
 }
 
-/** Convierte un fallo de transporte (sin respuesta) en un ApiError. */
-export function toTransportError(cause: unknown): ApiError {
-  // AbortController marca el corte por timeout con este nombre.
+/**
+ * Convierte un fallo de transporte (sin respuesta) en un ApiError.
+ *
+ * `cancelled` distingue las DOS razones por las que se aborta una peticion, que
+ * `AbortController` marca igual (`AbortError`) y no son lo mismo: que se acabo
+ * el tiempo, o que el llamador ya no quiere la respuesta. Confundirlas hacia
+ * que al salir de la pantalla se reportara "El analisis tardo demasiado", un
+ * error que no ocurrio y que ademas se marca reintentable.
+ */
+export function toTransportError(cause: unknown, cancelled = false): ApiError {
   if (cause instanceof Error && cause.name === 'AbortError') {
-    return new ApiError('TIMEOUT', 'El análisis tardó demasiado.', true, null);
+    return cancelled
+      ? new ApiError('CANCELLED', 'El análisis se canceló.', false, null)
+      : new ApiError('TIMEOUT', 'El análisis tardó demasiado.', true, null);
   }
 
   return new ApiError('NETWORK', 'No hay conexión con el servidor.', true, null);

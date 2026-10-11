@@ -22,8 +22,16 @@ export async function postJson<T>(path: string, body: unknown, options: PostOpti
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs);
 
+  // Quien aborto. `AbortController` marca las dos razones con el mismo
+  // `AbortError`, asi que sin esta bandera una cancelacion del llamador se
+  // reportaba como TIMEOUT: un error que no ocurrio, y encima reintentable.
+  let cancelledByCaller = false;
+
   // Si el llamador cancela, se corta igual.
-  const onExternalAbort = () => controller.abort();
+  const onExternalAbort = () => {
+    cancelledByCaller = true;
+    controller.abort();
+  };
   options.signal?.addEventListener('abort', onExternalAbort);
 
   try {
@@ -44,7 +52,7 @@ export async function postJson<T>(path: string, body: unknown, options: PostOpti
   } catch (cause) {
     // Los ApiError ya vienen traducidos; el resto es fallo de transporte.
     if (cause instanceof ApiError) throw cause;
-    throw toTransportError(cause);
+    throw toTransportError(cause, cancelledByCaller);
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', onExternalAbort);
