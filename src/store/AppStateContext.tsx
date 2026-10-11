@@ -1,9 +1,10 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { AnalysisResult, NonUrlContent, ScanRecord } from '../services/analysis/types';
 import {
-  appendScan,
   clearHistory as clearStoredHistory,
   loadHistory,
+  saveHistory,
+  withScanAppended,
   type HistoryEntry,
 } from '../services/storage/historyStorage';
 import {
@@ -98,6 +99,23 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // permite, y asi el historial nunca aparece vacio un instante.
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
 
+  /**
+   * Espejo del historial, para poder calcular la lista nueva FUERA del updater.
+   *
+   * Antes `addScan` llamaba a `appendScan` dentro de `setHistory(...)`, y esa
+   * funcion escribe a disco: React puede invocar un updater mas de una vez (en
+   * modo concurrente, o bajo StrictMode en desarrollo) y entonces la escritura
+   * se repetia. Era deuda conocida y documentada. Con el espejo, el updater
+   * vuelve a ser puro —solo devuelve el valor nuevo— y el disco se toca una
+   * sola vez por escaneo.
+   *
+   * Se usa un ref y no un `useEffect` sobre `history` a proposito: el efecto
+   * correria DESPUES del render, y el momento en que se persiste dejaria de
+   * estar junto a la accion que lo causa. Esto se mantiene sincrono, que es lo
+   * que el resto del almacenamiento ya hace (ver README §7).
+   */
+  const historyRef = useRef(history);
+
   const addScan = useCallback((analysis: AnalysisResult, place: string | null = null) => {
     const entry: HistoryEntry = {
       record: {
@@ -110,7 +128,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       analysis,
     };
 
-    setHistory((current) => appendScan(current, entry));
+    const next = withScanAppended(historyRef.current, entry);
+    historyRef.current = next;
+    // Una sola escritura, fuera del updater.
+    saveHistory(next);
+    setHistory(next);
   }, []);
 
   const openHistoryEntry = useCallback((entry: HistoryEntry) => {
@@ -119,6 +141,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   const clearHistory = useCallback(() => {
     clearStoredHistory();
+    historyRef.current = [];
     setHistory([]);
   }, []);
 

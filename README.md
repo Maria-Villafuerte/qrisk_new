@@ -338,8 +338,8 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 | Clasificación URL / no-URL | ✅ | `classifyQr` con 18 tests. Cubre https, dominios sin esquema, Wi-Fi, vCard, mailto, tel, geo y texto suelto. |
 | Análisis (backend real) | ✅ | **El endpoint responde HTTP 200 desde el 2026-09-20** y la app corre solo contra él: el mock se eliminó. Devuelve un `score_heuristico` con sus criterios; la app deriva el veredicto de ese puntaje (§5.2). Latencia medida: 5.5 s la primera llamada (arranque en frío de Lambda), 1.6-3.1 s las siguientes. |
 | Filtro F2.1 (heurística) | ✅ | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15). |
-| Filtro F2.2 (comportamiento) | ✅ | **Funciona: consulta VirusTotal.** Verificado el 2026-09-30 con sitios de prueba de malware reales (`malware.wicar.org` → 18 motores lo marcan). Cuando concluye, `filtro_decisivo` dice `F2.2`. |
-| Filtro F2.3 (vista previa) | ✅ | **El backend ya la genera y la app la muestra.** Apareció el 2026-09-30: viene en `screenshot_url` como URL firmada de S3 (PNG real, verificado). Se pinta en el detalle como **imagen estática, nunca un WebView**. No siempre viene: si falla, la sección se omite. |
+| Filtro F2.2 (comportamiento) | ✅ | **Funciona: consulta VirusTotal.** Verificado de nuevo el 2026-10-01 (`malware.wicar.org` → 18 motores lo marcan, `filtro_decisivo: F2.2`). Sus indicadores **se muestran en pantalla desde el 2026-10-01**: hasta entonces el adaptador declaraba `indicadores_f2_2` y no lo leía, así que esa evidencia se perdía y el sitio se veía con una sola alerta. Hoy se pintan junto a los criterios de F2.1 en la misma sección (§5.2). |
+| Filtro F2.3 (vista previa) | 🟡 | **La app la muestra cuando viene, pero es intermitente.** Apareció el 2026-09-30 en `screenshot_url` (URL firmada de S3, PNG real verificado). **El 2026-10-01 ninguna de las seis llamadas la trajo**, incluida una URL nueva de 15.3 s. El código lo maneja: el campo es opcional y la imagen se oculta si falla. Se pinta como **imagen estática, nunca un WebView**. **No contar con ella en la defensa.** |
 | Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles. |
 | Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
 | Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
@@ -413,6 +413,26 @@ ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos dirían
 > **Techo conocido:** hoy el backend **nunca devuelve `MALICIOSO`**, ni con 18
 > motores de VirusTotal marcando el sitio. Ver §8.
 
+**Qué evidencia se muestra, y de dónde sale.** El veredicto es una palabra; lo
+que convence es el detalle. La app pinta en la misma sección **las dos** listas
+que manda el backend, en este orden:
+
+| Campo del backend | Qué es | Ejemplo real |
+|---|---|---|
+| `criterios_f2_1` | La heurística, con su peso | *"Host es una IP: 192.168.1.1"* |
+| `indicadores_f2_2` | El comportamiento (VirusTotal) | *"18 motores lo marcan como malicioso"* |
+
+Van juntas y no en dos acordeones porque **el backend no reporta los filtros
+como etapas separadas**: manda una sola respuesta plana con todo dentro (por eso
+`behavior` sigue apagado en `ENABLED_FILTERS`, §7). Lo que sí sería un error es
+no enseñarlas: hasta el 2026-10-01 el adaptador leía solo `criterios_f2_1`, así
+que `malware.wicar.org` —con 18 motores marcándolo— se veía con **una sola
+alerta**, *"La URL no usa HTTPS"*. Hoy se ven las tres.
+
+> **El veredicto no cambió con esto.** Mostrar más evidencia no es recalcular:
+> lo sigue decidiendo el backend cuando concluye, y el puntaje cuando no. El
+> medidor sigue siendo el `score_heuristico` tal cual.
+
 Respuesta real del endpoint (verificada el 2026-09-20):
 
 ```json
@@ -463,7 +483,7 @@ borrar `verdictThresholds.ts`.
 ### Tests unitarios
 
 ```bash
-npm test               # 218 tests, 19 suites
+npm test               # 249 tests, 19 suites
 npm run test:coverage  # reporte de cobertura
 npm run test:watch     # durante el desarrollo
 ```
@@ -473,8 +493,8 @@ pide la métrica), con umbral de 70% que **corta el build** si no se cumple.
 Las pantallas quedan fuera a propósito: se validan en dispositivo y en las
 pruebas de usabilidad.
 
-Estado actual: **218 tests en verde** (19 suites), 99.4% statements, **100% lines**,
-97.8% branches. Muy por encima del umbral de 70% que corta el build.
+Estado actual: **249 tests en verde** (19 suites), 99.7% statements, **100% lines**,
+98.1% branches, **100% functions**. Muy por encima del umbral de 70% que corta el build.
 
 ### Pruebas en teléfono físico
 
@@ -518,19 +538,20 @@ en memoria: se pierden al recargar.
 > test que documenta esto: con 9 lecturas de 500 ms y una de 20 s, el p90 sigue
 > cumpliendo; hacen falta **dos** lentas para moverlo.
 
-### Qué se verificó el 2026-09-20 y qué no
+### Qué se verificó (2026-09-20, revisado el 2026-10-01) y qué no
 
 Para que nadie tenga que adivinar el estado real:
 
 | Verificación | Resultado |
 |---|---|
-| `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ 218 tests, 19 suites, todo verde |
-| Cobertura de `src/services` | ✅ 99.4% statements, **100% lines** (umbral 70%) |
+| `npx tsc --noEmit` | ✅ Limpio (reverificado el 2026-10-01) |
+| `npm test` | ✅ **249 tests**, 19 suites, todo verde (eran 218; +8 de F2.2, +15 de robustez) |
+| Cobertura de `src/services` | ✅ 99.7% statements, **100% lines**, **100% functions** (umbral 70%) |
+| **Indicadores de F2.2 en pantalla** | ✅ Verificado el 2026-10-01 con la respuesta en vivo de `malware.wicar.org`: la sección muestra **"3 ALERTAS"** con *"18 motores lo marcan como malicioso"*. Antes mostraba 1 alerta y descartaba la evidencia de VirusTotal |
 | `npx expo export --platform android` | ✅ Exit 0. **El código JS de toda la app compila** para Android |
 | **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador: `github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |
-| Latencia del endpoint | ⚠️ Medida de nuevo el **2026-09-30**: **14.2–14.5 s en una URL nueva**, 0.3 s si está en caché. Por eso el tope subió a 25 s y la pantalla avisa a los 8 s |
-| Captura de F2.3 | ✅ Verificada: el `screenshot_url` descarga un PNG real (HTTP 200, 70 KB, firma válida 1 h) |
+| Latencia del endpoint | ⚠️ Confirmada el **2026-10-01**: **15.3 s en una URL nueva**, 0.3–2.9 s si está en caché. Coherente con la medida del 2026-09-30 (14.2–14.5 s). El tope de 25 s sigue teniendo margen; la pantalla avisa a los 8 s |
+| Captura de F2.3 | ⚠️ Verificada el 2026-09-30 (PNG real, HTTP 200, 70 KB). **El 2026-10-01 el backend no la devolvió en ninguna llamada**: el campo es intermitente. La app no se rompe sin ella |
 | Build nativo (`gradlew assembleDebug`) | ❌ **No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build** |
 | App corriendo en un teléfono | ❌ **No verificado.** No hay dispositivo ni emulador conectado a esta máquina (`adb devices` vacío) |
 | Cámara, GPS, galería, compartir | ❌ **No verificado.** Requieren hardware: ver [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) |
@@ -687,8 +708,17 @@ ven la forma cruda de la respuesta.
 ### Qué filtros se anuncian, y por qué es una lista aparte
 
 [`enabledFilters.ts`](src/services/analysis/enabledFilters.ts) tiene una sola
-constante, `ENABLED_FILTERS`, con los filtros que esta versión muestra. Hoy solo
-F1; F2.1 y F2.2 están **comentados al lado**, listos para descomentar.
+constante, `ENABLED_FILTERS`, con los filtros que esta versión anuncia **como
+etapas**. Hoy solo una; F2.1 y F2.2 están **comentados al lado**, listos para
+descomentar.
+
+> **Ojo con el porqué, que cambió.** F2.1 y F2.2 **sí existen** en el backend
+> (verificado el 2026-10-01: devuelve `criterios_f2_1` poblados e
+> `indicadores_f2_2` con VirusTotal). Siguen apagados porque el backend **no los
+> reporta como etapas separadas**: manda una sola respuesta plana. Encenderlos
+> pintaría tres acordeones y tres etapas de carga para una única respuesta.
+> **Lo que llega de esos filtros no se pierde:** el adaptador junta las dos
+> listas en la sección activa (§5.2).
 
 Es deliberado que **no** sea el tipo `AnalysisStageKey`, y la diferencia importa:
 
@@ -755,6 +785,10 @@ Por prioridad, con lo que desbloquea cada uno.
    construcción**, no por fallo de detección.
    → **Desbloquea:** Fabi. Propuesta: ≥3 motores maliciosos → `MALICIOSO`;
    y que un puntaje ≥60 de F2.1 también lo dé.
+   → **Mitigado de este lado desde el 2026-10-01:** aunque la etiqueta se quede
+   en "sospechoso", la app ya **muestra** los indicadores de VirusTotal
+   ("18 motores lo marcan como malicioso"), que antes descartaba. El techo del
+   veredicto sigue siendo del backend, pero la evidencia ya no se pierde.
 
 2. **El backend tarda ~14.5 s en una URL nueva.** Medido el 2026-09-30 sobre
    cinco URLs nunca vistas: 14.2–14.5 s. Si ya la tiene en caché, 0.3 s. El
@@ -827,18 +861,36 @@ Por prioridad, con lo que desbloquea cada uno.
   `expo-system-ui` (el prebuild lo avisa). No se instaló porque la app es de
   tema claro fijo.
 
+### Endurecido el 2026-10-01
+
+Cuatro casos que no se habían observado nunca, pero cuyo fallo habría sido
+silencioso y en el peor momento. Ninguno cambia lo que se ve hoy:
+
+| Qué | Antes | Ahora |
+|---|---|---|
+| Puntaje fuera de 0-100 ([verdictThresholds.ts](src/services/analysis/verdictThresholds.ts)) | Un `-20` daba **"seguro"** y un `150` pintaba el medidor desbordado | Fuera de escala → "incierto" y medidor neutro. Un puntaje así significa que el backend cambió de escala, no que el sitio sea inofensivo |
+| `sections[]` sin validar ([adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts)) | Se confiaba en un `as`: un `findings` que no fuera arreglo rompía la pantalla de detalle | Se valida la forma mínima y se descarta lo que no se puede pintar, igual que `isHistoryEntry` con lo que sale del disco |
+| Cancelar ≠ timeout ([httpClient.ts](src/services/api/httpClient.ts)) | Salir de la pantalla reportaba *"El análisis tardó demasiado"*, marcado reintentable | Código `CANCELLED` propio, no reintentable: nadie espera ya esa respuesta |
+| Atrás desde el historial ([result.tsx](app/analysis/result.tsx)) | `replace('/scanner')` **destruía** el historial: abrir una fila y tocar atrás dejaba en la cámara | `back()` vuelve a donde se vino. Desde el escáner se comporta igual que antes |
+
+> **Por qué estos y no otros.** El criterio fue el mismo en los cuatro: el fallo
+> sería invisible hasta que ocurre, y entonces se ve como un veredicto
+> equivocado o una pantalla rota justo después de escanear. Los cuatro tienen
+> tests que fijan el comportamiento nuevo.
+
 Decisiones conscientes de **no** arreglar en esta entrega:
 
 - **Sin detección de conectividad.** Ver el punto 9 de §8. Añadir `netinfo` a horas de la
   entrega, para mejorar un mensaje de error que ya es honesto, tenía peor
   relación riesgo/beneficio que documentarlo.
-- **`addScan` escribe a disco dentro de un updater de `setState`**
-  ([AppStateContext.tsx](src/store/AppStateContext.tsx)). Funciona y está
-  probado, pero React puede invocar un updater más de una vez en modo
-  concurrente o bajo StrictMode, y entonces la escritura se repetiría. Lo
-  correcto es un `useEffect` sobre `history`. No se tocó porque es el camino por
-  el que pasa **todo** escaneo y el riesgo de romperlo hoy supera al del bug,
-  que nadie ha observado.
+- ~~**`addScan` escribe a disco dentro de un updater de `setState`**~~
+  **Arreglado el 2026-10-01** ([AppStateContext.tsx](src/store/AppStateContext.tsx)).
+  `appendScan` hacía dos cosas —calcular la lista nueva y persistirla— y se
+  llamaba dentro del updater, donde React puede invocar la función más de una
+  vez. Ahora el updater es puro: `withScanAppended` calcula, y el disco se toca
+  **una sola vez**, fuera. Se usó un `useRef` como espejo del historial en vez
+  de un `useEffect` para que la escritura siga siendo síncrona y junto a la
+  acción que la causa, como el resto del almacenamiento (§7).
 - **`timeouts.total` (35 s) está definido y nunca se usa.** El presupuesto por
   petición (25 s) sí se aplica; el de la cascada completa no tiene sentido hasta
   que haya más de un filtro corriendo.

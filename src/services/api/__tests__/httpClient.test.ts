@@ -116,3 +116,54 @@ describe('postJson', () => {
     });
   });
 });
+
+/**
+ * Cancelar no es lo mismo que agotar el tiempo. `AbortController` marca las dos
+ * con el mismo `AbortError`, asi que sin distinguirlas al salir de la pantalla
+ * se reportaba "El analisis tardo demasiado": un error que no ocurrio, y
+ * encima marcado como reintentable.
+ */
+describe('postJson · cancelacion del llamador', () => {
+  const nuncaResponde = () =>
+    mockFetch(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            const abort = new Error('Aborted');
+            abort.name = 'AbortError';
+            reject(abort);
+          });
+        }),
+    );
+
+  it('distingue cancelar de agotar el tiempo', async () => {
+    nuncaResponde();
+    const external = new AbortController();
+    setTimeout(() => external.abort(), 10);
+
+    await expect(
+      postJson('/analyze', {}, { timeoutMs: 60_000, signal: external.signal }),
+    ).rejects.toMatchObject({ code: 'CANCELLED' });
+  });
+
+  it('cancelar NO es reintentable: nadie espera ya la respuesta', async () => {
+    nuncaResponde();
+    const external = new AbortController();
+    setTimeout(() => external.abort(), 10);
+
+    const error = await postJson('/analyze', {}, { timeoutMs: 60_000, signal: external.signal })
+      .catch((e: ApiError) => e);
+
+    expect((error as ApiError).retryable).toBe(false);
+  });
+
+  it('con un signal que nunca se dispara, el timeout sigue siendo TIMEOUT', async () => {
+    // No regresion: pasar `signal` no debe convertir todo en "cancelado".
+    nuncaResponde();
+    const external = new AbortController();
+
+    await expect(
+      postJson('/analyze', {}, { timeoutMs: 20, signal: external.signal }),
+    ).rejects.toMatchObject({ code: 'TIMEOUT', retryable: true });
+  });
+});

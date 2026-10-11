@@ -5,6 +5,7 @@ import {
   HISTORY_LIMIT,
   loadHistory,
   saveHistory,
+  withScanAppended,
   type HistoryEntry,
 } from '../historyStorage';
 import Storage from 'expo-sqlite/kv-store';
@@ -173,5 +174,59 @@ describe('appendScan · la captura no se persiste', () => {
       analysis: { ...conCaptura.analysis, screenshotUrl: undefined },
     };
     expect(() => appendScan([], sinCaptura)).not.toThrow();
+  });
+});
+
+/**
+ * `withScanAppended` es la mitad PURA de `appendScan`. Existe para que
+ * `AppStateContext` pueda calcular la lista nueva dentro de un updater de
+ * `setState` —donde React puede invocar la funcion mas de una vez— sin que la
+ * escritura a disco se repita con cada invocacion.
+ */
+describe('withScanAppended · es pura', () => {
+  it('no escribe a disco', () => {
+    withScanAppended([], makeEntry(1));
+    // Lo que importa del arreglo: calcular no persiste.
+    expect(Storage.getItemSync(HISTORY_KEY)).toBeNull();
+    expect(loadHistory()).toEqual([]);
+  });
+
+  it('invocarla dos veces con lo mismo da lo mismo', () => {
+    // Es justo lo que hace React al invocar un updater mas de una vez.
+    const actual = [makeEntry(2)];
+    const entry = makeEntry(1);
+
+    expect(withScanAppended(actual, entry)).toEqual(withScanAppended(actual, entry));
+  });
+
+  it('no muta la lista que recibe', () => {
+    const actual = [makeEntry(2)];
+    withScanAppended(actual, makeEntry(1));
+    expect(actual).toHaveLength(1);
+  });
+
+  it('pone el mas reciente primero y respeta el tope', () => {
+    const llena = Array.from({ length: HISTORY_LIMIT }, (_, i) => makeEntry(i));
+    const next = withScanAppended(llena, makeEntry(999));
+
+    expect(next).toHaveLength(HISTORY_LIMIT);
+    expect(next[0].record.id).toBe('scn_999');
+  });
+
+  it('descarta la captura igual que appendScan', () => {
+    const entry = makeEntry(1);
+    const conCaptura: HistoryEntry = {
+      ...entry,
+      analysis: { ...entry.analysis, screenshotUrl: 'https://s3/x.png?X-Amz-Expires=3600' },
+    };
+
+    expect('screenshotUrl' in withScanAppended([], conCaptura)[0].analysis).toBe(false);
+  });
+
+  it('appendScan sigue haciendo las dos cosas: calcular y guardar', () => {
+    // No regresion: la funcion original no cambio de comportamiento.
+    const next = appendScan([], makeEntry(1));
+    expect(next).toHaveLength(1);
+    expect(loadHistory()).toHaveLength(1);
   });
 });

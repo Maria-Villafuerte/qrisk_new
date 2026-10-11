@@ -71,12 +71,32 @@ function withoutExpiring(analysis: AnalysisResult): AnalysisResult {
 }
 
 /**
- * Agrega un escaneo al frente y devuelve la lista resultante. El mas reciente
- * primero, que es el orden en que se pinta.
+ * Agrega un escaneo al frente y devuelve la lista resultante, SIN tocar el
+ * disco. El mas reciente primero, que es el orden en que se pinta.
+ *
+ * Existe separada de `appendScan` para que quien la llame pueda calcular la
+ * lista nueva dentro de un updater de `setState` —donde React puede invocar la
+ * funcion mas de una vez— y escribir a disco una sola vez, fuera. Es pura: dos
+ * invocaciones con los mismos argumentos dan el mismo resultado y no tienen
+ * ningun efecto.
+ */
+export function withScanAppended(
+  entries: HistoryEntry[],
+  entry: HistoryEntry,
+): HistoryEntry[] {
+  const stored: HistoryEntry = { ...entry, analysis: withoutExpiring(entry.analysis) };
+  return [stored, ...entries].slice(0, HISTORY_LIMIT);
+}
+
+/**
+ * Agrega un escaneo al frente, lo persiste y devuelve la lista resultante.
+ *
+ * Hace las dos cosas a la vez, asi que NO sirve dentro de un updater de
+ * `setState`: ahi la escritura se repetiria con cada invocacion. Para ese caso
+ * esta `withScanAppended` + `saveHistory` por separado.
  */
 export function appendScan(entries: HistoryEntry[], entry: HistoryEntry): HistoryEntry[] {
-  const stored: HistoryEntry = { ...entry, analysis: withoutExpiring(entry.analysis) };
-  const next = [stored, ...entries].slice(0, HISTORY_LIMIT);
+  const next = withScanAppended(entries, entry);
   saveHistory(next);
   return next;
 }
