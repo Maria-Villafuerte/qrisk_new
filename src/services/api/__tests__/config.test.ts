@@ -13,15 +13,15 @@ describe('config', () => {
     expect(typeof apiBaseUrl).toBe('string');
   });
 
-  it('da margen a lo que de verdad tarda el backend', () => {
-    // Medido el 2026-09-30 contra el endpoint real: 14.2-14.5 s para una URL
-    // que el backend no haya visto antes (la captura de F2.3 abre un navegador
-    // headless), 0.3 s si ya esta en cache. Con el tope en 12 s, TODO escaneo
-    // de un sitio nuevo se cortaba y degradaba a "incierto".
-    //
-    // No bajar de aqui sin volver a medir con una URL nueva: una URL repetida
-    // responde desde cache y da un numero enganosamente bueno.
-    expect(timeouts.analyze).toBeGreaterThanOrEqual(20_000);
+  it('el analisis tiene un presupuesto de 90 s, reintento incluido', () => {
+    // Decision del 2026-10-12. Ver la nota de `timeouts` en config.ts.
+    expect(timeouts.analyze).toBe(90_000);
+  });
+
+  it('solo reintenta si queda tiempo para que el reintento complete', () => {
+    // Los reintentos que completaron tardaron 26.7-30.9 s (medido 2026-10-12).
+    expect(timeouts.analyzeRetryMinMs).toBeGreaterThanOrEqual(26_700);
+    expect(timeouts.analyzeRetryMinMs).toBeLessThan(timeouts.analyze);
   });
 
   it('respeta el tope total del anteproyecto', () => {

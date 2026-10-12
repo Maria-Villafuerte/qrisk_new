@@ -144,12 +144,12 @@ describe('submitReport', () => {
   });
 
   /*
-   * El reporte no consulta APIs externas y responde en ~5 s, asi que usa su
-   * propio tope y no el presupuesto del analisis (40 s): hacer esperar 40 s por
-   * un formulario que ya fallo no aporta nada.
+   * El reporte no consulta APIs externas y responde en ~5 s. A diferencia del
+   * analisis (sin tope desde el 2026-10-12), conserva el suyo: hacer esperar
+   * indefinidamente por un formulario que ya fallo no aporta nada.
    */
-  it('usa un tope mas corto que el del analisis', () => {
-    expect(timeouts.report).toBeLessThan(timeouts.analyze);
+  it('conserva un tope propio, aunque el analisis ya no tenga', () => {
+    expect(timeouts.report).toBe(15_000);
   });
 
   it('no lanza ante un fallo de red: devuelve el motivo', async () => {
