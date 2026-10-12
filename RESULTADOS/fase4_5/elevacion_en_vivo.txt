@@ -1,0 +1,13 @@
+Efecto de la elevacion por evidencia de F2.2, sobre respuestas reales
+12 de octubre de 2026 · umbral: 3 motores
+
+acortador (2 motores)          SOSPECHOSO   -> SOSPECHOSO   motivo=-
+   virustotal_motores_maliciosos=2 motores lo marcan como malicioso
+bit.ly                         SOSPECHOSO   -> SOSPECHOSO   motivo=-
+   virustotal_motores_maliciosos=1 motores lo marcan como malicioso
+malware.wicar.org              HTTP 504     -> -            motivo=-
+   -
+png con payload                SOSPECHOSO   -> MALICIOSO    motivo=virustotal_motores_maliciosos (14)
+   virustotal_motores_maliciosos=14 motores lo marcan como malicioso | virustotal_motores_sospechosos=2 motores lo marcan como sospechoso
+falso paypal (F2.1 score 95)   SOSPECHOSO   -> SOSPECHOSO   motivo=-
+   

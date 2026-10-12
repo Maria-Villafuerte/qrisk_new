@@ -1,0 +1,402 @@
+[
+{
+"url": "plas.fit.qut.edu.au/ruby.net/",
+"label": "phishing"
+},
+{
+"url": "old.scriptmeridian.org/projects/regex/",
+"label": "phishing"
+},
+{
+"url": "discover.hawkesburyshow.com.au",
+"label": "phishing"
+},
+{
+"url": "groups.yahoo.com/group/oz-ebxml/",
+"label": "phishing"
+},
+{
+"url": "www.ddj.com/windows/184410483",
+"label": "phishing"
+},
+{
+"url": "www.zoho.com/projects",
+"label": "phishing"
+},
+{
+"url": "colombiapictures.net",
+"label": "phishing"
+},
+{
+"url": "http://coxadminhometeam.moonfruit.com/",
+"label": "phishing"
+},
+{
+"url": "www.cdroller.com/htm/rescue.html",
+"label": "phishing"
+},
+{
+"url": "www.prnewswire.com/cgi-bin/stories.pl?ACCT=104&amp;STORY=/www/story/09-27-2000/0001324147&amp;EDATE=",
+"label": "phishing"
+},
+{
+"url": "tools.ietf.org/html/rfc2064",
+"label": "phishing"
+},
+{
+"url": "http://www.alfacod.com.tr/wp-content/uploads/wysija/espace.reversement/confirmation/support/c488f46cdeb8055de3e68a2de6e1ac19/",
+"label": "phishing"
+},
+{
+"url": "ap-avisa.com",
+"label": "phishing"
+},
+{
+"url": "www.ljr.ch/en/casestud.html",
+"label": "phishing"
+},
+{
+"url": "fashionjewelryspot.net",
+"label": "phishing"
+},
+{
+"url": "https://safex.sharepoint.com/:b:/g/ETRRwuSJKUdAia-BBrWMLk4BJCfZWFd_Brds9dkvia1GNA?e=bA2vha",
+"label": "phishing"
+},
+{
+"url": "http://www.lifestylewellnessnetwork.com/core/6357/36d2241d662275878ea8716b7eab9b7d/",
+"label": "phishing"
+},
+{
+"url": "tools.ietf.org/html/rfc2598",
+"label": "phishing"
+},
+{
+"url": "math.berkeley.edu/~roconnor/MMIOMP3/",
+"label": "phishing"
+},
+{
+"url": "http://www.itfindia.org/confirmation-account/c85652703f710065c1255aa03a9aefae/b4bc6a054f5b920dc273b55dd259afc5/login.php",
+"label": "phishing"
+},
+{
+"url": "http://www.js182.com/app/member/SportOption.php?uid=guest&langx=gb",
+"label": "malware"
+},
+{
+"url": "thucduongbaoan.com",
+"label": "malware"
+},
+{
+"url": "https://mitsui-jyuku.mixh.jp/uploads/8584d4fe8115bf6b56a9f2357e2c9e699c5.exe",
+"label": "malware"
+},
+{
+"url": "https://dreamfile.club/files/private@customersupport.exe",
+"label": "malware"
+},
+{
+"url": "http://165.22.21.85/armv4l",
+"label": "malware"
+},
+{
+"url": "http://185.172.110.250/Tuna/Ace.sh",
+"label": "malware"
+},
+{
+"url": "http://37.49.226.186/SBIDIOT/m68k",
+"label": "malware"
+},
+{
+"url": "http://36.33.248.14:43071/Mozi.m",
+"label": "malware"
+},
+{
+"url": "http://9779.info/%E7%93%9C%E5%AD%90%E7%9A%AE%E6%8B%BC%E8%B4%B4%E7%94%BB/",
+"label": "malware"
+},
+{
+"url": "http://157.245.127.232/SBIDIOT/zte",
+"label": "malware"
+},
+{
+"url": "http://23.254.211.179/jbins/Antijit.arm7",
+"label": "malware"
+},
+{
+"url": "http://portal.dddgaming.com/docs/rules/15027/cn/game_cn.html?amluMjAxNQ%3D%3D",
+"label": "malware"
+},
+{
+"url": "http://46.101.2.104/x-3.2-.GHOUL",
+"label": "malware"
+},
+{
+"url": "https://toulousa.com/omg/265EYJSFYHMS.exe",
+"label": "malware"
+},
+{
+"url": "https://mitsui-jyuku.mixh.jp/uploads/16ODNO38B.exe",
+"label": "malware"
+},
+{
+"url": "http://www.surfgadget.com/high-power-wifi-adapter.html?page=shop.browse&manufacturer_id=12",
+"label": "defacement"
+},
+{
+"url": "http://www.shirley.com.sg/index.php?option=com_content&view=article&id=110&Itemid=56",
+"label": "defacement"
+},
+{
+"url": "http://www.babolna.eu/index.php?option=com_phocagallery&view=category&id=5:lovasmzeum&Itemid=12",
+"label": "defacement"
+},
+{
+"url": "http://www.villagemagazine.it/index.php/regions/ads/view/206-orologio.html",
+"label": "defacement"
+},
+{
+"url": "http://www.textilexpres.com/TE/index.php?option=com_content&view=category&id=911&Itemid=66&limitstart=15",
+"label": "defacement"
+},
+{
+"url": "http://www.bessels.com/projecten/kantoren/0863-massastudie-pieters-kaashandel-almere.html",
+"label": "defacement"
+},
+{
+"url": "http://www.northnorfolkliving.co.uk/updates/3",
+"label": "defacement"
+},
+{
+"url": "http://pgee-kardjali.com/index.php?option=com_content&view=article&id=118:2010-10-19-07-52-11&catid=51&lang=bg",
+"label": "defacement"
+},
+{
+"url": "http://www.nhomkinhdep.com/tin-tuc-nhom-kinh/ky-quan-noi-tieng.html",
+"label": "defacement"
+},
+{
+"url": "http://www.be-werber.de/index.php?option=com_wrapper&view=wrapper&Itemid=90",
+"label": "defacement"
+},
+{
+"url": "http://www.entrepreneur-india.com/index.php?option=com_mailto&tmpl=component&link=aHR0cDovL3d3dy5lbnRyZXByZW5ldXItaW5kaWEuY29tL2luZGV4LnBocD9vcHRpb249Y29tX2NvbnRlbnQmdmlldz1hcnRpY2xlJmlkPTIwOnNlY29uZGlubmluZ3MmY2F0aWQ9MTU6c2Vjb25kaW5uaW5ncyZJdGVtaWQ9Mjk=",
+"label": "defacement"
+},
+{
+"url": "http://www.werderfan-fahrten.de/index.php?option=com_phocagallery&view=detail&catid=5:saison-1011-rueckrunde&id=127:1fc-koeln-werder-2010-11-f1&tmpl=component&Itemid=63",
+"label": "defacement"
+},
+{
+"url": "http://www.aktivregion-ostseekueste.de/verein/arbeitskreise-und-projektgruppen/ak-soziales-sport-schule.html",
+"label": "defacement"
+},
+{
+"url": "http://www.getashirtlikemine.com/component/user/remind",
+"label": "defacement"
+},
+{
+"url": "http://www.pedalecesenateciclineri.org/index.php?option=com_contact&view=category&catid=0&Itemid=3",
+"label": "defacement"
+},
+{
+"url": "skclovescollegefootball.wordpress.com/",
+"label": "benign"
+},
+{
+"url": "bmcr.brynmawr.edu/2011/2011-02-15.html",
+"label": "benign"
+},
+{
+"url": "enbridgeus.com/Main.aspx?id=242&tmi=348&tmt=4",
+"label": "benign"
+},
+{
+"url": "philmeads.org/fbc/",
+"label": "benign"
+},
+{
+"url": "stlcardinalcards.blogspot.com/",
+"label": "benign"
+},
+{
+"url": "en.wikipedia.org/wiki/Academy_Award_for_Best_Foreign_Language_Film",
+"label": "benign"
+},
+{
+"url": "aldoshoes.com/",
+"label": "benign"
+},
+{
+"url": "blogs.orlandosentinel.com/sports_highschool_varsity/2011/03/17/former-area-stars-in-ncaa-womens-basketball-tournament/",
+"label": "benign"
+},
+{
+"url": "merriam-webster.com/dictionary/pony%20up",
+"label": "benign"
+},
+{
+"url": "margheritamarchione.bestbuyggshoppingforsales.com/",
+"label": "benign"
+},
+{
+"url": "starpulse.com/Music/Lovehatehero/index.html",
+"label": "benign"
+},
+{
+"url": "coralreefnetwork.com/reefs/hawaii/kbay/kbay.htm",
+"label": "benign"
+},
+{
+"url": "lead411.com/Pat_Patterson_3141665.html",
+"label": "benign"
+},
+{
+"url": "people.famouswhy.com/max_perlich/",
+"label": "benign"
+},
+{
+"url": "obits.dignitymemorial.com/dignity-memorial/obituary.aspx?n=Allen-Broussard&lc=2241&pid=144335137&mid=4329240",
+"label": "benign"
+},
+{
+"url": "canadiantiresucks.net/canadian-tire-4975-robert-bourassa-blvd-laval-vimont-qc/",
+"label": "benign"
+},
+{
+"url": "republicofmining.com/2008/07/17/xstrata-nickel-wins-provincial-mine-rescue-competition/fraserthayer-lindsley-mine-rescue-team-front-row-left-to-right-dave-lachance-captain-luc-lalonde-and-pierre-coderre-vice-captain-back-row-left-to-right-joe-hinrich-cliff-poirier-greg-n/",
+"label": "benign"
+},
+{
+"url": "allstarrsports.isgreat.org/records.html",
+"label": "benign"
+},
+{
+"url": "http://tunein.com/radio/Australasia-r100297/15480783/ca-pub-1542925551861702/TuneInSearch",
+"label": "benign"
+},
+{
+"url": "documentscanning-new-york-city.com/",
+"label": "benign"
+},
+{
+"url": "myspace.com/timkeough",
+"label": "benign"
+},
+{
+"url": "http://kotaku.com/nintendo-has-announced-its-e3-plans-the-nintendo-world-1704206636",
+"label": "benign"
+},
+{
+"url": "mobygames.com/game/ultimate-soccer-manager-98",
+"label": "benign"
+},
+{
+"url": "www.hcsolutionscr.com/signin.ebay.com/index.htm",
+"label": "benign"
+},
+{
+"url": "mylife.com/c-1852647269",
+"label": "benign"
+},
+{
+"url": "https.observ.paypal.objects.net.secure-update-all.service.1.id.login.webscr-cmd.loginsubmitdispatchs59s7d97a01u.ghasemzadeh.org/www/pay/pal/id/2012/active/personal/1.payobject/update.1/1.2/cmd=_login-submit&dispatch=u4575jh4414a50598f04d34b4575224bf5056875455hhj2/08/b340c10b1671f3c18ce9ad534bbf32dd/home.html?cmd=_login-submit&dispatch=5885d80a13c0db1f8e263663d3faee8dcbcd55a50598f04d34b4bf5056875455",
+"label": "benign"
+},
+{
+"url": "en.wikipedia.org/wiki/Interstate_70_(Colorado)",
+"label": "benign"
+},
+{
+"url": "sbrforum.com/nhl-hockey/news/nfl-lockout-nba-lockout-lessons-the-nhl-a-20560/",
+"label": "benign"
+},
+{
+"url": "huxley.typepad.com/",
+"label": "benign"
+},
+{
+"url": "www.fundacioncharlot.com/festicine/wp-content/uploads/2011/.paypal.com/www.paypal.com/PayPal/webscr.php?cmd=_login-run&dispatch=5885d80a13c0db1f1ff80d546411d7f8a8350c132bc41e0934cfc023d4e8f9e51c6688d5daf573bd58b8375a5b40ab241c6688d5daf573bd58b8375a5b40ab24",
+"label": "benign"
+},
+{
+"url": "inmusicwetrust.com/articles/24p07.html",
+"label": "benign"
+},
+{
+"url": "be.linkedin.com/pub/andre-guy/27/905/59",
+"label": "benign"
+},
+{
+"url": "en.wikipedia.org/wiki/Bass_guitar_tuning",
+"label": "benign"
+},
+{
+"url": "imdb.com/name/nm1304975/",
+"label": "benign"
+},
+{
+"url": "othermothersnj.com/",
+"label": "benign"
+},
+{
+"url": "tripadvisor.com/ShowTopic-g189541-i218-k1719125-Copenhagen_to_Brusels_fast_train-Copenhagen_Zealand.html",
+"label": "benign"
+},
+{
+"url": "4shared.com/audio/bYx4xhrX/Street_Fighter_IV_-_Ryus_theme.html",
+"label": "benign"
+},
+{
+"url": "amazon.com/Allen-Company-Guide-Fishing-Chest/dp/B004I8RMI8",
+"label": "benign"
+},
+{
+"url": "youtube.com/watch?v=9MXhUoneV-8",
+"label": "benign"
+},
+{
+"url": "celebdomain.com/Leo_Gorcey_Jr..html",
+"label": "benign"
+},
+{
+"url": "despisedicon.com/",
+"label": "benign"
+},
+{
+"url": "aftncanada.blogspot.com/2011/06/whitecaps-praised-as-montreals.html",
+"label": "benign"
+},
+{
+"url": "http://thenextweb.com/offers/2015/05/04/learn-to-code-with-92-off-the-interactive-coding-bootcamp/gtm.js",
+"label": "benign"
+},
+{
+"url": "ready2beat.com/sports/alexandre-bilodeau-wins-first-canadian-olympic-gold-medal-vancouver-20",
+"label": "benign"
+},
+{
+"url": "'hongtongsoft.com.cn/images/index.htm?us.battle.net/login/en/?ref=http\\%3A\\%2F\\%2Fus.battle.net\\%2Fd3\\%2Fen\\%2Findex&amp;app=com-d3'",
+"label": "benign"
+},
+{
+"url": "perzanussi.com/?page_id=2",
+"label": "benign"
+},
+{
+"url": "simpsonsmovie.com/",
+"label": "benign"
+},
+{
+"url": "guitars101.com/forums/f90/jack-bruce-gary-moore-and-gary-husband-london-98-a-74908.html",
+"label": "benign"
+},
+{
+"url": "myspace.com/staticthought",
+"label": "benign"
+},
+{
+"url": "l-lint.com/aircraft-for-sale-in/united-states-virgin-islands/",
+"label": "benign"
+}
+]
