@@ -2,9 +2,24 @@ import {
   adaptAnalysisResponse,
   degradedResult,
   domainFromUrl,
+  fixEngineGrammar,
   mapVerdict,
 } from '../adaptAnalysis';
 import { ENABLED_FILTERS } from '../enabledFilters';
+import type { F1Outcome } from '../f1Filter';
+import type { AnalysisResult, AnalysisSection, AnalysisStageKey } from '../types';
+
+/** La seccion de un filtro. Falla el test si no esta, en vez de dar undefined. */
+function section(result: AnalysisResult, key: AnalysisStageKey): AnalysisSection {
+  const found = result.sections.find((s) => s.key === key);
+  if (!found) throw new Error(`falta la seccion ${key}`);
+  return found;
+}
+
+/** Los textos de los hallazgos de un filtro. */
+function texts(result: AnalysisResult, key: AnalysisStageKey): string[] {
+  return section(result, key).findings.map((f) => f.text);
+}
 
 /**
  * Pruebas contra las respuestas REALES observadas del endpoint desplegado,
@@ -106,7 +121,11 @@ describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
     // Mismo titulo que la seccion completada: no puede cambiar de nombre
     // segun si el analisis llego al final o no.
     const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
-    expect(result.sections[0].title).toBe('Análisis del enlace');
+    expect(result.sections.map((s) => s.title)).toEqual([
+      'Reputación',
+      'Estructura del enlace',
+      'Comportamiento',
+    ]);
   });
 
   it('usa la URL pedida si la respuesta no la trae', () => {
@@ -318,20 +337,20 @@ describe('adaptAnalysisResponse · secciones desde los criterios reales', () => 
       { criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .top' },
       { criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' },
     ],
+    indicadores_f2_2: [],
   };
 
-  it('pinta cada criterio del backend como un hallazgo, con su texto', () => {
+  it('pinta cada criterio del backend como un hallazgo, con su texto y su peso', () => {
     const result = adaptAnalysisResponse(conCriterios, 'http://x.top');
 
-    expect(result.sections).toHaveLength(1);
-    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
-      'TLD sospechoso: .top',
-      'La URL no usa HTTPS',
+    expect(texts(result, 'heuristics')).toEqual([
+      'TLD sospechoso: .top · +25',
+      'La URL no usa HTTPS · +15',
     ]);
   });
 
   it('cuenta las alertas en la insignia', () => {
-    expect(adaptAnalysisResponse(conCriterios, 'http://x.top').sections[0].badgeText)
+    expect(section(adaptAnalysisResponse(conCriterios, 'http://x.top'), 'heuristics').badgeText)
       .toBe('2 ALERTAS');
   });
 
@@ -340,7 +359,9 @@ describe('adaptAnalysisResponse · secciones desde los criterios reales', () => 
       { score_heuristico: 15, criterios_f2_1: [{ detalle: 'La URL no usa HTTPS' }] },
       'http://x.com',
     );
-    expect(result.sections[0].badgeText).toBe('1 ALERTA');
+    expect(section(result, 'heuristics').badgeText).toBe('1 ALERTA');
+    // Sin `peso` no se inventa uno: el texto va solo.
+    expect(texts(result, 'heuristics')).toEqual(['La URL no usa HTTPS']);
   });
 
   it('sin criterios dice que no hubo alertas, no "SIN COMPLETAR"', () => {
@@ -349,9 +370,9 @@ describe('adaptAnalysisResponse · secciones desde los criterios reales', () => 
       'https://github.com',
     );
 
-    expect(result.sections[0].badgeText).toBe('SIN ALERTAS');
-    expect(result.sections[0].badgeTone).toBe('ok');
-    expect(result.sections[0].findings).toHaveLength(1);
+    expect(section(result, 'heuristics').badgeText).toBe('SIN ALERTAS');
+    expect(section(result, 'heuristics').badgeTone).toBe('ok');
+    expect(section(result, 'heuristics').findings).toHaveLength(1);
   });
 
   it('ya no aparece "SIN COMPLETAR" cuando el backend si respondio', () => {
@@ -437,34 +458,45 @@ describe('adaptAnalysisResponse · indicadores de comportamiento (F2.2)', () => 
   it('muestra los indicadores de VirusTotal, que antes se perdian', () => {
     const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
 
-    expect(result.sections[0].findings.map((f) => f.text)).toContain(
-      '18 motores lo marcan como malicioso',
-    );
+    expect(texts(result, 'behavior')).toContain('18 motores lo marcan como malicioso');
   });
 
-  it('pinta las dos listas juntas: primero la heuristica, luego el comportamiento', () => {
+  it('separa la estructura del comportamiento, cada una en su filtro', () => {
     const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
 
-    expect(result.sections).toHaveLength(1);
-    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
-      'La URL no usa HTTPS',
+    expect(texts(result, 'heuristics')).toEqual(['La URL no usa HTTPS · +15']);
+    // "1 motores" llega asi del backend; se corrige la concordancia.
+    expect(texts(result, 'behavior')).toEqual([
       '18 motores lo marcan como malicioso',
-      '1 motores lo marcan como sospechoso',
+      '1 motor lo marca como sospechoso',
     ]);
   });
 
-  it('cuenta los indicadores en la insignia junto con los criterios', () => {
-    // Antes decia "1 ALERTA" teniendo tres señales que mostrar.
-    expect(adaptAnalysisResponse(conVirusTotal, conVirusTotal.url).sections[0].badgeText)
-      .toBe('3 ALERTAS');
+  it('cada filtro cuenta sus propias alertas en la insignia', () => {
+    const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
+    expect(section(result, 'heuristics').badgeText).toBe('1 ALERTA');
+    expect(section(result, 'behavior').badgeText).toBe('2 ALERTAS');
   });
 
-  it('el veredicto lo sigue decidiendo el backend, no los indicadores', () => {
-    // Mostrar mas evidencia no es recalcular el veredicto: el backend dijo
-    // SOSPECHOSO y su palabra manda (ver `backendConcluded`).
+  /*
+   * CAMBIO DEL 2026-10-12. Este caso antes esperaba 'sospechoso', porque la
+   * app respetaba sin excepcion el veredicto del backend.
+   *
+   * Sigue siendo cierto que mostrar evidencia no es recalcular el veredicto, y
+   * que la app nunca REBAJA la palabra del backend. Lo que cambio es que 18
+   * motores de VirusTotal ahora ELEVAN: el backend topa en SOSPECHOSO venga de
+   * donde venga la señal, asi que este sitio salia con la misma etiqueta que
+   * un acortador con 2 motores. Ver `behaviorEscalation`.
+   */
+  it('18 motores de VirusTotal elevan el veredicto a malicioso', () => {
     const result = adaptAnalysisResponse(conVirusTotal, conVirusTotal.url);
-    expect(result.verdict).toBe('sospechoso');
-    expect(result.riskScore).toBe(15);
+    expect(result.verdict).toBe('malicioso');
+  });
+
+  it('el medidor sigue mostrando el puntaje del backend, no uno inventado', () => {
+    // La elevacion cambia la ETIQUETA, no el puntaje: el 15 es de la
+    // heuristica y se pinta tal cual.
+    expect(adaptAnalysisResponse(conVirusTotal, conVirusTotal.url).riskScore).toBe(15);
   });
 
   it('con indicadores pero sin criterios NO cae en "SIN COMPLETAR"', () => {
@@ -478,20 +510,22 @@ describe('adaptAnalysisResponse · indicadores de comportamiento (F2.2)', () => 
       'http://x.com',
     );
 
-    expect(result.sections[0].badgeText).toBe('1 ALERTA');
-    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
-      '5 motores lo marcan como malicioso',
-    ]);
+    expect(section(result, 'behavior').badgeText).toBe('1 ALERTA');
+    expect(texts(result, 'behavior')).toEqual(['5 motores lo marcan como malicioso']);
+    expect(section(result, 'heuristics').badgeText).toBe('SIN ALERTAS');
   });
 
-  it('sin la clave de criterios, los indicadores solos bastan para armar la seccion', () => {
+  it('sin la clave de criterios, los indicadores solos bastan para armar su seccion', () => {
     const result = adaptAnalysisResponse(
       { veredicto_final: 'SOSPECHOSO', indicadores_f2_2: [{ detalle: 'algo raro' }] },
       'http://x.com',
     );
 
-    expect(result.sections.some((s) => s.badgeText === 'SIN COMPLETAR')).toBe(false);
-    expect(result.sections[0].findings.map((f) => f.text)).toEqual(['algo raro']);
+    expect(section(result, 'behavior').badgeText).toBe('1 ALERTA');
+    expect(texts(result, 'behavior')).toEqual(['algo raro']);
+    // De la estructura no llego nada: se dice, sin afirmar que estaba limpia.
+    expect(section(result, 'heuristics').badgeText).toBe('SIN COMPLETAR');
+    expect(texts(result, 'heuristics')[0]).toContain('no envió');
   });
 
   it('una lista de indicadores vacia se comporta como antes', () => {
@@ -506,7 +540,8 @@ describe('adaptAnalysisResponse · indicadores de comportamiento (F2.2)', () => 
       'http://x.top',
     );
 
-    expect(result.sections[0].badgeText).toBe('1 ALERTA');
+    expect(section(result, 'heuristics').badgeText).toBe('1 ALERTA');
+    expect(section(result, 'behavior').badgeText).toBe('SIN ALERTAS');
     expect(result.verdict).toBe('sospechoso');
   });
 });
@@ -728,9 +763,10 @@ describe('cascada completa (contrato del 2026-10-11)', () => {
     );
 
     expect(result.verdict).toBe('sospechoso');
-    // Las dos listas se pintan juntas: 3 criterios + 1 indicador.
-    expect(result.sections[0].findings).toHaveLength(4);
-    expect(result.sections[0].badgeText).toBe('4 ALERTAS');
+    // Cada lista en su filtro: 3 criterios en la estructura, 1 indicador en el
+    // comportamiento.
+    expect(section(result, 'heuristics').badgeText).toBe('3 ALERTAS');
+    expect(texts(result, 'behavior')).toEqual(['1 motor lo marca como sospechoso']);
   });
 
   it('acepta un corte por F2.2 sin criterios de F2.1 relevantes', () => {
@@ -760,10 +796,10 @@ describe('cascada completa (contrato del 2026-10-11)', () => {
 
     expect(result.verdict).toBe('sospechoso');
     expect(result.screenshotUrl).toContain('shot.png');
-    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
-      'Dominio es un acortador de URL conocido: tinyurl.com',
-      '2 motores lo marcan como malicioso',
+    expect(texts(result, 'heuristics')).toEqual([
+      'Dominio es un acortador de URL conocido: tinyurl.com · +20',
     ]);
+    expect(texts(result, 'behavior')).toEqual(['2 motores lo marcan como malicioso']);
   });
 
   it('un corte temprano por F2.1 sin captura no se trata como fallo', () => {
@@ -798,7 +834,7 @@ describe('cascada completa (contrato del 2026-10-11)', () => {
     );
 
     expect(result.verdict).toBe('sospechoso');
-    expect(result.sections[0].findings).toHaveLength(1);
+    expect(section(result, 'behavior').findings).toHaveLength(1);
   });
 
   it('acepta indicadores que solo traen `indicador`, sin peso', () => {
@@ -817,8 +853,8 @@ describe('cascada completa (contrato del 2026-10-11)', () => {
       'https://x.com',
     );
 
-    expect(result.sections[0].findings).toHaveLength(3);
-    expect(result.sections[0].findings.every((f) => f.tone === 'warn')).toBe(true);
+    expect(section(result, 'behavior').findings).toHaveLength(3);
+    expect(section(result, 'behavior').findings.every((f) => f.tone === 'warn')).toBe(true);
   });
 });
 
@@ -839,10 +875,19 @@ describe('corte anticipado por F1', () => {
   it('un SEGURO de F1 no se ve como analisis incompleto', () => {
     const result = adaptAnalysisResponse(f1Response('SEGURO'), 'https://x.com');
 
-    expect(result.sections).toHaveLength(1);
-    expect(result.sections[0].badgeText).toBe('SIN ALERTAS');
-    expect(result.sections[0].badgeTone).toBe('ok');
-    expect(result.sections[0].findings[0].text).not.toContain('no pudo revisarse');
+    expect(section(result, 'reputation').badgeText).toBe('CONFIABLE');
+    expect(section(result, 'reputation').badgeTone).toBe('ok');
+    expect(result.sections.some((s) => s.badgeText === 'SIN COMPLETAR')).toBe(false);
+  });
+
+  it('los filtros siguientes dicen que no corrieron, y por que', () => {
+    const result = adaptAnalysisResponse(f1Response('SEGURO'), 'https://x.com');
+
+    for (const key of ['heuristics', 'behavior'] as const) {
+      expect(section(result, key).badgeText).toBe('NO CORRIÓ');
+      expect(section(result, key).badgeTone).toBe('ok');
+      expect(texts(result, key)[0]).toContain('la reputación ya decidió');
+    }
   });
 
   it('explica por que no hay lista de señales', () => {
@@ -856,9 +901,9 @@ describe('corte anticipado por F1', () => {
     const result = adaptAnalysisResponse(f1Response('MALICIOSO'), 'https://x.com');
 
     expect(result.verdict).toBe('malicioso');
-    expect(result.sections[0].badgeTone).toBe('warn');
-    expect(result.sections[0].findings[0].tone).toBe('warn');
-    expect(result.sections[0].findings[0].text).toContain('peligroso');
+    expect(section(result, 'reputation').badgeTone).toBe('warn');
+    expect(section(result, 'reputation').findings[0].tone).toBe('warn');
+    expect(texts(result, 'reputation')[0]).toContain('peligrosa');
   });
 
   it('no se marca degradado: la cascada hizo lo que debia', () => {
@@ -877,5 +922,503 @@ describe('corte anticipado por F1', () => {
     expect(result.verdict).toBe('incierto');
     expect(result.sections[0].badgeText).toBe('SIN COMPLETAR');
     expect(result.degraded).toBe(true);
+  });
+});
+
+/*
+ * La app eleva a malicioso cuando la evidencia de F2.2 lo justifica, porque el
+ * backend topa en SOSPECHOSO venga de donde venga la señal: un sitio con 18
+ * motores de VirusTotal salia con la misma etiqueta que uno con 2.
+ */
+describe('elevacion por evidencia de comportamiento', () => {
+  const sospechoso = (indicadores: unknown[]) => ({
+    url: 'https://x.test/',
+    dominio: 'x.test',
+    veredicto_final: 'SOSPECHOSO',
+    filtro_decisivo: 'F2.2',
+    score_heuristico: 20,
+    criterios_f2_1: [],
+    indicadores_f2_2: indicadores,
+  });
+
+  it('eleva a malicioso con 3 o mas motores', () => {
+    const result = adaptAnalysisResponse(
+      sospechoso([
+        { indicador: 'virustotal_motores_maliciosos', detalle: '18 motores lo marcan como malicioso' },
+      ]) as never,
+      'https://x.test/',
+    );
+
+    expect(result.verdict).toBe('malicioso');
+    // El resumen tiene que corresponder al veredicto nuevo, no al viejo.
+    expect(result.summary).toContain('peligroso');
+  });
+
+  it('deja en sospechoso con 2 motores', () => {
+    const result = adaptAnalysisResponse(
+      sospechoso([
+        { indicador: 'virustotal_motores_maliciosos', detalle: '2 motores lo marcan como malicioso' },
+      ]) as never,
+      'https://x.test/',
+    );
+
+    expect(result.verdict).toBe('sospechoso');
+  });
+
+  it('la evidencia que elevo sigue visible en pantalla', () => {
+    // Elevar sin mostrar por que seria pedirle a la persona que confie.
+    const result = adaptAnalysisResponse(
+      sospechoso([
+        { indicador: 'virustotal_motores_maliciosos', detalle: '18 motores lo marcan como malicioso' },
+      ]) as never,
+      'https://x.test/',
+    );
+
+    expect(texts(result, 'behavior')).toContain('18 motores lo marcan como malicioso');
+  });
+
+  /*
+   * SOLO ELEVA, NUNCA REBAJA. Si el backend concluyo SEGURO, resolver la
+   * contradiccion rebajando su palabra no le toca a la app.
+   */
+  it('no toca un SEGURO del backend', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SEGURO',
+        filtro_decisivo: 'F1',
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_maliciosos', detalle: '9 motores lo marcan' },
+        ],
+      } as never,
+      'https://x.test/',
+    );
+
+    expect(result.verdict).toBe('seguro');
+  });
+
+  it('un MALICIOSO del backend sigue siendo malicioso', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'MALICIOSO', filtro_decisivo: 'F1' } as never,
+      'https://x.test/',
+    );
+
+    expect(result.verdict).toBe('malicioso');
+  });
+
+  it('no eleva un incierto: sin veredicto no hay nada que elevar', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'PENDIENTE',
+        filtro_decisivo: null,
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_maliciosos', detalle: '9 motores lo marcan' },
+        ],
+      } as never,
+      'https://x.test/',
+    );
+
+    // Sin score no se puede derivar, asi que queda incierto y la elevacion no
+    // aplica: elevar un "no sé" a "malicioso" seria inventar.
+    expect(result.verdict).toBe('incierto');
+  });
+
+  it('eleva tambien cuando el veredicto sospechoso venia derivado del puntaje', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'PENDIENTE',
+        filtro_decisivo: null,
+        score_heuristico: 40,
+        criterios_f2_1: [{ criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .tk' }],
+        indicadores_f2_2: [
+          { indicador: 'urlscan_verdict_malicioso', detalle: 'URLScan lo marca como malicioso' },
+        ],
+      } as never,
+      'https://x.test/',
+    );
+
+    expect(result.verdict).toBe('malicioso');
+  });
+});
+
+/*
+ * DESGLOSE POR FILTRO Y "POR QUE ESTE VEREDICTO".
+ *
+ * Se reporto en pruebas que la pantalla de detalle no explicaba el veredicto:
+ * F1 no aparecia, las señales de F2.1 y F2.2 salian mezcladas en una lista sin
+ * pesos, y nada decia que umbral se habia aplicado. Estos tests fijan lo que la
+ * persona tiene que poder leer en cada camino de la cascada.
+ */
+describe('desglose · reputacion (F1) con lo que consulto la app', () => {
+  const f1 = (over: Partial<F1Outcome> = {}): F1Outcome => ({
+    verdict: 'INCIERTO',
+    source: 'ninguna',
+    elapsedMs: 120,
+    localTrusted: false,
+    safeBrowsing: { status: 'not_listed' },
+    phishTank: { status: 'not_listed' },
+    ...over,
+  });
+  const cutByF1 = (verdict: string) => ({ veredicto_final: verdict, filtro_decisivo: 'F1' });
+  const cascade = {
+    veredicto_final: 'PENDIENTE',
+    filtro_decisivo: null,
+    score_heuristico: 0,
+    criterios_f2_1: [],
+    indicadores_f2_2: [],
+  };
+
+  it('nombra a Google Safe Browsing y el tipo de amenaza cuando la tiene reportada', () => {
+    const result = adaptAnalysisResponse(
+      cutByF1('MALICIOSO'),
+      'http://malo.test/login',
+      f1({
+        verdict: 'MALICIOSO',
+        source: 'safe_browsing',
+        safeBrowsing: { status: 'listed', threatType: 'SOCIAL_ENGINEERING' },
+      }),
+    );
+
+    expect(texts(result, 'reputation')).toEqual([
+      'Google Safe Browsing la tiene reportada como phishing.',
+      'PhishTank no la tiene confirmada como phishing.',
+    ]);
+    expect(section(result, 'reputation').badgeText).toBe('REPORTADA');
+    expect(result.verdictReason).toContain('Google Safe Browsing la tiene reportada como phishing');
+  });
+
+  it('dice "malware" cuando ese es el tipo de amenaza', () => {
+    const result = adaptAnalysisResponse(
+      cutByF1('MALICIOSO'),
+      'http://malo.test/x.exe',
+      f1({ verdict: 'MALICIOSO', safeBrowsing: { status: 'listed', threatType: 'MALWARE' } }),
+    );
+    expect(texts(result, 'reputation')[0]).toContain('como malware');
+  });
+
+  it('separa la lista de confianza de la consulta a Safe Browsing', () => {
+    const result = adaptAnalysisResponse(
+      { ...cutByF1('SEGURO'), dominio: 'github.com' },
+      'https://github.com/x',
+      f1({ verdict: 'SEGURO', source: 'lista_local', localTrusted: true }),
+    );
+
+    expect(texts(result, 'reputation')).toEqual([
+      'github.com está en la lista de confianza de QRisk.',
+      'Google Safe Browsing no la tiene reportada.',
+      'PhishTank no la tiene confirmada como phishing.',
+    ]);
+    expect(section(result, 'reputation').badgeText).toBe('CONFIABLE');
+    expect(result.verdictReason).toBe(
+      'Seguro: github.com está en la lista de confianza de QRisk y ni Google Safe Browsing ni PhishTank tienen reportada esta URL.',
+    );
+  });
+
+  it('cuando la cascada sigue, dice que ninguna lista la tiene reportada', () => {
+    const result = adaptAnalysisResponse(cascade, 'https://x.test', f1());
+
+    expect(texts(result, 'reputation')).toEqual([
+      'Google Safe Browsing no la tiene reportada.',
+      'PhishTank no la tiene confirmada como phishing.',
+    ]);
+    expect(section(result, 'reputation').badgeText).toBe('SIN REPORTES');
+  });
+
+  /*
+   * Decir "no la tiene reportada" cuando la consulta no se pudo hacer seria
+   * afirmar algo que nadie verifico.
+   */
+  it('no dice "no la tiene reportada" si Safe Browsing no respondio', () => {
+    const result = adaptAnalysisResponse(
+      cascade,
+      'https://x.test',
+      f1({ safeBrowsing: { status: 'unavailable' } }),
+    );
+
+    expect(texts(result, 'reputation')).toEqual([
+      'No se pudo consultar Google Safe Browsing: no respondió a tiempo.',
+      'PhishTank no la tiene confirmada como phishing.',
+    ]);
+    // Una de las dos respondio: la consulta fue parcial, no nula.
+    expect(section(result, 'reputation').badgeText).toBe('CONSULTA PARCIAL');
+  });
+
+  it('dice cuando esta version no consulta Safe Browsing', () => {
+    const result = adaptAnalysisResponse(
+      cascade,
+      'https://x.test',
+      f1({ safeBrowsing: { status: 'not_configured' } }),
+    );
+    expect(texts(result, 'reputation')[0]).toContain('no consulta Google Safe Browsing');
+  });
+
+  it('explica un corte por F1 que salio de la cache del servidor', () => {
+    // La app mando INCIERTO pero el backend respondio con un F1 guardado.
+    const result = adaptAnalysisResponse(cutByF1('MALICIOSO'), 'https://x.test', f1());
+
+    expect(section(result, 'reputation').footnote).toContain('análisis anterior');
+    expect(result.verdictReason).toContain('las listas de reputación la tienen reportada');
+  });
+
+  it('nombra a PhishTank cuando es quien la confirma', () => {
+    const result = adaptAnalysisResponse(
+      cutByF1('MALICIOSO'),
+      'http://allegrolokalnie.078259.top',
+      f1({ verdict: 'MALICIOSO', source: 'phishtank', phishTank: { status: 'listed' } }),
+    );
+
+    expect(texts(result, 'reputation')).toEqual([
+      'Google Safe Browsing no la tiene reportada.',
+      'PhishTank la tiene confirmada como phishing: su comunidad verificó el reporte.',
+    ]);
+    expect(section(result, 'reputation').badgeText).toBe('REPORTADA');
+    expect(result.verdictReason).toBe(
+      'Malicioso: PhishTank la tiene confirmada como phishing. Ese reporte basta, así que no se corrieron los demás filtros.',
+    );
+  });
+
+  it('si las dos listas la reportan, el porque nombra a las dos', () => {
+    const result = adaptAnalysisResponse(
+      cutByF1('MALICIOSO'),
+      'http://malo.test',
+      f1({
+        verdict: 'MALICIOSO',
+        source: 'safe_browsing',
+        safeBrowsing: { status: 'listed', threatType: 'SOCIAL_ENGINEERING' },
+        phishTank: { status: 'listed' },
+      }),
+    );
+    expect(result.verdictReason).toContain(
+      'Google Safe Browsing la tiene reportada como phishing y PhishTank la tiene confirmada como phishing',
+    );
+  });
+
+  it('un SEGURO por confianza no afirma lo que PhishTank no respondio', () => {
+    const result = adaptAnalysisResponse(
+      { ...cutByF1('SEGURO'), dominio: 'github.com' },
+      'https://github.com/x',
+      f1({
+        verdict: 'SEGURO',
+        source: 'lista_local',
+        localTrusted: true,
+        phishTank: { status: 'unavailable' },
+      }),
+    );
+
+    expect(texts(result, 'reputation')).toContain(
+      'No se pudo consultar PhishTank: no respondió a tiempo.',
+    );
+    expect(result.verdictReason).toBe(
+      'Seguro: github.com está en la lista de confianza de QRisk y Google Safe Browsing no tiene reportada esta URL. No se pudo consultar PhishTank.',
+    );
+  });
+
+  it('sin respuesta de ninguna lista la reputacion queda sin completar', () => {
+    const result = adaptAnalysisResponse(
+      cascade,
+      'https://x.test',
+      f1({ safeBrowsing: { status: 'unavailable' }, phishTank: { status: 'unavailable' } }),
+    );
+    expect(section(result, 'reputation').badgeText).toBe('SIN COMPLETAR');
+  });
+
+  it('sin clave de Safe Browsing, PhishTank solo basta para "sin reportes"', () => {
+    const result = adaptAnalysisResponse(
+      cascade,
+      'https://x.test',
+      f1({ safeBrowsing: { status: 'not_configured' } }),
+    );
+    expect(section(result, 'reputation').badgeText).toBe('SIN REPORTES');
+  });
+
+  it('el resultado degradado conserva lo que F1 si alcanzo a consultar', () => {
+    const result = degradedResult('https://x.test', 'No hubo conexión.', f1());
+
+    expect(texts(result, 'reputation')).toEqual([
+      'Google Safe Browsing no la tiene reportada.',
+      'PhishTank no la tiene confirmada como phishing.',
+    ]);
+    expect(texts(result, 'heuristics')).toEqual(['No hubo conexión.']);
+    expect(result.verdict).toBe('incierto');
+  });
+});
+
+describe('desglose · filtros que no corrieron', () => {
+  it('un corte por F2.1 deja el comportamiento en "NO CORRIÓ"', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.1',
+        score_heuristico: 95,
+        criterios_f2_1: [{ criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .top' }],
+        indicadores_f2_2: [],
+      },
+      'http://x.top/login',
+    );
+
+    expect(section(result, 'behavior').badgeText).toBe('NO CORRIÓ');
+    expect(texts(result, 'behavior')[0]).toContain('la estructura del enlace ya superó');
+    expect(section(result, 'heuristics').footnote).toBe('Puntaje de la estructura: 95 de 100.');
+  });
+});
+
+describe('desglose · por que este veredicto', () => {
+  it('explica un sospechoso de F2.1 con el corte del servidor', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.1',
+        score_heuristico: 95,
+        criterios_f2_1: [],
+      },
+      'http://x.top',
+    );
+    expect(result.verdictReason).toBe(
+      'Sospechoso: la estructura del enlace sumó 95 de 100 puntos, por encima del corte del servidor (más de 60).',
+    );
+  });
+
+  it('explica un veredicto deducido del puntaje con los cortes de la app', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 40, criterios_f2_1: [], indicadores_f2_2: [] },
+      'http://x.test',
+    );
+    expect(result.verdictReason).toBe(
+      'Sospechoso: la estructura del enlace sumó 40 de 100 puntos. QRisk marca sospechoso desde 30 y malicioso desde 60.',
+    );
+  });
+
+  it('un seguro deducido dice que tampoco hubo reportes de comportamiento', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 0, criterios_f2_1: [], indicadores_f2_2: [] },
+      'http://x.test',
+    );
+    expect(result.verdictReason).toBe(
+      'Seguro: la estructura del enlace sumó 0 de 100 puntos (QRisk marca sospechoso desde 30) y no llegaron reportes de VirusTotal ni de URLScan.io.',
+    );
+  });
+
+  it('dice que la app elevo lo que el servidor dejo en sospechoso', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.2',
+        score_heuristico: 30,
+        criterios_f2_1: [],
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_maliciosos', detalle: '3 motores lo marcan como malicioso' },
+        ],
+      },
+      'http://x.test',
+    );
+
+    expect(result.verdict).toBe('malicioso');
+    expect(result.verdictReason).toBe(
+      'Malicioso: 3 motores de VirusTotal lo marcan como malicioso, y QRisk lo considera malicioso desde 3. El servidor lo había dejado en sospechoso.',
+    );
+  });
+
+  it('explica por que 1 motor no alcanza para malicioso', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.2',
+        score_heuristico: 15,
+        criterios_f2_1: [],
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_maliciosos', detalle: '1 motores lo marcan como malicioso' },
+        ],
+      },
+      'http://x.test',
+    );
+
+    expect(result.verdictReason).toBe(
+      'Sospechoso: 1 motor de VirusTotal lo marca como malicioso. QRisk lo considera malicioso desde 3 motores.',
+    );
+  });
+
+  it('nombra la eliminacion del informe de URLScan cuando es lo que elevo', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.2',
+        criterios_f2_1: [],
+        indicadores_f2_2: [{ indicador: 'urlscan_scan_eliminado', detalle: 'Scan eliminado' }],
+      },
+      'http://x.test',
+    );
+    expect(result.verdictReason).toContain('URLScan.io eliminó su informe');
+  });
+
+  it('un incierto dice que no hay base para concluir', () => {
+    const result = adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'http://x.test');
+    expect(result.verdictReason).toContain('Incierto: el análisis no se completó');
+  });
+
+  it('avisa cuando el resultado viene de la cache del servidor', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'PENDIENTE',
+        score_heuristico: 0,
+        criterios_f2_1: [],
+        indicadores_f2_2: [],
+        desde_cache: true,
+      },
+      'http://x.test',
+    );
+    expect(result.verdictReason).toContain('análisis anterior de esta misma URL');
+  });
+});
+
+/*
+ * Antes un corte por F1 pintaba el medidor en 50/100 tanto para un SEGURO como
+ * para un MALICIOSO: un relleno con aspecto de medicion.
+ */
+describe('medidor · solo cuando hay puntaje', () => {
+  it('sin puntaje marca el medidor como relleno', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'MALICIOSO', filtro_decisivo: 'F1' },
+      'http://x.test',
+    );
+    expect(result.riskScoreMissing).toBe(true);
+  });
+
+  it('con puntaje no marca nada', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 40, criterios_f2_1: [] },
+      'http://x.test',
+    );
+    expect('riskScoreMissing' in result).toBe(false);
+    expect(result.riskScore).toBe(40);
+  });
+
+  it('un puntaje fuera de escala cuenta como ausente', () => {
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', score_heuristico: 150 },
+      'http://x.test',
+    );
+    expect(result.riskScoreMissing).toBe(true);
+  });
+
+  it('el resultado degradado tampoco pinta el medidor', () => {
+    expect(degradedResult('https://x.test', 'motivo').riskScoreMissing).toBe(true);
+  });
+});
+
+describe('fixEngineGrammar', () => {
+  it('corrige el singular que el backend redacta en plural', () => {
+    expect(fixEngineGrammar('1 motores lo marcan como malicioso')).toBe(
+      '1 motor lo marca como malicioso',
+    );
+  });
+
+  it('no toca los plurales correctos', () => {
+    expect(fixEngineGrammar('11 motores lo marcan como malicioso')).toBe(
+      '11 motores lo marcan como malicioso',
+    );
+    expect(fixEngineGrammar('21 motores lo marcan')).toBe('21 motores lo marcan');
+  });
+
+  it('corrige "1 motores" aunque no siga "lo marcan"', () => {
+    expect(fixEngineGrammar('Detectado por 1 motores')).toBe('Detectado por 1 motor');
   });
 });

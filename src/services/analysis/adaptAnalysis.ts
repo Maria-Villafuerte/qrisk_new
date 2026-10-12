@@ -1,4 +1,11 @@
+import {
+  behaviorEscalation,
+  engineCount,
+  MALICIOUS_ENGINE_THRESHOLD,
+  type EscalationReason,
+} from './behaviorEscalation';
 import { ENABLED_FILTERS } from './enabledFilters';
+import type { F1Outcome } from './f1Filter';
 import type {
   AnalysisResult,
   AnalysisSection,
@@ -6,7 +13,7 @@ import type {
   Finding,
   VerdictKey,
 } from './types';
-import { SCORE_MAX, SCORE_MIN, verdictFromScore } from './verdictThresholds';
+import { SCORE_MAX, SCORE_MIN, VERDICT_THRESHOLDS, verdictFromScore } from './verdictThresholds';
 
 /**
  * Adaptador entre la respuesta del backend y lo que pintan las pantallas.
@@ -179,90 +186,459 @@ function backendConcluded(raw: string | undefined): boolean {
 }
 
 /**
- * Convierte las señales del backend en la seccion que pinta el detalle.
+ * DESGLOSE POR FILTRO.
  *
- * Entran LAS DOS listas que manda el endpoint:
+ * El detalle tiene una seccion por filtro de la cascada —Reputacion (F1),
+ * Estructura del enlace (F2.1) y Comportamiento (F2.2)— y cada una dice en
+ * que estado quedo: que encontro, que no encontro, o que no corrio y por que.
  *
- *   - `criterios_f2_1`: la heuristica ("Host es una IP: 192.168.1.1").
- *   - `indicadores_f2_2`: el comportamiento, que hoy es VirusTotal
- *     ("18 motores lo marcan como malicioso").
+ * Antes las dos listas del backend se juntaban en una sola seccion, "Analisis
+ * del enlace", y F1 no aparecia nunca salvo cuando cortaba. La persona veia
+ * viñetas sueltas sin saber que se reviso, y un "seguro" decia "no se
+ * detectaron señales" sin decir donde se busco. Un veredicto que no se puede
+ * comprobar no convence, y en una app de seguridad eso es tan grave como
+ * equivocarse: si la persona no le cree al "malicioso", entra igual.
  *
- * POR QUE LAS DOS EN UNA SOLA SECCION. F2.2 tiene su propia clave
- * ('behavior'), pero esta apagada en `ENABLED_FILTERS` porque el backend no
- * reporta los filtros como etapas separadas: manda una sola respuesta con
- * todo dentro. Encender 'behavior' anunciaria una etapa de carga que no
- * ocurre por separado; pero dejar los indicadores fuera tiraba a la basura la
- * evidencia MAS fuerte que produce el sistema: un sitio que 18 motores de
- * VirusTotal marcan como malicioso se veia en pantalla con una sola alerta,
- * "La URL no usa HTTPS". Mientras el backend no separe las etapas, las dos
- * listas se muestran juntas: el usuario necesita ver la señal, no saber que
- * filtro la encontro.
- *
- * Los `detalle` vienen ya redactados en espanol, asi que se muestran tal cual:
- * el backend es el que sabe por que marco lo que marco, y reescribirlo aqui
- * seria inventar.
- *
- * Solo hay dos tonos disponibles, 'ok' y 'warn' (design-system/tokens.ts): una
- * señal detectada siempre es 'warn', y la ausencia de señales es 'ok'.
+ * Los `detalle` del backend vienen redactados en espanol y se muestran tal
+ * cual —el backend sabe por que marco lo que marco—, con dos añadidos: el
+ * peso del criterio en la heuristica y la concordancia de "1 motor".
  */
-function sectionFromCriteria(
-  criteria: RemoteCriterion[],
-  indicators: RemoteCriterion[],
-): AnalysisSection {
-  const findings: Finding[] = [...criteria, ...indicators].map((item) => ({
-    tone: 'warn',
-    text: item.detalle,
-  }));
 
+/** Titulos de las tres secciones. Los mismos en todos los caminos. */
+const SECTION_TITLES: Record<AnalysisStageKey, string> = {
+  reputation: 'Reputación',
+  heuristics: 'Estructura del enlace',
+  behavior: 'Comportamiento',
+};
+
+/**
+ * Corte de F2.1 en el backend: `score > 60` concluye SOSPECHOSO
+ * (`qrisk-endpoint-doc.md`). Solo se usa para EXPLICAR un corte que ya hizo el
+ * backend; no decide nada en la app.
+ */
+const BACKEND_F2_1_CUTOFF = 60;
+
+/** Como se nombra cada tipo de amenaza de Safe Browsing en la pantalla. */
+const THREAT_LABELS: Record<string, string> = {
+  SOCIAL_ENGINEERING: 'phishing',
+  MALWARE: 'malware',
+  UNWANTED_SOFTWARE: 'software no deseado',
+  POTENTIALLY_HARMFUL_APPLICATION: 'aplicación dañina',
+};
+
+function threatLabel(threatType?: string): string {
+  return (threatType && THREAT_LABELS[threatType]) || 'peligrosa';
+}
+
+/**
+ * "1 motores lo marcan" -> "1 motor lo marca".
+ *
+ * El backend redacta el recuento con el plural fijo. Se corrige solo ese caso,
+ * sin tocar el resto del texto.
+ */
+export function fixEngineGrammar(detail: string): string {
+  return detail
+    .replace(/\b1 motores lo marcan\b/g, '1 motor lo marca')
+    .replace(/\b1 motores\b/g, '1 motor');
+}
+
+/** "N motor(es)", con la concordancia que el backend no hace. */
+function enginesText(count: number): string {
+  return `${count} ${count === 1 ? 'motor' : 'motores'}`;
+}
+
+/** Texto de una señal; vacio si el backend la mando sin `detalle`. */
+function detailOf(item: RemoteCriterion | undefined): string {
+  return typeof item?.detalle === 'string' ? item.detalle.trim() : '';
+}
+
+/** Insignia de una seccion que si corrio: cuantas alertas encontro. */
+function alertBadge(count: number): Pick<AnalysisSection, 'badgeText' | 'badgeTone'> {
+  if (count === 0) return { badgeText: 'SIN ALERTAS', badgeTone: 'ok' };
+  return { badgeText: `${count} ${count === 1 ? 'ALERTA' : 'ALERTAS'}`, badgeTone: 'warn' };
+}
+
+/**
+ * Seccion de un filtro que no corrio porque uno anterior ya decidio.
+ *
+ * No es un fallo, es la cascada haciendo su trabajo, asi que va en 'ok': la
+ * advertencia, si la hay, ya esta en la seccion del filtro que decidio.
+ */
+function notRunSection(key: AnalysisStageKey, why: string): AnalysisSection {
   return {
-    // La CLAVE sigue siendo 'reputation': es parte de `AnalysisStageKey`, un
-    // tipo publico, y es la que `ENABLED_FILTERS` tiene encendida. Lo que
-    // cambia es el titulo que lee el usuario, que antes prometia una consulta
-    // a listas de reputacion que el backend no hace (ver `analysisStages`).
-    key: 'reputation',
-    title: 'Análisis del enlace',
-    badgeText:
-      findings.length === 0
-        ? 'SIN ALERTAS'
-        : `${findings.length} ${findings.length === 1 ? 'ALERTA' : 'ALERTAS'}`,
-    badgeTone: findings.length === 0 ? 'ok' : 'warn',
-    findings:
-      findings.length > 0
-        ? findings
-        : [{ tone: 'ok', text: 'No se detectaron señales de riesgo en el enlace.' }],
+    key,
+    title: SECTION_TITLES[key],
+    badgeText: 'NO CORRIÓ',
+    badgeTone: 'ok',
+    findings: [{ tone: 'ok', text: why }],
   };
 }
 
 /**
- * Seccion para cuando la cascada concluyo antes de producir señales.
+ * F1 · Reputacion.
  *
- * Pasa cuando F1 decide: el backend responde con el veredicto y nada mas,
- * porque los filtros siguientes no corrieron. La seccion dice por que no hay
- * lista de señales, en vez de dejar la impresion de que el analisis quedo a
- * medias.
- *
- * El tono sigue la regla de siempre: 'ok' solo cuando no hay nada que
- * advertir. Un MALICIOSO de F1 es la conclusion mas firme del sistema, asi que
- * va en 'warn' aunque no traiga criterios que enumerar.
+ * Con `f1` (lo que de verdad consulto la app) se dice exactamente que paso:
+ * lista local de confianza y Google Safe Browsing por separado, distinguiendo
+ * "no la tiene reportada" de "no se pudo consultar". Sin `f1` (una respuesta
+ * adaptada fuera del servicio) se dice solo lo que se puede deducir del backend.
  */
-function earlyVerdictSection(verdict: VerdictKey, decisiveFilter?: string | null): AnalysisSection {
-  const byReputation = (decisiveFilter ?? 'F1').toUpperCase() === 'F1';
-  const source = byReputation
-    ? 'listas de reputación'
-    : `el filtro ${decisiveFilter}`;
+function reputationSection(
+  f1: F1Outcome | undefined,
+  verdict: VerdictKey,
+  cutAtF1: boolean,
+  domain: string,
+): AnalysisSection {
+  const key: AnalysisStageKey = 'reputation';
+  const title = SECTION_TITLES[key];
 
-  const safe = verdict === 'seguro';
-  const text = safe
-    ? `El dominio aparece en ${source} como confiable, así que el análisis terminó aquí sin necesidad de más revisiones.`
-    : `El dominio aparece en ${source} como peligroso. Esa sola señal decide el veredicto, así que no se corrieron las demás revisiones.`;
+  if (!f1) {
+    if (cutAtF1 && verdict === 'malicioso') {
+      return {
+        key,
+        title,
+        badgeText: 'REPORTADA',
+        badgeTone: 'warn',
+        findings: [
+          { tone: 'warn', text: 'Las listas de reputación la tienen reportada como peligrosa.' },
+        ],
+      };
+    }
+    if (cutAtF1 && verdict === 'seguro') {
+      return {
+        key,
+        title,
+        badgeText: 'CONFIABLE',
+        badgeTone: 'ok',
+        findings: [
+          { tone: 'ok', text: 'El dominio está en las listas de reputación como confiable.' },
+        ],
+      };
+    }
+    return {
+      key,
+      title,
+      badgeText: 'NO CONCLUYÓ',
+      badgeTone: 'ok',
+      findings: [
+        {
+          tone: 'ok',
+          text: 'Las listas de reputación no concluyeron nada, así que el análisis siguió con los demás filtros.',
+        },
+      ],
+    };
+  }
+
+  const findings: Finding[] = [];
+  if (f1.localTrusted) {
+    findings.push({ tone: 'ok', text: `${domain} está en la lista de confianza de QRisk.` });
+  }
+
+  const sb = f1.safeBrowsing;
+  switch (sb.status) {
+    case 'listed':
+      findings.push({
+        tone: 'warn',
+        text: `Google Safe Browsing la tiene reportada como ${threatLabel(sb.threatType)}.`,
+      });
+      break;
+    case 'not_listed':
+      findings.push({ tone: 'ok', text: 'Google Safe Browsing no la tiene reportada.' });
+      break;
+    case 'unavailable':
+      findings.push({
+        tone: 'warn',
+        text: 'No se pudo consultar Google Safe Browsing: no respondió a tiempo.',
+      });
+      break;
+    case 'not_configured':
+      findings.push({
+        tone: 'warn',
+        text: 'Esta versión de la app no consulta Google Safe Browsing.',
+      });
+      break;
+  }
+
+  const pt = f1.phishTank;
+  switch (pt.status) {
+    case 'listed':
+      findings.push({
+        tone: 'warn',
+        text: 'PhishTank la tiene confirmada como phishing: su comunidad verificó el reporte.',
+      });
+      break;
+    case 'not_listed':
+      // "Confirmada" y no "registrada": PhishTank tambien guarda reportes que
+      // su comunidad descarto (`valid: false`), y esos cuentan como no
+      // confirmados. Ver `phishTank.ts`.
+      findings.push({ tone: 'ok', text: 'PhishTank no la tiene confirmada como phishing.' });
+      break;
+    case 'unavailable':
+      findings.push({ tone: 'warn', text: 'No se pudo consultar PhishTank: no respondió a tiempo.' });
+      break;
+  }
+
+  // Cuantas listas remotas respondieron de verdad que no la tienen.
+  const answered = [sb.status, pt.status].filter((status) => status === 'not_listed').length;
+  const consulted = sb.status === 'not_configured' ? 1 : 2;
+
+  let badge: Pick<AnalysisSection, 'badgeText' | 'badgeTone'>;
+  if (sb.status === 'listed' || pt.status === 'listed') {
+    badge = { badgeText: 'REPORTADA', badgeTone: 'warn' };
+  } else if (f1.localTrusted) {
+    badge = { badgeText: 'CONFIABLE', badgeTone: 'ok' };
+  } else if (answered === consulted) {
+    badge = { badgeText: 'SIN REPORTES', badgeTone: 'ok' };
+  } else if (answered > 0) {
+    badge = { badgeText: 'CONSULTA PARCIAL', badgeTone: 'warn' };
+  } else {
+    badge = { badgeText: 'SIN COMPLETAR', badgeTone: 'warn' };
+  }
+
+  /*
+   * El backend corto en F1 aunque la app le mando INCIERTO: el veredicto salio
+   * de su cache, de un analisis anterior en el que F1 si concluyo. Se dice,
+   * para que la seccion no contradiga al veredicto sin explicacion.
+   */
+  const fromCache = cutAtF1 && f1.verdict === 'INCIERTO';
 
   return {
-    key: 'reputation',
-    title: 'Análisis del enlace',
-    badgeText: safe ? 'SIN ALERTAS' : 'RESUELTO POR REPUTACIÓN',
-    badgeTone: safe ? 'ok' : 'warn',
-    findings: [{ tone: safe ? 'ok' : 'warn', text }],
+    key,
+    title,
+    ...badge,
+    findings,
+    ...(fromCache
+      ? {
+          footnote:
+            'El veredicto viene de un análisis anterior de esta misma URL guardado en el servidor.',
+        }
+      : {}),
   };
+}
+
+/**
+ * F2.1 · Estructura del enlace: los criterios heuristicos con su peso.
+ */
+function structureSection(
+  cutAtF1: boolean,
+  criteria: RemoteCriterion[] | undefined,
+  score: number | null,
+  incompleteReason: string,
+): AnalysisSection {
+  const key: AnalysisStageKey = 'heuristics';
+
+  if (cutAtF1) {
+    return notRunSection(key, 'No hizo falta revisarla: la reputación ya decidió el veredicto.');
+  }
+
+  // Corrio si llego la lista de criterios o, al menos, el puntaje.
+  if (!Array.isArray(criteria) && score === null) {
+    return incompleteSection(key, SECTION_TITLES[key], incompleteReason);
+  }
+
+  const findings: Finding[] = [];
+  for (const item of criteria ?? []) {
+    const detail = detailOf(item);
+    if (!detail) continue;
+    const weight = item.peso;
+    findings.push({
+      tone: 'warn',
+      text:
+        typeof weight === 'number' && Number.isFinite(weight) && weight > 0
+          ? `${detail} · +${weight}`
+          : detail,
+    });
+  }
+
+  return {
+    key,
+    title: SECTION_TITLES[key],
+    ...alertBadge(findings.length),
+    findings:
+      findings.length > 0
+        ? findings
+        : [{ tone: 'ok', text: 'Ningún criterio de riesgo se activó en la estructura del enlace.' }],
+    ...(score !== null ? { footnote: `Puntaje de la estructura: ${score} de 100.` } : {}),
+  };
+}
+
+/**
+ * F2.2 · Comportamiento: lo que reportaron VirusTotal y URLScan.io.
+ */
+function behaviorSection(
+  cutAtF1: boolean,
+  cutAtF21: boolean,
+  indicators: RemoteCriterion[] | undefined,
+  incompleteReason: string,
+): AnalysisSection {
+  const key: AnalysisStageKey = 'behavior';
+
+  if (cutAtF1) {
+    return notRunSection(key, 'No hizo falta revisarlo: la reputación ya decidió el veredicto.');
+  }
+  if (cutAtF21) {
+    return notRunSection(
+      key,
+      'No hizo falta revisarlo: la estructura del enlace ya superó el umbral de riesgo.',
+    );
+  }
+  if (!Array.isArray(indicators)) {
+    return incompleteSection(key, SECTION_TITLES[key], incompleteReason);
+  }
+
+  const findings: Finding[] = [];
+  for (const item of indicators) {
+    const detail = detailOf(item);
+    if (detail) findings.push({ tone: 'warn', text: fixEngineGrammar(detail) });
+  }
+
+  return {
+    key,
+    title: SECTION_TITLES[key],
+    ...alertBadge(findings.length),
+    // "No llegaron reportes" y no "el sitio es limpio": una lista vacia tambien
+    // puede ser que una de las dos fuentes no respondio. Se afirma solo lo que
+    // se sabe.
+    findings:
+      findings.length > 0
+        ? findings
+        : [{ tone: 'ok', text: 'No llegaron reportes de riesgo de VirusTotal ni de URLScan.io.' }],
+  };
+}
+
+/** Motores de VirusTotal que reporta la respuesta (el mayor, si vienen varios). */
+function maliciousEngines(indicators: RemoteCriterion[] | undefined): number {
+  if (!Array.isArray(indicators)) return 0;
+  return indicators
+    .filter((item) => (item?.indicador ?? '').trim() === 'virustotal_motores_maliciosos')
+    .reduce((max, item) => Math.max(max, engineCount(detailOf(item))), 0);
+}
+
+/** Lo que necesita `verdictReason` para explicar el veredicto. */
+interface ReasonContext {
+  verdict: VerdictKey;
+  /** El veredicto salio del puntaje porque el backend dijo PENDIENTE. */
+  derivedFromScore: boolean;
+  escalation: EscalationReason | null;
+  cutAtF1: boolean;
+  cutAtF21: boolean;
+  score: number | null;
+  indicators: RemoteCriterion[] | undefined;
+  f1: F1Outcome | undefined;
+  domain: string;
+  degraded: boolean;
+}
+
+/**
+ * SEGURO por la lista de confianza: dice que listas remotas confirmaron que la
+ * URL no esta reportada y cuales no se pudieron consultar. Nunca afirma "no
+ * reportada" por una lista que no respondio.
+ */
+function safeByTrustReason(domain: string, f1: F1Outcome): string {
+  const sources: [string, string][] = [
+    ['Google Safe Browsing', f1.safeBrowsing.status],
+    ['PhishTank', f1.phishTank.status],
+  ];
+  const clean = sources.filter(([, status]) => status === 'not_listed').map(([name]) => name);
+  const failed = sources.filter(([, status]) => status === 'unavailable').map(([name]) => name);
+
+  let text = `Seguro: ${domain} está en la lista de confianza de QRisk`;
+  if (clean.length === 2) text += ' y ni Google Safe Browsing ni PhishTank tienen reportada esta URL';
+  else if (clean.length === 1) text += ` y ${clean[0]} no tiene reportada esta URL`;
+  text += '.';
+  if (failed.length > 0) text += ` No se pudo consultar ${failed.join(' ni ')}.`;
+  return text;
+}
+
+const VERDICT_WORD: Record<VerdictKey, string> = {
+  seguro: 'Seguro',
+  sospechoso: 'Sospechoso',
+  malicioso: 'Malicioso',
+  incierto: 'Incierto',
+};
+
+/**
+ * "Por que este veredicto": que filtro decidio y con que umbral.
+ *
+ * Es la parte que hace comprobable el veredicto. Cada umbral que se nombra es
+ * el que de verdad se aplico, incluidos los de la app —`verdictThresholds` y
+ * `behaviorEscalation`—, que antes actuaban sin que la pantalla lo dijera:
+ * cuando la app eleva lo que el backend dejo en sospechoso, aqui se dice.
+ */
+function verdictReason(ctx: ReasonContext): string {
+  const { verdict, score, f1 } = ctx;
+  const word = VERDICT_WORD[verdict];
+
+  if (verdict === 'incierto') {
+    return ctx.degraded
+      ? 'Incierto: el análisis no se completó, así que no hay base suficiente para un veredicto.'
+      : 'Incierto: el servidor no pudo concluir un veredicto.';
+  }
+
+  if (ctx.escalation) {
+    const { indicator, engines } = ctx.escalation;
+    const tail = ' El servidor lo había dejado en sospechoso.';
+    if (indicator === 'virustotal_motores_maliciosos' && engines) {
+      return `Malicioso: ${enginesText(engines)} de VirusTotal lo marcan como malicioso, y QRisk lo considera malicioso desde ${MALICIOUS_ENGINE_THRESHOLD}.${tail}`;
+    }
+    if (indicator === 'urlscan_scan_eliminado') {
+      return `Malicioso: URLScan.io eliminó su informe después de analizar el sitio, lo que indica contenido malicioso confirmado.${tail}`;
+    }
+    return `Malicioso: URLScan.io analizó el sitio y concluyó que es malicioso.${tail}`;
+  }
+
+  if (ctx.cutAtF1) {
+    const fresh = f1 !== undefined && f1.verdict !== 'INCIERTO';
+    if (verdict === 'malicioso') {
+      const reports: string[] = [];
+      if (fresh && f1.safeBrowsing.status === 'listed') {
+        reports.push(
+          `Google Safe Browsing la tiene reportada como ${threatLabel(f1.safeBrowsing.threatType)}`,
+        );
+      }
+      if (fresh && f1.phishTank.status === 'listed') {
+        reports.push('PhishTank la tiene confirmada como phishing');
+      }
+      const who =
+        reports.length > 0
+          ? reports.join(' y ')
+          : 'las listas de reputación la tienen reportada';
+      return `Malicioso: ${who}. Ese reporte basta, así que no se corrieron los demás filtros.`;
+    }
+    if (verdict === 'seguro' && fresh && f1.localTrusted) {
+      return safeByTrustReason(ctx.domain, f1);
+    }
+    return `${word}: lo decidieron las listas de reputación, así que no se corrieron los demás filtros.`;
+  }
+
+  if (ctx.derivedFromScore && score !== null) {
+    const points = `la estructura del enlace sumó ${score} de 100 puntos`;
+    if (verdict === 'malicioso') {
+      return `Malicioso: ${points}, y QRisk marca malicioso desde ${VERDICT_THRESHOLDS.malicious}.`;
+    }
+    if (verdict === 'sospechoso') {
+      return `Sospechoso: ${points}. QRisk marca sospechoso desde ${VERDICT_THRESHOLDS.suspicious} y malicioso desde ${VERDICT_THRESHOLDS.malicious}.`;
+    }
+    const noReports =
+      Array.isArray(ctx.indicators) && ctx.indicators.length === 0
+        ? ' y no llegaron reportes de VirusTotal ni de URLScan.io'
+        : '';
+    return `Seguro: ${points} (QRisk marca sospechoso desde ${VERDICT_THRESHOLDS.suspicious})${noReports}.`;
+  }
+
+  if (verdict === 'sospechoso' && ctx.cutAtF21) {
+    return score !== null
+      ? `Sospechoso: la estructura del enlace sumó ${score} de 100 puntos, por encima del corte del servidor (más de ${BACKEND_F2_1_CUTOFF}).`
+      : 'Sospechoso: la estructura del enlace superó el corte de riesgo del servidor.';
+  }
+
+  if (verdict === 'sospechoso') {
+    const engines = maliciousEngines(ctx.indicators);
+    return engines > 0
+      ? `Sospechoso: ${enginesText(engines)} de VirusTotal lo ${engines === 1 ? 'marca' : 'marcan'} como malicioso. QRisk lo considera malicioso desde ${MALICIOUS_ENGINE_THRESHOLD} motores.`
+      : 'Sospechoso: el análisis de comportamiento encontró señales de riesgo, pero ninguna confirma que sea malicioso.';
+  }
+
+  return `${word}: así lo concluyó el servidor.`;
 }
 
 /**
@@ -323,31 +699,21 @@ function incompleteSection(key: AnalysisStageKey, title: string, reason: string)
 }
 
 /**
- * Titulo de cada seccion de relleno, por clave. Se mantiene el mapa completo
- * aunque hoy solo se pinte F1: reactivar un filtro en `ENABLED_FILTERS` no debe
- * obligar a volver a escribir su titulo aqui.
- */
-const PLACEHOLDER_TITLES: Record<AnalysisStageKey, string> = {
-  // Mismo titulo que usa `sectionFromCriteria`, para que la seccion no cambie
-  // de nombre segun si el analisis se completo o no.
-  reputation: 'Análisis del enlace',
-  heuristics: 'Heurística',
-  behavior: 'Comportamiento',
-};
-
-/**
  * Las secciones de los filtros ACTIVOS, marcadas como no completadas.
  *
- * Antes se rellenaban las tres siempre. Hoy solo se rellenan las que esta
- * version anuncia (`ENABLED_FILTERS`): una seccion "SIN COMPLETAR" de un filtro
- * que el backend ni siquiera intenta correr no informa, solo ocupa pantalla y
- * sugiere que hubo un fallo donde no lo hubo. El contrato —nunca omitir en
- * silencio una seccion que se anuncio— se sigue cumpliendo: lo que no se
- * rellena es justo lo que no se anuncia.
+ * Solo se rellenan las que esta version anuncia (`ENABLED_FILTERS`): el
+ * contrato —nunca omitir en silencio una seccion que se anuncio— se cumple sin
+ * pintar filtros que el backend ni intenta correr.
+ *
+ * Si se sabe que paso en F1, su seccion dice la verdad aunque el resto del
+ * analisis haya fallado: la consulta a Safe Browsing la hizo el telefono y su
+ * resultado no depende de que el servidor haya respondido.
  */
-function placeholderSections(reason: string): AnalysisSection[] {
+function placeholderSections(reason: string, f1?: F1Outcome, domain = ''): AnalysisSection[] {
   return ENABLED_FILTERS.map((key) =>
-    incompleteSection(key, PLACEHOLDER_TITLES[key], reason),
+    key === 'reputation' && f1
+      ? reputationSection(f1, 'incierto', false, domain)
+      : incompleteSection(key, SECTION_TITLES[key], reason),
   );
 }
 
@@ -369,6 +735,11 @@ const SUMMARY_BY_VERDICT: Record<VerdictKey, string> = {
 export function adaptAnalysisResponse(
   response: RemoteAnalysisResponse,
   requestedUrl: string,
+  /**
+   * Lo que consulto la app en F1. Opcional: sin el, la seccion de reputacion
+   * dice solo lo que se puede deducir de la respuesta del backend.
+   */
+  f1?: F1Outcome,
 ): AnalysisResult {
   const url = response.url ?? requestedUrl;
   const domain = response.dominio ?? response.domain ?? domainFromUrl(url);
@@ -389,55 +760,73 @@ export function adaptAnalysisResponse(
   const derived = backendConcluded(rawVerdict)
     ? null
     : verdictFromScore(response.score_heuristico);
-  const verdict = derived ?? mapVerdict(rawVerdict);
+  const baseVerdict = derived ?? mapVerdict(rawVerdict);
 
   /*
-   * Las secciones tambien salen de una de dos fuentes:
+   * TERCERA FUENTE: la evidencia de comportamiento puede ELEVAR el veredicto.
    *
-   *   1. `sections[]`, si el backend algun dia cumple el contrato.
-   *   2. Los criterios de la heuristica, que es lo que manda hoy.
+   * El backend topa en SOSPECHOSO por comportamiento, venga de donde venga la
+   * señal: un sitio con 18 motores de VirusTotal marcandolo sale con la misma
+   * etiqueta que uno con 2. Pero manda el recuento, asi que la app puede
+   * concluir lo que el backend se queda sin decir (ver `behaviorEscalation`).
    *
-   * Antes, al no venir `sections[]`, se pintaba un acordeon "SIN COMPLETAR"
-   * mientras se tiraban a la basura los criterios que el backend SI habia
-   * mandado. Eso era perder la parte mas util de la respuesta.
+   * SOLO ELEVA, NUNCA REBAJA. Si el backend ya dijo MALICIOSO, esto no cambia
+   * nada; si dijo SEGURO, tampoco lo toca —un SEGURO con indicadores de
+   * VirusTotal seria una contradiccion del backend, y resolverla rebajando su
+   * palabra no le toca a la app—. El unico salto que hace es
+   * sospechoso -> malicioso.
    */
+  const escalation =
+    baseVerdict === 'sospechoso' ? behaviorEscalation(response.indicadores_f2_2) : null;
+  const verdict: VerdictKey = escalation ? 'malicioso' : baseVerdict;
+
   // Solo las secciones que la pantalla puede pintar sin romperse. Se filtra en
   // vez de confiar en el `as`: ver `isRenderableSection`.
   const validSections = Array.isArray(response.sections)
     ? response.sections.filter(isRenderableSection)
     : [];
-  const hasSections = validSections.length > 0;
   const criteria = response.criterios_f2_1;
   const indicators = response.indicadores_f2_2;
-  // Basta con que llegue UNA de las dos listas: el backend puede concluir por
-  // F2.2 sin que la heuristica haya marcado nada (y al reves). Si solo se
-  // mirara `criterios_f2_1`, una respuesta con los indicadores de VirusTotal
-  // pero sin criterios caeria en "SIN COMPLETAR" teniendo evidencia que dar.
-  const hasCriteria = Array.isArray(criteria) || Array.isArray(indicators);
+  const score = usableScore(response.score_heuristico);
+  // Llego algo de F2.1 o de F2.2. Basta con UNA de las listas: el backend puede
+  // concluir por F2.2 sin que la heuristica haya marcado nada, y al reves.
+  const hasF2Data = Array.isArray(criteria) || Array.isArray(indicators) || score !== null;
 
+  /*
+   * Que filtro corto la cascada. `filtro_decisivo` lo dice; si no viene, un
+   * SEGURO o MALICIOSO sin nada de F2 solo puede venir de F1, porque el backend
+   * no concluye esos dos valores en ningun otro filtro (`qrisk-endpoint-doc.md`).
+   */
+  const decisive = (response.filtro_decisivo ?? '').trim().toUpperCase();
+  const rawUpper = (rawVerdict ?? '').trim().toUpperCase();
+  const cutAtF1 =
+    decisive === 'F1' ||
+    (!decisive && !hasF2Data && (rawUpper === 'SEGURO' || rawUpper === 'MALICIOSO'));
+  const cutAtF21 = decisive === 'F2.1';
+
+  /*
+   * Las secciones salen de una de tres fuentes:
+   *
+   *   1. `sections[]`, si el backend algun dia cumple el contrato.
+   *   2. Una por filtro, armadas desde lo que manda hoy (ver "DESGLOSE POR
+   *      FILTRO"), cuando hay algo que contar: F2 respondio o F1 corto.
+   *   3. Relleno "SIN COMPLETAR" cuando el analisis no llego a nada.
+   */
+  const incompleteReason = 'El servidor no envió el resultado de esta revisión.';
   let sections: AnalysisSection[];
-  if (hasSections) {
+  if (validSections.length > 0) {
     sections = validSections;
-  } else if (hasCriteria) {
-    sections = [sectionFromCriteria(criteria ?? [], indicators ?? [])];
-  } else if (backendConcluded(rawVerdict)) {
-    /*
-     * CORTE ANTICIPADO DE LA CASCADA, no un fallo.
-     *
-     * Cuando F1 resuelve (`filtro_decisivo: "F1"`), el backend responde solo
-     * con el veredicto: no hay criterios ni indicadores porque los filtros
-     * caros no llegaron a correr. Eso es exactamente lo que la cascada busca.
-     *
-     * Antes se caia en `placeholderSections`, que pinta "SIN COMPLETAR" y dice
-     * "esta parte no pudo revisarse": leer eso en un sitio que el backend
-     * declaro SEGURO es desconcertante, y en uno que declaro MALICIOSO es peor,
-     * porque sugiere que la condena es dudosa cuando es la mas firme que el
-     * sistema puede emitir. Se explica lo que de verdad paso.
-     */
-    sections = [earlyVerdictSection(verdict, response.filtro_decisivo)];
+  } else if (hasF2Data || cutAtF1) {
+    sections = [
+      reputationSection(f1, verdict, cutAtF1, domain),
+      structureSection(cutAtF1, criteria, score, incompleteReason),
+      behaviorSection(cutAtF1, cutAtF21, indicators, incompleteReason),
+    ];
   } else {
     sections = placeholderSections(
       'El análisis no se completó, así que esta parte no pudo revisarse.',
+      f1,
+      domain,
     );
   }
 
@@ -458,17 +847,36 @@ export function adaptAnalysisResponse(
    */
   const degraded = response.degraded ?? verdict === 'incierto';
 
+  // El puntaje del medidor es el de la heuristica cuando viene y esta en la
+  // escala 0-100; si no, el neutro, marcado como relleno para que la pantalla
+  // no lo pinte como si midiera algo.
+  const meterScore = usableScore(response.riskScore) ?? score;
+
+  const reason =
+    verdictReason({
+      verdict,
+      derivedFromScore: derived !== null,
+      escalation,
+      cutAtF1,
+      cutAtF21,
+      score,
+      indicators,
+      f1,
+      domain,
+      degraded,
+    }) +
+    (response.desde_cache === true
+      ? ' Resultado guardado de un análisis anterior de esta misma URL.'
+      : '');
+
   return {
     verdict,
     domain,
     url,
     summary,
-    // El puntaje del medidor es el de la heuristica cuando viene y esta en la
-    // escala 0-100; si no, el neutro, que no miente hacia ningun lado.
-    riskScore:
-      usableScore(response.riskScore) ??
-      usableScore(response.score_heuristico) ??
-      NEUTRAL_RISK_SCORE,
+    riskScore: meterScore ?? NEUTRAL_RISK_SCORE,
+    ...(meterScore === null ? { riskScoreMissing: true } : {}),
+    verdictReason: reason,
     sections,
     ...(response.scanId ? { scanId: response.scanId } : {}),
     // La captura solo se incluye si vino: una clave presente con undefined
@@ -483,15 +891,22 @@ export function adaptAnalysisResponse(
  * Resultado para cuando el analisis no se pudo hacer (sin red, timeout, 500).
  * Se prefiere un "incierto" honesto a no mostrar nada: el usuario escaneo un
  * QR y merece una respuesta, aunque sea que no se pudo verificar.
+ *
+ * Con `f1`, la seccion de reputacion cuenta lo que el telefono si alcanzo a
+ * consultar antes de que fallara el servidor.
  */
-export function degradedResult(url: string, reason: string): AnalysisResult {
+export function degradedResult(url: string, reason: string, f1?: F1Outcome): AnalysisResult {
+  const domain = domainFromUrl(url);
   return {
     verdict: 'incierto',
-    domain: domainFromUrl(url),
+    domain,
     url,
     summary: 'No pudimos completar el análisis. Trata este enlace con precaución.',
     riskScore: NEUTRAL_RISK_SCORE,
-    sections: placeholderSections(reason),
+    riskScoreMissing: true,
+    verdictReason:
+      'Incierto: el análisis no se completó, así que no hay base suficiente para un veredicto.',
+    sections: placeholderSections(reason, f1, domain),
     degraded: true,
   };
 }

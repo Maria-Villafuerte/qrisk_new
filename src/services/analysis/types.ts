@@ -46,6 +46,20 @@ export interface AnalysisResult {
   summary: string;
   /** 0 = seguro, 100 = peligroso. */
   riskScore: number;
+  /**
+   * true si el backend no mando un puntaje usable y `riskScore` es el neutro de
+   * relleno. La pantalla esconde el medidor en ese caso: un 50 fijo pintado
+   * igual para un SEGURO y para un MALICIOSO no mide nada.
+   *
+   * Ausente en las entradas del historial anteriores a este campo, que se
+   * siguen pintando como antes.
+   */
+  riskScoreMissing?: boolean;
+  /**
+   * Por que este veredicto, en una o dos frases: que filtro decidio y con que
+   * umbral. Ausente en entradas viejas del historial.
+   */
+  verdictReason?: string;
   sections: AnalysisSection[];
   /** Identificador del analisis en el backend. Opcional: hoy no lo manda. */
   scanId?: string;
