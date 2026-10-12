@@ -1,6 +1,7 @@
 import {
   checkSafeBrowsing,
   isSafeBrowsingConfigured,
+  lookupSafeBrowsing,
   SAFE_BROWSING_TIMEOUT_MS,
 } from '../safeBrowsing';
 
@@ -165,5 +166,44 @@ describe('checkSafeBrowsing', () => {
 
     await expect(promise).resolves.toBe('INCIERTO');
     jest.useRealTimers();
+  });
+});
+
+/*
+ * `lookupSafeBrowsing` conserva lo que `checkSafeBrowsing` colapsa en
+ * INCIERTO, para que la pantalla no diga "no la tiene reportada" cuando la
+ * consulta ni siquiera se pudo hacer.
+ */
+describe('lookupSafeBrowsing', () => {
+  it('devuelve el tipo de amenaza de la coincidencia', async () => {
+    fetchMock.mockResolvedValue(match);
+    await expect(lookupSafeBrowsing('http://malo.test/')).resolves.toEqual({
+      status: 'listed',
+      threatType: 'SOCIAL_ENGINEERING',
+    });
+  });
+
+  it('una coincidencia sin tipo sigue siendo una coincidencia', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ matches: [{}] }) });
+    await expect(lookupSafeBrowsing('http://malo.test/')).resolves.toEqual({ status: 'listed' });
+  });
+
+  it('distingue "no reportada" de "no se pudo consultar"', async () => {
+    fetchMock.mockResolvedValue(noMatch);
+    await expect(lookupSafeBrowsing('https://x.test/')).resolves.toEqual({ status: 'not_listed' });
+
+    fetchMock.mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+    await expect(lookupSafeBrowsing('https://x.test/')).resolves.toEqual({ status: 'unavailable' });
+
+    fetchMock.mockRejectedValue(new Error('sin red'));
+    await expect(lookupSafeBrowsing('https://x.test/')).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('sin clave dice que no esta configurado, sin llamar a la API', async () => {
+    setKey(undefined);
+    await expect(lookupSafeBrowsing('https://x.test/')).resolves.toEqual({
+      status: 'not_configured',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
