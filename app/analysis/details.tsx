@@ -5,6 +5,7 @@ import {
   Accordion,
   BehaviorIcon,
   Button,
+  Card,
   Finding,
   HeuristicsIcon,
   palette,
@@ -78,7 +79,21 @@ export default function DetailsRoute() {
           </View>
         </View>
 
-        <RiskMeter score={result.riskScore} verdict={result.verdict} />
+        {/*
+          El medidor muestra el puntaje de la estructura del enlace (F2.1), que
+          es el unico puntaje que produce el sistema. Se nombra asi para que no
+          se lea como el veredicto: un MALICIOSO por VirusTotal puede tener una
+          estructura de 30/100. Cuando F1 decide no hay puntaje, y un 50 de
+          relleno pintado igual en un SEGURO y en un MALICIOSO no mide nada:
+          se esconde.
+        */}
+        {result.riskScoreMissing ? null : (
+          <RiskMeter
+            score={result.riskScore}
+            verdict={result.verdict}
+            title="Riesgo por estructura del enlace"
+          />
+        )}
 
         {/*
           Vista previa (F2.3). La captura la toma el backend en su entorno
@@ -119,11 +134,10 @@ export default function DetailsRoute() {
               icon={<Icon size={19} />}
               badgeText={section.badgeText}
               badgeTone={section.badgeTone}
-              // La primera seccion llega abierta (progressive disclosure). Antes
-              // estaba fijo en 'heuristics', que era la mas informativa cuando
-              // se pintaban las tres; con F2.1 apagado eso dejaria todos los
-              // acordeones cerrados y la pantalla pareceria vacia.
-              defaultOpen={index === 0}
+              // Llegan abiertas la primera seccion y las que traen alertas:
+              // progressive disclosure, pero sin esconder la evidencia que
+              // explica el veredicto detras de un toque.
+              defaultOpen={index === 0 || section.badgeTone === 'warn'}
             >
               {section.findings.map((finding) => (
                 <Finding key={finding.text} tone={finding.tone}>
@@ -136,6 +150,17 @@ export default function DetailsRoute() {
             </Accordion>
           );
         })}
+
+        {/*
+          Cierra el desglose: que filtro decidio y con que umbral. Las entradas
+          del historial anteriores a este campo no lo traen y se omite.
+        */}
+        {result.verdictReason ? (
+          <Card style={styles.reason}>
+            <Text style={text.badge}>POR QUÉ ESTE VEREDICTO</Text>
+            <Text style={text.body}>{result.verdictReason}</Text>
+          </Card>
+        ) : null}
 
         <Button
           label="Volver a la vista simple"
@@ -207,6 +232,9 @@ const styles = StyleSheet.create({
   },
   footnote: {
     lineHeight: 18,
+  },
+  reason: {
+    gap: spacing.xs,
   },
   backButton: {
     marginTop: spacing.xs,
