@@ -1,0 +1,42 @@
+
+> qrisk-app@1.0.0 test
+> jest --coverage --collectCoverageFrom=src/services/**/*.ts
+
+---------------------------|---------|----------|---------|---------|-------------------
+File                       | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+---------------------------|---------|----------|---------|---------|-------------------
+All files                  |   99.72 |    98.13 |     100 |     100 |                   
+ analysis                  |     100 |      100 |     100 |     100 |                   
+  adaptAnalysis.ts         |     100 |      100 |     100 |     100 |                   
+  analysisStages.ts        |     100 |      100 |     100 |     100 |                   
+  enabledFilters.ts        |     100 |      100 |     100 |     100 |                   
+  remoteAnalysisService.ts |     100 |      100 |     100 |     100 |                   
+  types.ts                 |       0 |        0 |       0 |       0 |                   
+  verdictThresholds.ts     |     100 |      100 |     100 |     100 |                   
+ api                       |   98.83 |    97.56 |     100 |     100 |                   
+  config.ts                |     100 |      100 |     100 |     100 |                   
+  errors.ts                |   98.27 |    97.18 |     100 |     100 | 59,96             
+  httpClient.ts            |     100 |      100 |     100 |     100 |                   
+ format                    |     100 |     90.9 |     100 |     100 |                   
+  relativeTime.ts          |     100 |     90.9 |     100 |     100 | 35                
+ location                  |     100 |      100 |     100 |     100 |                   
+  currentPlace.ts          |     100 |      100 |     100 |     100 |                   
+  index.ts                 |       0 |        0 |       0 |       0 |                   
+  placeName.ts             |     100 |      100 |     100 |     100 |                   
+ qr                        |     100 |    97.26 |     100 |     100 |                   
+  classifyQr.ts            |     100 |    98.07 |     100 |     100 | 136               
+  index.ts                 |       0 |        0 |       0 |       0 |                   
+  scanMetrics.ts           |     100 |    95.23 |     100 |     100 | 62                
+ report                    |     100 |      100 |     100 |     100 |                   
+  reportService.ts         |     100 |      100 |     100 |     100 |                   
+ storage                   |     100 |       95 |     100 |     100 |                   
+  historyStorage.ts        |     100 |    94.44 |     100 |     100 | 126               
+  locationStorage.ts       |     100 |      100 |     100 |     100 |                   
+  onboardingStorage.ts     |     100 |      100 |     100 |     100 |                   
+---------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 19 passed, 19 total
+Tests:       249 passed, 249 total
+Snapshots:   0 total
+Time:        7.933 s, estimated 10 s
+Ran all test suites.

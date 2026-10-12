@@ -1,0 +1,15 @@
+Filtro F1 contra Google Safe Browsing - verificacion en vivo
+11 de octubre de 2026
+Logica identica a safeBrowsing.ts + f1Filter.ts, sobre el fetch de Node
+(el fetch de jest-expo es un stub y no sale a la red)
+
+OK  malware (prueba oficial de Google)       324 ms  MALICIOSO  (safe_browsing) esperado=MALICIOSO
+OK  phishing (prueba oficial de Google)      249 ms  MALICIOSO  (safe_browsing) esperado=MALICIOSO
+OK  dominio de la lista local                 88 ms  SEGURO     (lista_local  ) esperado=SEGURO
+OK  subdominio de la lista local              80 ms  SEGURO     (lista_local  ) esperado=SEGURO
+OK  dominio limpio fuera de la lista          85 ms  SEGURO     (lista_local  ) esperado=SEGURO
+OK  dominio sin reportar                      78 ms  INCIERTO   (ninguna      ) esperado=INCIERTO
+OK  dominio confiable SIN https               72 ms  INCIERTO   (ninguna      ) esperado=INCIERTO
+OK  dominio parecido (evasion)                89 ms  INCIERTO   (ninguna      ) esperado=INCIERTO
+
+8/8 casos correctos

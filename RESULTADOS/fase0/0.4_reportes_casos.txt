@@ -1,0 +1,17 @@
+PASS src/services/report/__tests__/reportService.test.ts
+√ acepta los dos campos vacios: son opcionales (3 ms)
+√ acepta contenido normal (1 ms)
+√ rechaza un comentario demasiado largo (1 ms)
+√ rechaza un lugar demasiado largo (1 ms)
+√ acepta justo en el limite
+√ incluye lo obligatorio (1 ms)
+√ omite los opcionales vacios en vez de mandar cadenas vacias (1 ms)
+√ recorta los espacios de los opcionales (1 ms)
+√ incluye scanId solo si el analisis lo trae (1 ms)
+√ es anonimo: no lleva identificador de usuario ni coordenadas (1 ms)
+√ devuelve ok cuando el envio funciona (2 ms)
+√ no lanza ante un fallo de red: devuelve el motivo (1 ms)
+√ marca como no reintentable un rechazo del servidor
+√ corta la espera en el tope configurado (1 ms)
+√ conserva lo escrito: el fallo no destruye el borrador (1 ms)
+√ tampoco lanza ante un error inesperado

@@ -1,0 +1,563 @@
+  console.log
+    [T_scan] 850 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 1200 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 1 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 2 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 3 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 4 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 6 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 7 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 8 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 9 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 10 ms · OK · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [T_scan] 100 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [T_scan] 3000 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 9000 ms · FUERA DE METRICA · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 20000 ms · FUERA DE METRICA · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 20000 ms · FUERA DE METRICA · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 5000 ms · OK · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 11 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 12 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 13 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 14 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 15 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 16 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 17 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 18 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 19 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 20 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 21 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 22 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 23 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 24 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 25 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 26 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 27 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 28 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 29 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 10 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 11 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 12 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 13 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 14 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 15 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 16 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 17 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 18 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 19 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 2 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 3 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 4 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 5 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 6 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 7 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 8 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 9 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 0 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+  console.log
+    [T_scan] 500 ms · OK · muestra 1 · ios
+
+      at log (src/services/qr/scanMetrics.ts:66:13)
+
+Test Suites: 3 passed, 3 total
+Tests:       50 passed, 50 total
+Snapshots:   0 total
+Time:        2.33 s
+Ran all test suites matching src/services/qr.

@@ -1,0 +1,156 @@
+★ eas-cli@24.12.1 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+
+Builds for @majov4015/qrisk:
+
+ID                       f1990f37-2cfa-43e6-98b1-8eb938281bde
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   dedce0664842c4d95d201b27f1de4f76ca983975
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/f1990f37-2cfa-43e6-98b1-8eb938281bde
+Application Archive URL  https://expo.dev/artifacts/eas/lZ0qCOCTD9quB3JAOHzkRjNcodG1VYEP_0FYd3RC-Ig.apk
+Build Artifacts URL      null
+Fingerprint              23b6b19c58de00a8ff83a92cc9752980f9a9982f
+Started at               11/10/2026, 4:57:28 p. m.
+Finished at              11/10/2026, 5:10:53 p. m.
+Started by               majov4015
+
+———
+
+ID                       5a3e6627-a0c3-4c31-9a59-8c81be2c771f
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   2ece9063af533239dc074673d26bbd179ffdcd53
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/5a3e6627-a0c3-4c31-9a59-8c81be2c771f
+Application Archive URL  https://expo.dev/artifacts/eas/R4_wlaYei4NDJvn7sN7KYUaMJuTH6Rev5975iw75xHQ.apk
+Build Artifacts URL      null
+Fingerprint              f81a63820fe33a0108a1bde17b2b646da9cdf688
+Started at               1/10/2026, 4:13:04 p. m.
+Finished at              1/10/2026, 5:18:14 p. m.
+Started by               majov4015
+
+———
+
+ID                       70c1637f-8d80-4fcb-95f7-21e0a4d80cf5
+Platform                 Android
+Status                   canceled
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   995991b8045301fdc348fab653365e5125fa3c81
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/70c1637f-8d80-4fcb-95f7-21e0a4d80cf5
+Application Archive URL  null
+Build Artifacts URL      null
+Started at               1/10/2026, 4:08:47 p. m.
+Finished at              1/10/2026, 4:12:46 p. m.
+Started by               majov4015
+
+———
+
+ID                       d05627d0-d101-490a-8d8f-6811b9c325c8
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   6790e89ec7ca3bc3ebce145a1229e6ee1a76f91f
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/d05627d0-d101-490a-8d8f-6811b9c325c8
+Application Archive URL  https://expo.dev/artifacts/eas/7tF8JC6AqLtxSSqgrbSd5wacLNrlVzo-xB8B5IqoQVo.apk
+Build Artifacts URL      null
+Fingerprint              f81a63820fe33a0108a1bde17b2b646da9cdf688
+Started at               20/9/2026, 8:08:28 p. m.
+Finished at              11/10/2026, 11:50:41 a. m.
+Started by               majov4015
+
+———
+
+ID                       6537b4f1-d6c3-41fd-975a-49b122562757
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   b4eacd3a58fc18580d71c36e0cbe9171ad73dc24
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/6537b4f1-d6c3-41fd-975a-49b122562757
+Application Archive URL  https://expo.dev/artifacts/eas/rDfVAuxv9nZ9J_24ISG2wMIptUig7ijWdO55eLRvhUE.apk
+Build Artifacts URL      null
+Fingerprint              f81a63820fe33a0108a1bde17b2b646da9cdf688
+Started at               20/9/2026, 7:30:25 p. m.
+Finished at              11/10/2026, 11:41:01 a. m.
+Started by               majov4015
+
+———
+
+ID                       7e11b799-8840-468b-935b-083c20549ee5
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   b4eacd3a58fc18580d71c36e0cbe9171ad73dc24
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/7e11b799-8840-468b-935b-083c20549ee5
+Application Archive URL  https://expo.dev/artifacts/eas/dZU0DtfWhX-80WTJy93ZTZi6_MRjxmwwl_ts4yNXrMk.apk
+Build Artifacts URL      null
+Fingerprint              f81a63820fe33a0108a1bde17b2b646da9cdf688
+Started at               20/9/2026, 7:28:40 p. m.
+Finished at              11/10/2026, 11:41:01 a. m.
+Started by               majov4015
+
+———
+
+ID                       2dc5da3e-9833-44b7-b4b2-1834e9966597
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   d23bdcfcf0ffe762cc17feba325ae66629d4d9db
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/2dc5da3e-9833-44b7-b4b2-1834e9966597
+Application Archive URL  https://expo.dev/artifacts/eas/S7jMtTcKn2Ym-atRO5mVI9p2_CqDUOy08GFSTZ-6uIQ.apk
+Build Artifacts URL      null
+Fingerprint              5e02915404f51297d86526260458db0f61cc1f1e
+Started at               20/9/2026, 6:18:25 p. m.
+Finished at              11/10/2026, 11:30:49 a. m.
+Started by               majov4015
+
+———
+
+ID                       e6e09918-c969-46a7-9b8f-c739b9ce2184
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   ca85b8a4fac31da38f6bad25ce545b2647779095
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/e6e09918-c969-46a7-9b8f-c739b9ce2184
+Application Archive URL  https://expo.dev/artifacts/eas/uktpJFTyIcteHg73L0sopkcBxJjfBHv4pZ2vF9WV6EA.apk
+Build Artifacts URL      null
+Fingerprint              5e02915404f51297d86526260458db0f61cc1f1e
+Started at               20/9/2026, 3:04:18 p. m.
+Finished at              11/10/2026, 11:00:12 a. m.
+Started by               majov4015

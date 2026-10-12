@@ -1,0 +1,26 @@
+Verificacion tras integrar la cascada completa
+11 de octubre de 2026, 19:52
+
+tsc --noEmit ............ exit 0, sin errores
+npm test ................ 307 tests, 20 suites, todo verde
+cobertura src/services .. 99.75% stmts, 98.05% branch, 100% funcs, 100% lines
+expo export android ..... exit 0
+
+Archivos nuevos:
+  src/services/analysis/localF1.ts                     (filtro F1 local)
+  src/services/analysis/__tests__/localF1.test.ts      (29 tests)
+
+Archivos modificados:
+  README.md
+  app/analysis/loading.tsx
+  src/services/analysis/__tests__/adaptAnalysis.test.ts
+  src/services/analysis/__tests__/enabledFilters.test.ts
+  src/services/analysis/__tests__/remoteAnalysisService.test.ts
+  src/services/analysis/adaptAnalysis.ts
+  src/services/analysis/analysisStages.ts
+  src/services/analysis/enabledFilters.ts
+  src/services/analysis/remoteAnalysisService.ts
+  src/services/analysis/verdictThresholds.ts
+  src/services/api/config.ts
+  src/services/report/__tests__/reportService.test.ts
+  src/services/report/reportService.ts

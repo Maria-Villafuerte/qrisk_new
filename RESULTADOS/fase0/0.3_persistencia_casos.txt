@@ -1,0 +1,39 @@
+PASS src/services/storage/__tests__/locationStorage.test.ts
+√ es falso la primera vez (7 ms)
+√ es verdadero despues de concederla (1 ms)
+√ vuelve a falso si el usuario la desactiva
+√ ignora un valor que no sea la marca esperada
+√ devuelve falso si la lectura falla (2 ms)
+√ guarda bajo la clave versionada esperada (1 ms)
+√ no propaga el error si no se puede guardar (1 ms)
+PASS src/services/storage/__tests__/onboardingStorage.test.ts
+√ es falso la primera vez (6 ms)
+√ es verdadero despues de marcarlo (1 ms)
+√ ignora un valor que no sea la marca esperada (1 ms)
+√ devuelve falso si la lectura falla (1 ms)
+√ guarda bajo la clave versionada esperada (1 ms)
+√ no propaga el error si no se puede guardar (1 ms)
+√ vuelve a mostrar el onboarding (2 ms)
+√ no propaga el error si no se puede borrar (5 ms)
+PASS src/services/storage/__tests__/historyStorage.test.ts
+√ arranca vacio (6 ms)
+√ recupera intacto lo que guardo (sobrevive cerrar la app) (1 ms)
+√ guarda el analisis completo, para reabrirlo sin conexion (1 ms)
+√ recorta al tope al guardar (1 ms)
+√ pone el mas reciente primero (1 ms)
+√ respeta el tope de 20 y descarta el mas viejo (1 ms)
+√ persiste el recorte, no solo el arreglo en memoria (1 ms)
+√ vacia el historial
+√ devuelve vacio si el JSON no parsea (1 ms)
+√ devuelve vacio si lo guardado no es una lista
+√ descarta los registros incompletos y conserva los buenos (1 ms)
+√ descarta la URL de la captura al guardar (1 ms)
+√ conserva todo lo demas del analisis
+√ tampoco la deja en el disco (1 ms)
+√ no estorba cuando el analisis no trae captura (1 ms)
+√ no escribe a disco
+√ invocarla dos veces con lo mismo da lo mismo (1 ms)
+√ no muta la lista que recibe
+√ pone el mas reciente primero y respeta el tope
+√ descarta la captura igual que appendScan (1 ms)
+√ appendScan sigue haciendo las dos cosas: calcular y guardar

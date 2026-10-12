@@ -1,0 +1,17 @@
+Deteccion de dispositivos - 11 de octubre de 2026, 17:33
+
+adb devices:
+List of devices attached
+emulator-5554	device
+
+
+Propiedades de emulator-5554:
+  ro.product.model      = sdk_gphone64_x86_64
+  ro.build.version.release = 13
+  ro.build.version.sdk  = 33
+  ro.kernel.qemu        = 1  (1 = emulador)
+  MemTotal              = MemTotal:        2013516 kB
+
+Paquetes QRisk instalados:
+package:com.qrisk.app
+package:com.anonymous.qriskapp

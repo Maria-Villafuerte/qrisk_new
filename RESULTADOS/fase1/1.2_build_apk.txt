@@ -1,0 +1,24 @@
+★ eas-cli@24.12.1 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+
+Builds for @majov4015/qrisk:
+
+ID                       f1990f37-2cfa-43e6-98b1-8eb938281bde
+Platform                 Android
+Status                   finished
+Profile                  preview
+Distribution             internal
+SDK Version              57.0.0
+Version                  1.0.0
+Version code             1
+Commit                   dedce0664842c4d95d201b27f1de4f76ca983975
+Logs                     https://expo.dev/accounts/majov4015/projects/qrisk/builds/f1990f37-2cfa-43e6-98b1-8eb938281bde
+Application Archive URL  https://expo.dev/artifacts/eas/lZ0qCOCTD9quB3JAOHzkRjNcodG1VYEP_0FYd3RC-Ig.apk
+Build Artifacts URL      null
+Fingerprint              23b6b19c58de00a8ff83a92cc9752980f9a9982f
+Started at               11/10/2026, 4:57:28 p. m.
+Finished at              11/10/2026, 5:10:53 p. m.
+Started by               majov4015

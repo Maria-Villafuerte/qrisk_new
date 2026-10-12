@@ -1,0 +1,41 @@
+Ficha del dispositivo de prueba
+Capturada el 11 de octubre de 2026, 19:15
+
+Serial ................ R9JR504E9VK
+Modelo comercial ...... SM-A115M
+Fabricante ............ samsung
+Nombre del producto ... a11qub
+Dispositivo ........... a11q
+Android ............... 11
+Nivel de API .......... 30
+Parche de seguridad ... 2022-03-01
+Build ................. RP1A.200720.012.A115MUBU2BVB2
+ABI ................... armeabi-v7a
+Emulador (qemu) ....... 0 (vacio = hardware real)
+
+Memoria y almacenamiento
+RAM total ............. 1853856 kB  (~1.8 GB)
+Almacenamiento libre .. 16G libres de 23G
+
+Procesador
+Hardware .............. qcom
+Plataforma ............ msm8953
+Nucleos ............... 8
+
+Pantalla
+Resolucion ............ 720x1560
+Densidad .............. 280 dpi
+
+Hardware relevante para las pruebas
+Camara ................ si, con autofocus (camera.autofocus)
+Flash / linterna ...... si
+GPS ................... si (location.gps + location.network)
+
+Estado previo a la instalacion
+Paquetes QRisk ........ ninguno (telefono limpio: el onboarding se medira bien)
+
+Clasificacion de gama
+  SoC: Qualcomm msm8953 (Snapdragon 450), 8 nucleos
+  RAM: 1.8 GB
+  Pantalla: 720x1560 @ 280 dpi
+  => GAMA BAJA / DE ENTRADA (2020). No es gama media.

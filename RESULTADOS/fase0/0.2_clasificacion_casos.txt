@@ -1,0 +1,19 @@
+PASS src/services/qr/__tests__/classifyQr.test.ts
+√ reconoce https y http (9 ms)
+√ acepta el esquema en mayusculas
+√ quita los espacios de alrededor (1 ms)
+√ trata un dominio sin esquema como enlace y le agrega https (1 ms)
+√ acepta subdominios, puerto y query (1 ms)
+√ no manda texto suelto al analisis (1 ms)
+√ no confunde un numero de serie con un dominio
+√ clasifica los formatos conocidos con su etiqueta (2 ms)
+√ recorta el contenido muy largo para que no desborde la tarjeta (1 ms)
+√ conserva el texto crudo para copiarlo (1 ms)
+√ reconoce el formato WIFI: y arma las filas (1 ms)
+√ enmascara la contrasena en pantalla (1 ms)
+√ marca las redes abiertas y las ocultas (1 ms)
+√ lee los cuatro campos (1 ms)
+√ deshace los escapes: un SSID con ; : o \ no se corta (1 ms)
+√ tolera que falte el punto y coma final
+√ devuelve vacios cuando el QR no declara los campos (1 ms)
+√ normaliza la seguridad a mayusculas y hidden solo con "true"
