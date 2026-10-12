@@ -3,6 +3,11 @@ import { classifyQr } from '../../qr';
 import { remoteAnalysisService } from '../remoteAnalysisService';
 
 jest.mock('../../api/httpClient', () => ({ postJson: jest.fn() }));
+// PhishTank no necesita clave y se consultaria de verdad: los tests no salen a
+// la red. Su comportamiento se prueba en phishTank.test.ts.
+jest.mock('../phishTank', () => ({
+  lookupPhishTank: jest.fn(async () => ({ status: 'not_listed' })),
+}));
 const { postJson } = require('../../api/httpClient') as { postJson: jest.Mock };
 
 /**
