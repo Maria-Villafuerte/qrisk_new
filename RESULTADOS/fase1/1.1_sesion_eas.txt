@@ -1,0 +1,11 @@
+★ eas-cli@24.12.1 is now available.
+To upgrade, run:
+npm install -g eas-cli
+Proceeding with outdated version.
+
+majov4015
+majo30840931@gmail.com
+
+Accounts:
+• majov4015 (Role: Owner)
+• majov4015s-team (Role: Owner)

@@ -1,0 +1,6 @@
+Adaptador aplicado a las respuestas reales del backend (2026-10-11)
+
+F1 SEGURO            F1=SEGURO    -> veredicto=seguro      score= 50 alertas=SIN ALERTAS degradado=false captura=false
+PENDIENTE score 0    F1=INCIERTO  -> veredicto=seguro      score=  0 alertas=SIN ALERTAS degradado=false captura=false
+F2.1 score 95        F1=INCIERTO  -> veredicto=sospechoso  score= 95 alertas=1 ALERTA    degradado=false captura=false
+F2.2 acortador       F1=INCIERTO  -> veredicto=sospechoso  score= 20 alertas=2 ALERTAS   degradado=false captura=true

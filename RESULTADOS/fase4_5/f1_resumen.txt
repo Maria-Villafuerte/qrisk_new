@@ -1,0 +1,22 @@
+Filtro F1 — implementacion de Google Safe Browsing
+11 de octubre de 2026, 21:32
+
+ARCHIVOS NUEVOS
+  src/services/analysis/safeBrowsing.ts        cliente de Google Safe Browsing
+  src/services/analysis/f1Filter.ts            F1 completo (lista local + Safe Browsing)
+  src/services/analysis/__tests__/safeBrowsing.test.ts   18 tests
+  src/services/analysis/__tests__/f1Filter.test.ts       15 tests
+  .env.example                                 como obtener y poner la clave
+
+VERIFICACION
+  tsc --noEmit ........... exit 0
+  npm test ............... 338 tests, 22 suites, todo verde
+  cobertura f1Filter ..... 100% en las cuatro dimensiones
+  cobertura safeBrowsing . 100% en las cuatro dimensiones
+  cobertura localF1 ...... 100% en las cuatro dimensiones
+  expo export android .... exit 0
+
+ESTADO DE LA CLAVE
+  EXPO_PUBLIC_SAFE_BROWSING_KEY: NO configurada.
+  Sin ella, F1 usa solo la lista local y la cascada decide el resto.
+  La app no se rompe y no produce falsos SEGURO.

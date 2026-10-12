@@ -1,0 +1,53 @@
+[
+  {
+    "name": "F1 SEGURO (lista local)",
+    "url": "https://github.com",
+    "resultadoF1": "SEGURO",
+    "status": 200,
+    "ms": 5463,
+    "veredicto": "SEGURO",
+    "filtro": "F1",
+    "criterios": 0,
+    "indicadores": 0,
+    "screenshot": false
+  },
+  {
+    "name": "F1 INCIERTO -> cascada",
+    "url": "https://ejemplo-nuevo-7731.com/x",
+    "resultadoF1": "INCIERTO",
+    "status": 200,
+    "ms": 24670,
+    "veredicto": "PENDIENTE",
+    "filtro": null,
+    "score": 0,
+    "criterios": 0,
+    "indicadores": 0,
+    "screenshot": false
+  },
+  {
+    "name": "F2.1 score alto",
+    "url": "http://paypal.com.verificar-cuenta-segura.top/login",
+    "resultadoF1": "INCIERTO",
+    "status": 200,
+    "ms": 10571,
+    "veredicto": "SOSPECHOSO",
+    "filtro": "F2.1",
+    "score": 95,
+    "criterios": 5,
+    "indicadores": 0,
+    "screenshot": false
+  },
+  {
+    "name": "F2.2 acortador",
+    "url": "https://tinyurl.com/2p8x9k3j",
+    "resultadoF1": "INCIERTO",
+    "status": 200,
+    "ms": 27754,
+    "veredicto": "SOSPECHOSO",
+    "filtro": "F2.2",
+    "score": 20,
+    "criterios": 1,
+    "indicadores": 1,
+    "screenshot": true
+  }
+]

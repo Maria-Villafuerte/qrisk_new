@@ -1,0 +1,7 @@
+Fecha: 2026-10-11 16:32
+Node: v20.20.2
+npm: 10.8.2
+OS: Windows 11 Pro 10.0.26200
+Expo SDK: ~57.0.12
+React Native: 0.86.2
+Jest: ~57.0.4

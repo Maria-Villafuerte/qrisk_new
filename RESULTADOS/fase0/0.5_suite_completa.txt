@@ -1,0 +1,10 @@
+
+> qrisk-app@1.0.0 test
+> jest
+
+
+Test Suites: 19 passed, 19 total
+Tests:       249 passed, 249 total
+Snapshots:   0 total
+Time:        3.442 s, estimated 4 s
+Ran all test suites.
