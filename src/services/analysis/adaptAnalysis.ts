@@ -11,21 +11,62 @@ import { SCORE_MAX, SCORE_MIN, verdictFromScore } from './verdictThresholds';
 /**
  * Adaptador entre la respuesta del backend y lo que pintan las pantallas.
  *
- * El endpoint real no cumple el contrato de `endpoints_api.txt`: responde en
- * espanol, plano, y sin secciones. Forma observada el 2026-09-20:
+ * El endpoint responde en espanol, plano y sin secciones. Forma del contrato
+ * vigente (`qrisk-endpoint-doc.md`), verificada en vivo el 2026-10-11:
  *
  *   {
  *     "url", "dominio", "veredicto_final", "filtro_decisivo",
- *     "score_heuristico", "criterios_f2_1", "indicadores_f2_2", "mensaje"
+ *     "score_heuristico", "criterios_f2_1", "indicadores_f2_2",
+ *     "screenshot_url", "desde_cache", "mensaje"
  *   }
  *
  * Este modulo absorbe esa diferencia para que las pantallas no se enteren, y
- * para que el dia que Fabi alinee el contrato solo cambie este archivo.
+ * para que un cambio del contrato toque solo este archivo.
+ *
+ * ESTADO DE LA CASCADA (medido el 2026-10-11, no copiado de la documentacion):
+ *
+ *   | Caso                        | veredicto_final | filtro | tiempo  |
+ *   |-----------------------------|-----------------|--------|---------|
+ *   | `resultadoF1` = MALICIOSO   | MALICIOSO       | F1     |  5.3 s  |
+ *   | `resultadoF1` = SEGURO      | SEGURO          | F1     |  5.3 s  |
+ *   | score 95 (.top + login)     | SOSPECHOSO      | F2.1   | 24.5 s  |
+ *   | acortador + VirusTotal      | SOSPECHOSO      | F2.2   | 28.1 s  |
+ *   | score 55                    | PENDIENTE       | null   | 24.2 s  |
+ *   | github.com (score 0)        | PENDIENTE       | null   | 33.2 s  |
+ *
+ * De ahi salen dos hechos que este archivo tiene en cuenta:
+ *
+ *   1. El backend YA CONCLUYE en los cuatro valores del contrato, incluido
+ *      MALICIOSO, cosa que no hacia antes del 2026-10-11. La derivacion desde
+ *      el puntaje (`verdictFromScore`) por tanto ya casi no actua: solo cuando
+ *      el veredicto es PENDIENTE.
+ *   2. El umbral de F2.1 es ESTRICTO (`score > 60`), asi que un score de 60
+ *      exacto no concluye de su lado y cae en PENDIENTE. Ver la nota de
+ *      `verdictThresholds.ts` sobre por que los cortes de la app no cambiaron.
  */
 
-/** Un criterio de la heuristica, tal como lo manda el backend. */
+/**
+ * Una señal del analisis, tal como la manda el backend.
+ *
+ * Sirve para las dos listas, que tienen forma casi igual pero no identica:
+ *
+ *   - `criterios_f2_1[]` usa `criterio` y `peso` (la heuristica, con su aporte
+ *     al puntaje).
+ *   - `indicadores_f2_2[]` usa `indicador` y NO trae peso (el comportamiento:
+ *     URLScan.io y VirusTotal no puntuan, concluyen).
+ *
+ * Lo unico garantizado en ambas es `detalle`, que es el texto ya redactado en
+ * espanol y lo unico que se muestra. Los otros campos son diagnostico.
+ */
 export interface RemoteCriterion {
+  /** Clave del criterio heuristico: "tld_riesgo", "ip_literal", … */
   criterio?: string;
+  /**
+   * Clave del indicador de comportamiento: "virustotal_motores_maliciosos",
+   * "urlscan_verdict_malicioso", "urlscan_scan_eliminado",
+   * "redireccion_detectada", "categorias_riesgo", …
+   */
+  indicador?: string;
   peso?: number;
   /** Texto ya redactado para el usuario: "Host es una IP: 192.168.1.1". */
   detalle: string;
@@ -54,9 +95,23 @@ export interface RemoteAnalysisResponse {
   indicadores_f2_2?: RemoteCriterion[];
   /**
    * F2.3: captura del sitio en el entorno aislado. URL firmada de S3 que
-   * caduca en 1 hora. No siempre viene: el backend la omite si fallo.
+   * caduca en 1 hora. No siempre viene, y no es un fallo cuando falta: el
+   * backend solo la genera si F2.2 alcanzo a producirla. Verificado el
+   * 2026-10-11: un corte por F2.1 con score alto no trae captura, porque la
+   * cascada no llego a F2.2.
    */
   screenshot_url?: string;
+  /**
+   * `true` si la respuesta sale de la cache del backend en vez de un analisis
+   * recien corrido (TTL del contrato: 7 dias para SOSPECHOSO/MALICIOSO, 24 h
+   * para PENDIENTE/SEGURO).
+   *
+   * El contrato lo declara, pero el 2026-10-11 ninguna de las llamadas de
+   * verificacion lo trajo, ni al repetir la misma URL: la segunda consulta
+   * volvio a tardar 31 s. Se soporta el campo porque esta en el contrato, y
+   * NADA depende de el: es informativo.
+   */
+  desde_cache?: boolean;
   // Campos del contrato, por si el backend se alinea antes que esta app.
   domain?: string;
   verdict?: string;
@@ -175,6 +230,38 @@ function sectionFromCriteria(
       findings.length > 0
         ? findings
         : [{ tone: 'ok', text: 'No se detectaron señales de riesgo en el enlace.' }],
+  };
+}
+
+/**
+ * Seccion para cuando la cascada concluyo antes de producir señales.
+ *
+ * Pasa cuando F1 decide: el backend responde con el veredicto y nada mas,
+ * porque los filtros siguientes no corrieron. La seccion dice por que no hay
+ * lista de señales, en vez de dejar la impresion de que el analisis quedo a
+ * medias.
+ *
+ * El tono sigue la regla de siempre: 'ok' solo cuando no hay nada que
+ * advertir. Un MALICIOSO de F1 es la conclusion mas firme del sistema, asi que
+ * va en 'warn' aunque no traiga criterios que enumerar.
+ */
+function earlyVerdictSection(verdict: VerdictKey, decisiveFilter?: string | null): AnalysisSection {
+  const byReputation = (decisiveFilter ?? 'F1').toUpperCase() === 'F1';
+  const source = byReputation
+    ? 'listas de reputación'
+    : `el filtro ${decisiveFilter}`;
+
+  const safe = verdict === 'seguro';
+  const text = safe
+    ? `El dominio aparece en ${source} como confiable, así que el análisis terminó aquí sin necesidad de más revisiones.`
+    : `El dominio aparece en ${source} como peligroso. Esa sola señal decide el veredicto, así que no se corrieron las demás revisiones.`;
+
+  return {
+    key: 'reputation',
+    title: 'Análisis del enlace',
+    badgeText: safe ? 'SIN ALERTAS' : 'RESUELTO POR REPUTACIÓN',
+    badgeTone: safe ? 'ok' : 'warn',
+    findings: [{ tone: safe ? 'ok' : 'warn', text }],
   };
 }
 
@@ -333,6 +420,21 @@ export function adaptAnalysisResponse(
     sections = validSections;
   } else if (hasCriteria) {
     sections = [sectionFromCriteria(criteria ?? [], indicators ?? [])];
+  } else if (backendConcluded(rawVerdict)) {
+    /*
+     * CORTE ANTICIPADO DE LA CASCADA, no un fallo.
+     *
+     * Cuando F1 resuelve (`filtro_decisivo: "F1"`), el backend responde solo
+     * con el veredicto: no hay criterios ni indicadores porque los filtros
+     * caros no llegaron a correr. Eso es exactamente lo que la cascada busca.
+     *
+     * Antes se caia en `placeholderSections`, que pinta "SIN COMPLETAR" y dice
+     * "esta parte no pudo revisarse": leer eso en un sitio que el backend
+     * declaro SEGURO es desconcertante, y en uno que declaro MALICIOSO es peor,
+     * porque sugiere que la condena es dudosa cuando es la mas firme que el
+     * sistema puede emitir. Se explica lo que de verdad paso.
+     */
+    sections = [earlyVerdictSection(verdict, response.filtro_decisivo)];
   } else {
     sections = placeholderSections(
       'El análisis no se completó, así que esta parte no pudo revisarse.',

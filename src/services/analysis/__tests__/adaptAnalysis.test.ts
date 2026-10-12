@@ -639,3 +639,243 @@ describe('adaptAnalysisResponse · secciones del backend mal formadas', () => {
     expect(result.sections).toEqual([buena]);
   });
 });
+
+/*
+ * Casos de la cascada completa que el backend entrego el 2026-10-11. Las
+ * respuestas de estos tests son las que devolvio el endpoint en vivo, no
+ * ejemplos de la documentacion: se verificaron con curl ese dia.
+ */
+describe('cascada completa (contrato del 2026-10-11)', () => {
+  it('respeta un MALICIOSO que concluye F1, sin mirar el puntaje', () => {
+    // Antes del 2026-10-11 el backend nunca devolvia MALICIOSO. Ahora si,
+    // cuando la app le manda `resultadoF1`. Respuesta real medida: corte en
+    // 5.3 s, sin score ni criterios.
+    const result = adaptAnalysisResponse(
+      {
+        url: 'http://sitio-malo.com/',
+        dominio: 'sitio-malo.com',
+        veredicto_final: 'MALICIOSO',
+        filtro_decisivo: 'F1',
+      },
+      'http://sitio-malo.com',
+    );
+
+    expect(result.verdict).toBe('malicioso');
+    // Sin puntaje, el medidor usa el neutro: no se inventa un 100.
+    expect(result.riskScore).toBe(50);
+    expect(result.degraded).toBeUndefined();
+  });
+
+  it('respeta un SEGURO que concluye F1', () => {
+    const result = adaptAnalysisResponse(
+      {
+        url: 'https://google.com/',
+        dominio: 'google.com',
+        veredicto_final: 'SEGURO',
+        filtro_decisivo: 'F1',
+      },
+      'https://google.com',
+    );
+
+    expect(result.verdict).toBe('seguro');
+    expect(result.degraded).toBeUndefined();
+  });
+
+  it('respeta un SOSPECHOSO de F2.1 aunque el puntaje dijera otra cosa', () => {
+    // Score 95 con corte por F2.1. La palabra del backend manda: la app NO
+    // recalcula a "malicioso" por tener 95 >= 60.
+    const result = adaptAnalysisResponse(
+      {
+        url: 'http://paypal.com.seguridad-verificacion-cuenta.top/login/verify',
+        dominio: 'paypal.com.seguridad-verificacion-cuenta.top',
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.1',
+        score_heuristico: 95,
+        criterios_f2_1: [
+          { criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .top' },
+          { criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' },
+        ],
+        indicadores_f2_2: [],
+      },
+      'http://paypal.com.seguridad-verificacion-cuenta.top/login/verify',
+    );
+
+    expect(result.verdict).toBe('sospechoso');
+    expect(result.riskScore).toBe(95);
+  });
+
+  it('deriva el veredicto cuando F2.1 no alcanza su umbral estricto', () => {
+    // Score 55 medido en vivo: el backend corta solo con `score > 60`, asi que
+    // tres señales simultaneas devuelven PENDIENTE. Sin la derivacion, esta URL
+    // se veria "incierta" con la evidencia a la vista.
+    const result = adaptAnalysisResponse(
+      {
+        url: 'http://mi-banco-verificacion.xyz/login?token=abc',
+        dominio: 'mi-banco-verificacion.xyz',
+        veredicto_final: 'PENDIENTE',
+        filtro_decisivo: null,
+        score_heuristico: 55,
+        criterios_f2_1: [
+          { criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .xyz' },
+          { criterio: 'sin_https', peso: 15, detalle: 'La URL no usa HTTPS' },
+          { criterio: 'palabra_clave_sospechosa', peso: 15, detalle: 'Palabra detectada: "login"' },
+        ],
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_sospechosos', detalle: '1 motores lo marcan como sospechoso' },
+        ],
+      },
+      'http://mi-banco-verificacion.xyz/login?token=abc',
+    );
+
+    expect(result.verdict).toBe('sospechoso');
+    // Las dos listas se pintan juntas: 3 criterios + 1 indicador.
+    expect(result.sections[0].findings).toHaveLength(4);
+    expect(result.sections[0].badgeText).toBe('4 ALERTAS');
+  });
+
+  it('acepta un corte por F2.2 sin criterios de F2.1 relevantes', () => {
+    // Acortador: score 20 (no concluye F2.1) pero VirusTotal si. Respuesta
+    // real medida en 28.1 s, con captura.
+    const result = adaptAnalysisResponse(
+      {
+        url: 'https://tinyurl.com/2p8x9k3j',
+        dominio: 'tinyurl.com',
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.2',
+        score_heuristico: 20,
+        criterios_f2_1: [
+          {
+            criterio: 'acortador_url_conocido',
+            peso: 20,
+            detalle: 'Dominio es un acortador de URL conocido: tinyurl.com',
+          },
+        ],
+        indicadores_f2_2: [
+          { indicador: 'virustotal_motores_maliciosos', detalle: '2 motores lo marcan como malicioso' },
+        ],
+        screenshot_url: 'https://bucket.s3.amazonaws.com/shot.png?X-Amz-Expires=3600',
+      },
+      'https://tinyurl.com/2p8x9k3j',
+    );
+
+    expect(result.verdict).toBe('sospechoso');
+    expect(result.screenshotUrl).toContain('shot.png');
+    expect(result.sections[0].findings.map((f) => f.text)).toEqual([
+      'Dominio es un acortador de URL conocido: tinyurl.com',
+      '2 motores lo marcan como malicioso',
+    ]);
+  });
+
+  it('un corte temprano por F2.1 sin captura no se trata como fallo', () => {
+    // Verificado: cuando F2.1 corta con score alto, el backend NO genera
+    // captura porque la cascada no llego a F2.2. Eso no es degradacion.
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.1',
+        score_heuristico: 95,
+        criterios_f2_1: [{ criterio: 'tld_riesgo', peso: 25, detalle: 'TLD sospechoso: .top' }],
+        indicadores_f2_2: [],
+      },
+      'http://x.top/login',
+    );
+
+    expect(result.screenshotUrl).toBeUndefined();
+    expect(result.degraded).toBeUndefined();
+  });
+
+  it('no se rompe con desde_cache: es informativo', () => {
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        filtro_decisivo: 'F2.2',
+        score_heuristico: 20,
+        criterios_f2_1: [],
+        indicadores_f2_2: [{ indicador: 'virustotal_motores_maliciosos', detalle: '2 motores' }],
+        desde_cache: true,
+      },
+      'https://tinyurl.com/x',
+    );
+
+    expect(result.verdict).toBe('sospechoso');
+    expect(result.sections[0].findings).toHaveLength(1);
+  });
+
+  it('acepta indicadores que solo traen `indicador`, sin peso', () => {
+    // Los indicadores de F2.2 no puntuan: concluyen. No traen `peso` y eso no
+    // debe impedir que se pinten.
+    const result = adaptAnalysisResponse(
+      {
+        veredicto_final: 'SOSPECHOSO',
+        criterios_f2_1: [],
+        indicadores_f2_2: [
+          { indicador: 'urlscan_verdict_malicioso', detalle: 'URLScan lo marca como malicioso' },
+          { indicador: 'urlscan_scan_eliminado', detalle: 'El scan fue eliminado tras analizarlo' },
+          { indicador: 'redireccion_detectada', detalle: 'Se detecto una redireccion' },
+        ],
+      },
+      'https://x.com',
+    );
+
+    expect(result.sections[0].findings).toHaveLength(3);
+    expect(result.sections[0].findings.every((f) => f.tone === 'warn')).toBe(true);
+  });
+});
+
+/*
+ * El corte anticipado de la cascada no es un fallo del analisis, y la pantalla
+ * no debe decir que algo quedo sin revisar. Era un bug real: un SEGURO de F1
+ * se veia con el acordeon "SIN COMPLETAR" y el texto "esta parte no pudo
+ * revisarse", justo debajo de un veredicto favorable.
+ */
+describe('corte anticipado por F1', () => {
+  const f1Response = (verdict: string) => ({
+    url: 'https://x.com/',
+    dominio: 'x.com',
+    veredicto_final: verdict,
+    filtro_decisivo: 'F1',
+  });
+
+  it('un SEGURO de F1 no se ve como analisis incompleto', () => {
+    const result = adaptAnalysisResponse(f1Response('SEGURO'), 'https://x.com');
+
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0].badgeText).toBe('SIN ALERTAS');
+    expect(result.sections[0].badgeTone).toBe('ok');
+    expect(result.sections[0].findings[0].text).not.toContain('no pudo revisarse');
+  });
+
+  it('explica por que no hay lista de señales', () => {
+    const result = adaptAnalysisResponse(f1Response('SEGURO'), 'https://x.com');
+    expect(result.sections[0].findings[0].text).toContain('reputación');
+  });
+
+  it('un MALICIOSO de F1 se muestra en tono de advertencia', () => {
+    // Es la conclusion MAS firme que el sistema puede emitir: no puede
+    // pintarse en verde por no traer criterios que enumerar.
+    const result = adaptAnalysisResponse(f1Response('MALICIOSO'), 'https://x.com');
+
+    expect(result.verdict).toBe('malicioso');
+    expect(result.sections[0].badgeTone).toBe('warn');
+    expect(result.sections[0].findings[0].tone).toBe('warn');
+    expect(result.sections[0].findings[0].text).toContain('peligroso');
+  });
+
+  it('no se marca degradado: la cascada hizo lo que debia', () => {
+    expect(adaptAnalysisResponse(f1Response('SEGURO'), 'https://x.com').degraded).toBeUndefined();
+    expect(adaptAnalysisResponse(f1Response('MALICIOSO'), 'https://x.com').degraded).toBeUndefined();
+  });
+
+  it('un PENDIENTE sin criterios SI es analisis incompleto', () => {
+    // La otra cara: si el backend no concluyo Y no mando señales, entonces si
+    // corresponde decir que no se pudo revisar.
+    const result = adaptAnalysisResponse(
+      { veredicto_final: 'PENDIENTE', filtro_decisivo: null },
+      'https://x.com',
+    );
+
+    expect(result.verdict).toBe('incierto');
+    expect(result.sections[0].badgeText).toBe('SIN COMPLETAR');
+    expect(result.degraded).toBe(true);
+  });
+});

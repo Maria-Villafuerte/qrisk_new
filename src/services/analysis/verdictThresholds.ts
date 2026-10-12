@@ -3,20 +3,34 @@ import type { VerdictKey } from './types';
 /**
  * Traduce el `score_heuristico` del backend a uno de los cuatro veredictos.
  *
- * POR QUE EXISTE ESTO. El backend calcula el puntaje bien —detecta TLD de
- * riesgo, host que es una IP, ausencia de HTTPS, palabras clave— pero su campo
- * `veredicto_final` responde "PENDIENTE" a todo, incluso a google.com: el
- * umbral que convierte el puntaje en veredicto no esta conectado de su lado.
- * Sin esta traduccion, cada analisis terminaria en "incierto" y la app no
- * podria decir lo unico que tiene que decir.
+ * POR QUE EXISTE ESTO, Y POR QUE SIGUE EXISTIENDO DESPUES DEL 2026-10-11.
+ *
+ * Hasta esa fecha el backend respondia "PENDIENTE" a todo, incluso a
+ * google.com, y sin esta traduccion cada analisis habria terminado en
+ * "incierto". Eso cambio: con la cascada completa entregada, el backend ya
+ * concluye SEGURO, SOSPECHOSO y MALICIOSO de verdad (medido el 2026-10-11).
+ *
+ * Pero PENDIENTE no desaparecio, y por diseño: el contrato lo define como
+ * "ninguna capa concluyente", y el umbral de F2.1 es ESTRICTO (`score > 60`).
+ * Dos consecuencias medidas:
+ *
+ *   - Un score de 55 (TLD de riesgo + sin HTTPS + palabra clave) devuelve
+ *     PENDIENTE: tres señales simultaneas que el backend no convierte en
+ *     veredicto. Sin esta tabla, esa URL se veria como "incierto" teniendo
+ *     evidencia clara en pantalla.
+ *   - Un score de 60 EXACTO tampoco concluye de su lado, por el `>`.
+ *
+ * Asi que esto ya no suple una ausencia total, sino el tramo que el umbral del
+ * backend deja sin cubrir. Actua menos que antes, y solo cuando el veredicto
+ * es PENDIENTE.
  *
  * NO ES UN VEREDICTO INVENTADO: el puntaje y los criterios que lo componen son
  * del backend. Lo unico que pone la app son los cortes.
  *
- * CUANDO SE PUEDE BORRAR ESTO. En cuanto Fabi devuelva un `veredicto_final`
- * real, el adaptador lo prefiere automaticamente y esta tabla deja de actuar
- * (ver `adaptAnalysisResponse`). No hay que tocar nada para que eso pase; se
- * borra este archivo cuando se confirme que el backend ya concluye siempre.
+ * CUANDO SE PUEDE BORRAR ESTO. Cuando el backend deje de devolver PENDIENTE
+ * para URLs con señales, es decir cuando conecte su propio umbral sobre el
+ * puntaje. El adaptador ya prefiere siempre un `veredicto_final` real, asi que
+ * ese dia esta tabla deja de actuar sin tocar una linea.
  */
 
 /**

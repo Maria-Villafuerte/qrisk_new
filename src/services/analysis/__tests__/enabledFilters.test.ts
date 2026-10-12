@@ -5,37 +5,55 @@ import { ENABLED_FILTERS, isFilterEnabled } from '../enabledFilters';
  * si se enciende un filtro que el backend no responde, el usuario ve un
  * acordeon "SIN COMPLETAR" que nunca se completa.
  *
- * Este es el UNICO sitio que fija el literal `['reputation']`. Cuando Fabi
- * entregue F2.1 o F2.2 y se descomente su linea, este test falla y recuerda
- * actualizarlo: es el recordatorio, no un estorbo.
+ * Este es el UNICO sitio que fija la lista completa como literal. Si alguien
+ * enciende o apaga un filtro, este test falla y recuerda revisar tambien
+ * `analysisStages` (la pantalla de carga): los dos tienen que ir juntos.
  */
 describe('ENABLED_FILTERS', () => {
-  it('hoy corre solo F1 (reputacion)', () => {
-    expect(ENABLED_FILTERS).toEqual(['reputation']);
+  /*
+   * Las tres etapas estan activas desde el 2026-10-11, cuando el backend
+   * entrego la cascada completa (F1 + F2.1 + F2.2 + F2.3) e informa cual filtro
+   * decidio en `filtro_decisivo`. Antes se anunciaba solo 'reputation', porque
+   * la respuesta era plana y no habia etapas distinguibles que mostrar.
+   */
+  it('corre la cascada completa: F1, F2.1 y F2.2', () => {
+    expect(ENABLED_FILTERS).toEqual(['reputation', 'heuristics', 'behavior']);
   });
 
-  // El backend SI implementa F2.1 y F2.2 (verificado el 2026-10-01). Lo que no
-  // hace es reportarlos como etapas separadas, que es lo que haria falta para
-  // anunciarlos aqui. Sus señales se muestran igual, dentro de la seccion
-  // activa: ver el adaptador y los tests de indicadores de F2.2.
-  it('no los anuncia por separado: el backend no los reporta como etapas', () => {
-    expect(ENABLED_FILTERS).not.toContain('heuristics');
-    expect(ENABLED_FILTERS).not.toContain('behavior');
+  it('las anuncia en el orden de la cascada', () => {
+    expect(ENABLED_FILTERS.indexOf('reputation')).toBeLessThan(
+      ENABLED_FILTERS.indexOf('heuristics'),
+    );
+    expect(ENABLED_FILTERS.indexOf('heuristics')).toBeLessThan(
+      ENABLED_FILTERS.indexOf('behavior'),
+    );
+  });
+
+  /*
+   * F2.3 no es una etapa: es un subproducto de F2.2. El backend genera la
+   * captura dentro de esa etapa y la manda en `screenshot_url` cuando pudo.
+   * Verificado el 2026-10-11: un corte por F2.1 con score alto no trae
+   * captura, porque la cascada no llego a F2.2. Darle etapa propia anunciaria
+   * un paso que no siempre ocurre.
+   */
+  it('no anuncia F2.3 como etapa: es un subproducto de F2.2', () => {
+    expect(ENABLED_FILTERS).not.toContain('preview');
   });
 
   it('nunca esta vacia: sin filtros no hay analisis que mostrar', () => {
     expect(ENABLED_FILTERS.length).toBeGreaterThan(0);
   });
+
+  it('no repite ninguna clave', () => {
+    expect(new Set(ENABLED_FILTERS).size).toBe(ENABLED_FILTERS.length);
+  });
 });
 
 describe('isFilterEnabled', () => {
-  it('reconoce el filtro activo', () => {
+  it('reconoce los tres filtros activos', () => {
     expect(isFilterEnabled('reputation')).toBe(true);
-  });
-
-  it('rechaza los filtros apagados', () => {
-    expect(isFilterEnabled('heuristics')).toBe(false);
-    expect(isFilterEnabled('behavior')).toBe(false);
+    expect(isFilterEnabled('heuristics')).toBe(true);
+    expect(isFilterEnabled('behavior')).toBe(true);
   });
 
   it('rechaza una clave que la app no conoce', () => {
