@@ -343,7 +343,7 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 | Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles. |
 | Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
 | Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
-| Reporte de QR malicioso | 🟡 | Valida, arma el payload anónimo y **no pierde lo escrito si falla la red**. **El endpoint `/reports` no existe**: hoy falla y ofrece reintentar. |
+| Reporte de QR malicioso | 🟡 | Valida, arma el payload anónimo y **no pierde lo escrito si falla la red**. **El endpoint `/report` ya existe** (entrega S11) y la app apunta a él con el payload del contrato (`url`, `motivo`, `analisis_id`). Verificado el 2026-10-11: valida bien (400 con los códigos del contrato) pero **el guardado responde 500**, así que hoy sigue fallando. La app distingue ese caso del fallo de red y lo dice. |
 | Story Card | ✅ | Foto real (cámara o galería), captura con `captureRef`, compartir y guardar en la galería. **Probar en teléfono físico**: los diálogos del sistema no se pueden verificar de otro modo. |
 | Geocodificación inversa | ✅ | `expo-location` **en el dispositivo**, nunca en el servidor. Si falla, devuelve `null` y la UI oculta la fila. **Probar en teléfono** con GPS. |
 | iOS | ⛔ | **Fuera del alcance de esta entrega**, que es solo Android. La configuración se conserva por si alguien lo retoma: `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de `Info.plist`, la safe area y el teclado. No se borró nada. |
@@ -773,51 +773,174 @@ apagado, la conserva en el `AnalysisResult`. Solo la pantalla decide no pintarla
 
 ---
 
+## 7.9 Integración de la cascada completa (2026-10-11)
+
+El backend entregó F1 + F2.1 + F2.2 + F2.3 y el endpoint `/report`
+(`qrisk-endpoint-doc.md`). Esto es lo que cambió en la app, y lo que se midió
+antes de cambiarlo.
+
+### Lo que devuelve el backend hoy, medido
+
+Cuatro llamadas en vivo el 2026-10-11, no ejemplos de la documentación:
+
+| Caso | `veredicto_final` | `filtro_decisivo` | Tiempo | Captura |
+|---|---|---|---|---|
+| `resultadoF1: "SEGURO"` | **SEGURO** | F1 | **5.5 s** | no |
+| `resultadoF1: "MALICIOSO"` | **MALICIOSO** | F1 | 5.3 s | no |
+| Score 95 (`.top` + login) | SOSPECHOSO | F2.1 | 10.6-24.5 s | no |
+| Acortador + VirusTotal | SOSPECHOSO | F2.2 | 27.8 s | **sí** |
+| Score 55 | PENDIENTE | null | 24.2 s | no |
+| `github.com` sin F1 | PENDIENTE | null | 33.2 s | sí |
+
+**El techo del veredicto se rompió:** el backend ya devuelve MALICIOSO y
+SEGURO, cosa que no hacía. El pendiente nº 1 de §8 está resuelto en su parte
+principal.
+
+### F1 vive en la app
+
+El contrato espera que el **cliente** resuelva F1 y mande su conclusión en
+`resultadoF1`; con SEGURO o MALICIOSO el backend corta en ~5 s en vez de correr
+la cascada completa. El backend implementa el corte, no las listas.
+
+La app lo resuelve con [localF1.ts](src/services/analysis/localF1.ts): una
+lista pequeña de dominios de reputación no discutida. **Dos reglas la hacen
+segura:**
+
+1. **Coincidencia exacta de dominio**, nunca por substring. `includes()` o un
+   `endsWith()` suelto convertirían la whitelist en el agujero que intenta
+   cerrar: `google.com.phishing.top` *contiene* "google.com" y `no-github.com`
+   *termina* en "github.com". Hay 7 tests que fijan el rechazo de esos casos.
+2. **Solo HTTPS.** Un `http://github.com` no se marca seguro: el dominio puede
+   ser legítimo y la conexión seguir siendo interceptable.
+
+**No hay lista negra local, a propósito:** quedaría obsoleta el día que se
+compila. Esa detección le toca a F2.2, que consulta en vivo.
+
+Ganancia medida: **5.5 s en lugar de 24-35 s** para los dominios de la lista.
+
+### El timeout subió a 40 s, y por qué no a 45
+
+La documentación pide 40-45 s. Se eligieron **40** porque hay un techo que no
+depende de esta app: **API Gateway corta a los 35 s con HTTP 504**, con la
+Lambda todavía trabajando. Medido el 2026-10-11: de tres URLs nuevas, una
+devolvió 504 a los 35.2 s. Por encima de ~36 s no hay nada que esperar.
+
+Con el tope anterior de 25 s, los análisis de 26-35 s —que **sí** completan— se
+perdían por culpa del cliente.
+
+El aviso de "esto está tardando" pasó de 8 s a **20 s**: con la cascada
+completa salía en casi todos los análisis, y un aviso que aparece siempre deja
+de informar.
+
+### Las tres etapas de la cascada ya se anuncian
+
+`ENABLED_FILTERS` pasó de `['reputation']` a las tres. Antes estaban apagadas
+porque el backend mandaba una respuesta plana sin decir qué filtro corrió;
+ahora informa `filtro_decisivo`, así que las etapas son reales y distinguibles,
+con costos distintos (1.2 s / 8 s / 16 s en la pantalla de carga,
+proporcionales a lo medido).
+
+**F2.3 no es una etapa:** es un subproducto de F2.2. El backend genera la
+captura dentro de esa etapa y la manda cuando pudo. Verificado: un corte por
+F2.1 con score alto **no trae captura**, porque la cascada no llegó a F2.2.
+Darle etapa propia anunciaría un paso que no siempre ocurre.
+
+### Un bug que salió de verificar contra el backend real
+
+Al pasar las respuestas reales por el adaptador, un **SEGURO de F1** se veía
+con el acordeón **"SIN COMPLETAR"** y el texto *"esta parte no pudo
+revisarse"*. No era cierto: la cascada no falló, concluyó antes, que es su
+objetivo. Peor habría sido en un MALICIOSO de F1, donde sugeriría que la
+condena es dudosa siendo la más firme que el sistema emite.
+
+Hoy esos casos explican lo que de verdad pasó
+([adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts),
+`earlyVerdictSection`), con 6 tests que lo fijan.
+
+### `verdictThresholds.ts` sigue existiendo, y ahora por otra razón
+
+Ya no suple una ausencia total de veredictos. Suple el tramo que el umbral del
+backend deja sin cubrir: F2.1 corta con `score > 60` **estricto**, así que un
+score de 55 —TLD de riesgo + sin HTTPS + palabra clave, tres señales
+simultáneas— devuelve PENDIENTE. Sin la derivación, esa URL se vería "incierta"
+con la evidencia a la vista.
+
+### Verificación tras la integración
+
+| Verificación | Resultado |
+|---|---|
+| `npx tsc --noEmit` | ✅ Limpio |
+| `npm test` | ✅ **307 tests**, 20 suites (eran 249 en 19) |
+| Cobertura de `src/services` | ✅ 99.75 % statements, **100 % líneas y funciones** |
+| `npx expo export --platform android` | ✅ Exit 0 |
+| Los 4 caminos de la cascada contra el backend real | ✅ F1, F2.1, F2.2 y PENDIENTE |
+
+Evidencia en [RESULTADOS/fase3/](RESULTADOS/fase3/).
+
+---
+
 ## 8. Pendientes conocidos
 
 Por prioridad, con lo que desbloquea cada uno.
 
-1. **El backend nunca devuelve `MALICIOSO`.** Verificado el 2026-09-30: ni con
-   **18 motores de VirusTotal** marcando el sitio (`malware.wicar.org`), ni con
-   puntaje heurístico 80 (`paypal.com.seguridad-verificacion.top`). El techo es
-   `SOSPECHOSO`.
-   → **Impacto:** la métrica *"detección de maliciosos ≥90%"* da **0% por
-   construcción**, no por fallo de detección.
-   → **Desbloquea:** Fabi. Propuesta: ≥3 motores maliciosos → `MALICIOSO`;
-   y que un puntaje ≥60 de F2.1 también lo dé.
-   → **Mitigado de este lado desde el 2026-10-01:** aunque la etiqueta se quede
-   en "sospechoso", la app ya **muestra** los indicadores de VirusTotal
-   ("18 motores lo marcan como malicioso"), que antes descartaba. El techo del
-   veredicto sigue siendo del backend, pero la evidencia ya no se pierde.
+1. ~~**El backend nunca devuelve `MALICIOSO`.**~~ **RESUELTO el 2026-10-11.**
+   El backend ya devuelve `MALICIOSO` y `SEGURO` cuando F1 concluye (medido:
+   5.3 s). La app resuelve F1 con sus listas locales y manda `resultadoF1`
+   (§7.9).
+   → **Lo que queda:** el umbral de F2.1 es `score > 60` **estricto**, así que
+   un puntaje alto por heurística tope en `SOSPECHOSO`, nunca en `MALICIOSO`.
+   Un score de 95 devuelve SOSPECHOSO. Para la métrica *"detección de
+   maliciosos ≥90%"* eso importa: solo una URL en una lista negra puede dar
+   MALICIOSO hoy.
+   → **Desbloquea:** Fabi, si se quiere que la heurística también concluya
+   MALICIOSO.
 
-2. **El backend tarda ~14.5 s en una URL nueva.** Medido el 2026-09-30 sobre
-   cinco URLs nunca vistas: 14.2–14.5 s. Si ya la tiene en caché, 0.3 s. El
-   salto coincide con la aparición de F2.3 (la captura abre un navegador
-   headless). La app subió su tope a 25 s para no cortar análisis buenos, pero
-   **15 segundos mirando una pantalla de carga es mucho**.
-   → **Mitigado de este lado:** a los 8 s la pantalla avisa que está tardando.
-   → **Desbloquea:** Fabi. Generar la captura en paralelo con los otros
-   filtros, o devolver el veredicto primero y la captura aparte.
+2. **El 504 de API Gateway.** Medido el 2026-10-11: **de tres URLs nuevas, una
+   devolvió HTTP 504 a los 35.2 s**, con la Lambda todavía trabajando. Es el
+   límite duro de API Gateway y **ningún timeout del cliente puede superarlo**.
+   El camino normal tarda 24-35 s, así que el margen es escaso.
+   → **Mitigado de este lado:** el tope subió a 40 s (no 45: por encima de 36 s
+   el 504 ya llegó) y el aviso de espera pasó a los 20 s. Un 504 degrada a
+   "incierto" honesto.
+   → **Desbloquea:** Fabi. Devolver el veredicto primero y la captura aparte,
+   o subir el límite de Gateway. Es el pendiente de backend más importante que
+   queda.
 
-3. **`PENDIENTE` cuando el sitio está limpio.** Si F2.1 da 0 y VirusTotal no
-   reporta nada, eso es evidencia de limpio, no de desconocido. Hoy
-   `github.com` devuelve `PENDIENTE`, y es **imposible obtener `SEGURO`** sin
-   pasarle `resultadoF1` a mano. La app lo suple derivando del puntaje (§5.2).
+3. **La caché no está funcionando.** El contrato declara TTL de 7 días para
+   SOSPECHOSO/MALICIOSO y 24 h para PENDIENTE/SEGURO, con `desde_cache: true`
+   en la respuesta. Medido el 2026-10-11: **la segunda consulta de la misma URL
+   volvió a tardar 31-35 s y el campo `desde_cache` no apareció en ninguna
+   llamada**. La app soporta el campo y nada depende de él.
+   → **Impacto:** cada escaneo paga el costo completo, lo que agrava el punto 2.
    → **Desbloquea:** Fabi.
 
-4. **Generar el APK.** El build local de Gradle se cuelga en esta máquina (dos
-   intentos el 2026-09-20, ninguno produjo artefacto; ver la nota de §4). No es
-   del código: el bundle JS exporta limpio. `eas.json` ya está configurado, así
-   que el camino es `eas build -p android --profile preview`.
-   → **Desbloquea:** una cuenta de Expo (gratuita) para `eas login`. Es el único
-   requisito para el APK de `preview`.
+4. **`PENDIENTE` cuando el sitio está limpio.** `github.com` sin `resultadoF1`
+   sigue devolviendo PENDIENTE con score 0: cero señales es evidencia de limpio,
+   no de desconocido. La app lo suple por dos vías ahora: su lista local de F1
+   (que da SEGURO en 5.5 s) y la derivación del puntaje (§5.2).
+   → **Desbloquea:** Fabi, para los dominios que no estén en la lista local.
 
-5. **Correr la prueba 1.4** (T_scan y TDR). Es la única métrica de escaneo que
+5. **El guardado de `/report` responde 500.** El endpoint **existe** (entrega
+   S11) y valida bien: devuelve 400 con los códigos del contrato
+   (`INVALID_INPUT`, `URL_INVALIDA`). Pero el guardado falla de forma
+   consistente: tres intentos el 2026-10-11, los tres HTTP 500 en ~5 s.
+   → **Mitigado de este lado:** la app apunta a `/report` con el payload del
+   contrato y **distingue el 500 del fallo de red**, para no mandar a la persona
+   a revisar una conexión que está bien.
+   → **Desbloquea:** Fabi.
+
+6. ~~**Generar el APK.**~~ **RESUELTO.** Hay ocho builds en EAS, siete
+   terminados; el más reciente (`f1990f37`) es del commit actual. El build
+   **local** de Gradle sigue colgándose en esta máquina, y eso no cambió: la vía
+   es EAS. Ver [RESULTADOS/fase1_resultados.md](RESULTADOS/fase1_resultados.md).
+
+7. **Correr la prueba 1.4** (T_scan y TDR). Es la única métrica de escaneo que
    falta y decide si se sigue con `expo-camera` o se migra a
    `react-native-vision-camera`.
-   → **Desbloquea:** un teléfono Android físico y 30 QRs impresos.
+   → **Desbloquea:** 30 QRs impresos. El teléfono ya está: Galaxy A11,
+   Android 11 (ver [RESULTADOS/fase1_resultados.md](RESULTADOS/fase1_resultados.md)).
 
-6. **iOS: fuera del alcance de esta entrega.** No es un pendiente — la entrega
+8. **iOS: fuera del alcance de esta entrega.** No es un pendiente — la entrega
    es **solo Android**, por decisión explícita y por no disponer de una Mac.
    Todo lo que no requiere macOS quedó configurado y **no se borró nada**:
    `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de
@@ -825,20 +948,21 @@ Por prioridad, con lo que desbloquea cada uno.
    están en [ios_en_la_mac.md](TAREAS_POR_HACER/ios_en_la_mac.md) y hacen falta
    una Mac más una cuenta Apple Developer (US$99/año).
 
-7. **El endpoint `/reports` no existe.** El cliente está hecho y testeado.
-   → **Desbloquea:** Fabi.
+9. ~~**Los 8 puntos abiertos del contrato**~~ **CERRADOS.** El contrato
+   vigente es [qrisk-endpoint-doc.md](qrisk-endpoint-doc.md), que define una
+   sola llamada bloqueante (no polling ni SSE), el TTL de la URL de S3 (1 h) y
+   la forma de las dos listas de señales. El adaptador sigue apuntando al
+   comportamiento **verificado en vivo**, no solo al papel: donde los dos
+   difieren —la caché y `desde_cache`— manda lo medido (punto 3).
+   → **Queda un detalle del contrato:** `redireccion_detectada` puede traer en
+   `detalle` una categoría en vez de la URL destino. La app lo pinta como texto
+   informativo, que es lo que la propia documentación recomienda.
 
-8. **Los 8 puntos abiertos del contrato** (`endpoints_api.txt`): un endpoint por
-   filtro o uno bloqueante, quién compone `badgeText`, TTL de la URL de S3,
-   polling o SSE, etc. Mientras no se cierren, el adaptador apunta al
-   comportamiento **real observado**, no al contrato en papel.
-   → **Desbloquea:** la reunión del hito M1.
-
-9. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
+10. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
    finalización del flujo y T_learn.
    → **Desbloquea:** agendar a los participantes.
 
-10. **Sin detección de conectividad.** La app no distingue "modo avión" de
+11. **Sin detección de conectividad.** La app no distingue "modo avión" de
    "servidor caído": las dos degradan a `incierto` con el mismo mensaje
    genérico. Es honesto pero poco específico. Distinguirlas pide una dependencia
    nueva (`@react-native-community/netinfo`), que quedó fuera del alcance de
@@ -846,6 +970,15 @@ Por prioridad, con lo que desbloquea cada uno.
    → **Desbloquea:** decidir si vale la dependencia.
 
 ### Deuda técnica menor
+
+- **El `fetch` de `jest-expo` es un stub y no sale a la red.** Devuelve
+  `undefined` en vez de una respuesta, así que los tests de
+  `safeBrowsing.ts` lo mockean, como ya se hacía con `expo-sqlite/kv-store`.
+  Se prueba la lógica del cliente (qué manda, cómo interpreta cada respuesta,
+  cómo degrada ante cada fallo), no la conectividad real. La verificación contra
+  la API en vivo está en
+  [RESULTADOS/fase4_5/f1_verificacion_en_vivo.js](RESULTADOS/fase4_5/f1_verificacion_en_vivo.js),
+  que corre con Node: **8/8 casos correctos, 72-324 ms**.
 
 - `expo-sqlite/kv-store` se mockea en los tests (`jest.setup.js`): el módulo
   nativo no existe en Node. Se prueba la lógica del historial, no el driver.

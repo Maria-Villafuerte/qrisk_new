@@ -33,8 +33,11 @@ const CARD_WIDTH = 238;
 const CARD_HEIGHT = 423;
 
 /**
- * 10 · Story Card compartible. El QR se difumina a proposito: la tarjeta
- * advierte del codigo sin volverlo escaneable para quien la vea.
+ * 10 · Story Card compartible. El QR se cubre con una capa opaca a proposito:
+ * la tarjeta advierte del codigo sin volverlo escaneable para quien la vea.
+ *
+ * El anteproyecto decia "QR blureado"; se cubre en vez de difuminarse porque un
+ * QR medio difuminado sigue siendo escaneable (ver la nota en el render).
  */
 export default function StoryCardRoute() {
   const router = useRouter();

@@ -36,19 +36,61 @@ describe('analyze · camino feliz', () => {
   });
 
   it('corta la espera en el tope configurado', async () => {
-    // El endpoint real se cuelga ~16 s antes de fallar. El corte de 5 s es lo
-    // unico que evita que el usuario mire la pantalla de carga todo ese rato,
-    // asi que se asierta el argumento: sin esto, subir el timeout a 60 s
-    // pasaria todos los demas tests sin que nadie se entere.
+    // El backend tarda 24-35 s con la cascada completa. Se asierta el
+    // argumento porque, sin esto, cambiar el timeout pasaria todos los demas
+    // tests sin que nadie se entere: es el unico sitio que lo fija.
     postJson.mockResolvedValue({ veredicto_final: 'SEGURO' });
 
     await remoteAnalysisService.analyze(URL);
 
     expect(postJson).toHaveBeenCalledWith(
       '/analyze',
-      { url: URL },
+      { url: URL, resultadoF1: 'INCIERTO' },
       { timeoutMs: timeouts.analyze },
     );
+  });
+
+  /*
+   * El contrato espera que el CLIENTE resuelva F1 y mande su conclusion: con
+   * SEGURO o MALICIOSO el backend corta en ~5 s en vez de correr la cascada
+   * completa. La app lo resuelve con sus listas locales (`localF1.ts`).
+   */
+  describe('resultadoF1', () => {
+    it('manda INCIERTO para un dominio cualquiera: la app no sabe nada de el', async () => {
+      postJson.mockResolvedValue({ veredicto_final: 'PENDIENTE' });
+
+      await remoteAnalysisService.analyze('https://sitio-cualquiera-9281.com/x');
+
+      expect(postJson).toHaveBeenCalledWith(
+        '/analyze',
+        expect.objectContaining({ resultadoF1: 'INCIERTO' }),
+        expect.any(Object),
+      );
+    });
+
+    it('manda SEGURO para un dominio de la lista local', async () => {
+      postJson.mockResolvedValue({ veredicto_final: 'SEGURO' });
+
+      await remoteAnalysisService.analyze('https://github.com/usuario/repo');
+
+      expect(postJson).toHaveBeenCalledWith(
+        '/analyze',
+        expect.objectContaining({ resultadoF1: 'SEGURO' }),
+        expect.any(Object),
+      );
+    });
+
+    it('no marca seguro un dominio de la lista sin HTTPS', async () => {
+      postJson.mockResolvedValue({ veredicto_final: 'PENDIENTE' });
+
+      await remoteAnalysisService.analyze('http://github.com');
+
+      expect(postJson).toHaveBeenCalledWith(
+        '/analyze',
+        expect.objectContaining({ resultadoF1: 'INCIERTO' }),
+        expect.any(Object),
+      );
+    });
   });
 });
 

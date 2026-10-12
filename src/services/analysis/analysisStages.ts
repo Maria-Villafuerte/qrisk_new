@@ -4,14 +4,26 @@ import type { AnalysisStageKey } from './types';
  * Etapas de la cascada, en orden. La pantalla de carga las recorre para
  * mostrar el progreso mientras el backend responde.
  *
- * Solo estan las etapas de los filtros ACTIVOS (ver `enabledFilters.ts`). Las
- * de F2.1 y F2.2 quedan escritas y comentadas aqui abajo.
+ * POR QUE AHORA HAY TRES (antes habia una). Hasta el 2026-10-01 el backend
+ * mandaba una sola respuesta plana y anunciar etapas separadas habria sido
+ * fingir una cascada que no ocurria. Con la entrega de F1 + F2.1 + F2.2 + F2.3
+ * la cascada existe de verdad, en este orden, y el backend informa cual filtro
+ * decidio (`filtro_decisivo`). Medido el 2026-10-11:
+ *
+ *   - Corte por F1 (la app manda `resultadoF1`): ~5 s.
+ *   - Corte por F2.1 (score > 60): 24.5 s. Sin captura: el backend no la
+ *     genera cuando corta aqui.
+ *   - Corte por F2.2 (VirusTotal / URLScan): 28.1 s. Con captura.
+ *   - Sin concluir (PENDIENTE): 33.2 s.
+ *
+ * LOS TIEMPOS DE ABAJO NO SON UNA PROMESA. La pantalla los usa para avanzar el
+ * indicador mientras espera; la respuesta real llega cuando llega. Se eligieron
+ * proporcionales al costo medido de cada filtro para que el progreso no se
+ * quede clavado en la primera etapa durante 30 s, que es lo que hacia antes.
  *
  * Este archivo se llamaba `analysisService.ts` y ademas contenia el mock y el
  * interruptor mock/real. Los dos se eliminaron el 2026-09-20, cuando el
- * backend empezo a responder: la app ya no tiene implementacion de mentira que
- * elegir, asi que las pantallas usan `remoteAnalysisService` directamente y
- * aqui solo queda el copy de la cascada.
+ * backend empezo a responder.
  */
 export const analysisStages: {
   key: AnalysisStageKey;
@@ -24,43 +36,29 @@ export const analysisStages: {
 }[] = [
   {
     key: 'reputation',
-    // El copy describe lo que el backend HACE, no lo que decia el mockup.
-    // Antes esta etapa decia "Consultando listas de reputacion..." y al
-    // terminar "sin coincidencias en listas negras": ninguna de las dos cosas
-    // ocurre. El backend devuelve criterios heuristicos (F2.1) e indicadores
-    // de VirusTotal (F2.2), y afirmar "sin coincidencias en listas negras"
-    // podia aparecer justo encima de "18 motores lo marcan como malicioso".
-    // Una app de seguridad no puede afirmar una verificacion que no hizo.
-    runningLabel: 'Analizando el enlace…',
-    doneLabel: 'Análisis del enlace completado',
-    durationMs: 700,
+    // F1. Se resuelve en el telefono: lista local de dominios confiables
+    // (`localF1.ts`) mas una consulta a Google Safe Browsing con tope de 4 s
+    // (`safeBrowsing.ts`). Sin clave configurada es instantaneo; con clave,
+    // hasta 4 s. Se usan 3 s como punto medio para que el indicador no salte
+    // de golpe ni se quede corto.
+    runningLabel: 'Consultando listas de reputación…',
+    doneLabel: 'Listas de reputación consultadas',
+    durationMs: 3_000,
   },
-  // --- F2.1 (heuristica) y F2.2 (comportamiento): DESACTIVADAS ---
-  //
-  // QUE SON: las dos etapas siguientes de la cascada, con el copy y los tiempos
-  // que ya venian aprobados del mockup.
-  //
-  // POR QUE ESTAN APAGADAS: el backend no las reporta como etapas separadas.
-  // Hoy manda un solo puntaje heuristico con sus criterios, y todo eso se
-  // pinta en la seccion de reputacion. Anunciar tres etapas cuando solo hay
-  // una respuesta haria que la pantalla de carga dijera "Analizando la
-  // estructura del enlace…" sin que nada de eso este pasando por separado.
-  //
-  // COMO REACTIVAR: descomentar el objeto de aqui abajo Y su linea en
-  // `ENABLED_FILTERS` (src/services/analysis/enabledFilters.ts). Los dos pasos
-  // son necesarios: este array manda en la pantalla de carga, aquella lista
-  // manda en las secciones del detalle.
-  //
-  // {
-  //   key: 'heuristics',
-  //   runningLabel: 'Analizando la estructura del enlace…',
-  //   doneLabel: 'Estructura del enlace analizada',
-  //   durationMs: 900,
-  // },
-  // {
-  //   key: 'behavior',
-  //   runningLabel: 'Observando el comportamiento en entorno aislado…',
-  //   doneLabel: 'Comportamiento en entorno aislado',
-  //   durationMs: 800,
-  // },
+  {
+    key: 'heuristics',
+    // F2.1: 13 criterios sobre la estructura de la URL. Nunca visita el sitio.
+    runningLabel: 'Analizando la estructura del enlace…',
+    doneLabel: 'Estructura del enlace analizada',
+    durationMs: 8_000,
+  },
+  {
+    key: 'behavior',
+    // F2.2: consulta URLScan.io y VirusTotal en paralelo. Es la etapa caras:
+    // el presupuesto de tiempo compartido del backend vive aqui, y F2.3 (la
+    // captura) se genera dentro de ella cuando corresponde.
+    runningLabel: 'Consultando fuentes de reputación externas…',
+    doneLabel: 'Fuentes externas consultadas',
+    durationMs: 16_000,
+  },
 ];

@@ -25,8 +25,17 @@ import { useAppState } from '../../src/store/AppStateContext';
 
 type StageStatus = 'done' | 'running' | 'pending';
 
-/** Cuanto se espera antes de avisar que el analisis esta tardando. */
-const LONG_WAIT_NOTICE_MS = 8_000;
+/**
+ * Cuanto se espera antes de avisar que el analisis esta tardando.
+ *
+ * Son 20 s, no los 8 de antes. Con la cascada completa (medida el 2026-10-11:
+ * 24-35 s en el camino normal) un aviso a los 8 s salia practicamente siempre,
+ * y un aviso que aparece en casi todos los analisis deja de informar: se
+ * vuelve parte del fondo y la persona ya no distingue el caso lento del
+ * normal. A los 20 s ya se paso la mitad del peor caso medido y la espera si
+ * es inusual.
+ */
+const LONG_WAIT_NOTICE_MS = 20_000;
 
 /**
  * 05 · Analisis en curso. Recorre la cascada de filtros mientras el servicio
@@ -64,11 +73,16 @@ export default function LoadingRoute() {
    * Avance visual de la cascada.
    *
    * Las etapas avanzan por tiempo, pero la ultima NO se marca sola: se queda en
-   * curso hasta que el analisis responde de verdad. Hoy solo esta activo F1 (ver
-   * `enabledFilters.ts`), asi que la lista tiene una sola etapa, `slice` no
-   * programa ningun temporizador y esa unica fila gira hasta que llega el
-   * veredicto. Es el mismo invariante de siempre: la ultima etapa la cierra el
-   * servicio, no el reloj.
+   * curso hasta que el analisis responde de verdad. Con las tres etapas de la
+   * cascada activas (ver `enabledFilters.ts`), `slice` programa el avance de F1
+   * y F2.1 por reloj, y F2.2 —la mas larga, 16 s de los ~30 totales— gira hasta
+   * que llega el veredicto.
+   *
+   * El invariante es el que importa: el reloj nunca declara terminado el
+   * analisis. Si el backend tarda mas de lo previsto, la ultima fila sigue
+   * girando; si responde antes, `setStageIndex(analysisStages.length)` cierra
+   * las tres de golpe. Lo que no puede pasar es que la pantalla diga "listo"
+   * mientras la peticion sigue en vuelo.
    */
   useEffect(() => {
     let elapsed = 0;
