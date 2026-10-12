@@ -117,7 +117,13 @@ export default function ResultRoute() {
 
       <View style={styles.body}>
         <VerdictEmblem verdict={result.verdict} />
-        <VerdictPill verdict={result.verdict} />
+        {/*
+          La pildora trae `alignSelf: 'flex-start'` para no estirarse en las
+          filas del historial. Aqui se centra a mano: el emblema, el dominio y
+          la URL estan centrados, y sin esto la etiqueta del veredicto quedaba
+          pegada al borde izquierdo.
+        */}
+        <VerdictPill verdict={result.verdict} style={styles.centeredPill} />
 
         <View style={styles.identity}>
           <Text style={[text.domain, styles.centered]}>{result.domain}</Text>
@@ -236,6 +242,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 15,
     paddingHorizontal: spacing.xxl,
+  },
+  centeredPill: {
+    alignSelf: 'center',
   },
   identity: {
     alignItems: 'center',

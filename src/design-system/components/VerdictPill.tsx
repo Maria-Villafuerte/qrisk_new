@@ -48,6 +48,15 @@ const styles = StyleSheet.create({
   root: {
     flexDirection: 'row',
     alignItems: 'center',
+    /*
+     * `flex-start` para que la pildora mida lo que mide su contenido y no se
+     * estire a lo ancho del contenedor. Es lo que necesitan las filas del
+     * historial y el campo "VEREDICTO ACTUAL" del reporte.
+     *
+     * Se puede anular con la prop `style`, que va despues en el arreglo: la
+     * pantalla de resultado pasa `alignSelf: 'center'` para alinear la pildora
+     * con el emblema y el dominio, que estan centrados.
+     */
     alignSelf: 'flex-start',
     borderRadius: radius.pill,
     gap: 5,
