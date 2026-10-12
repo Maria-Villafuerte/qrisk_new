@@ -7,6 +7,7 @@ import { getCurrentPlaceName } from '../currentPlace';
  */
 jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
+  getForegroundPermissionsAsync: jest.fn(),
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
   reverseGeocodeAsync: jest.fn(),
@@ -15,7 +16,7 @@ jest.mock('expo-location', () => ({
 const mocked = Location as jest.Mocked<typeof Location>;
 
 const grantPermission = (granted: boolean) => {
-  (mocked.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ granted });
+  (mocked.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ granted });
 };
 const atPosition = () => {
   (mocked.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
@@ -43,6 +44,31 @@ describe('getCurrentPlaceName', () => {
 
     await expect(getCurrentPlaceName()).resolves.toBeNull();
     expect(mocked.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
+  /*
+   * El permiso se pide en el onboarding, donde hay una pantalla que lo
+   * explica. Si esto lo pidiera, el dialogo del sistema saldria encima de la
+   * pantalla de carga durante el primer analisis: la persona lo responderia
+   * dos veces, y la segunda sin contexto.
+   */
+  it('CONSULTA el permiso, nunca lo pide', async () => {
+    grantPermission(true);
+    atPosition();
+    (mocked.reverseGeocodeAsync as jest.Mock).mockResolvedValue([{ city: 'Guatemala' }]);
+
+    await getCurrentPlaceName();
+
+    expect(mocked.getForegroundPermissionsAsync).toHaveBeenCalled();
+    expect(mocked.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('tampoco lo pide cuando el permiso no esta concedido', async () => {
+    grantPermission(false);
+
+    await getCurrentPlaceName();
+
+    expect(mocked.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it('devuelve null si no se puede obtener la posicion', async () => {

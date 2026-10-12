@@ -19,8 +19,21 @@ import { composePlaceName } from './placeName';
  */
 export async function getCurrentPlaceName(): Promise<string | null> {
   try {
-    // En Android el permiso es obligatorio ANTES de geocodificar.
-    const { granted } = await Location.requestForegroundPermissionsAsync();
+    /*
+     * CONSULTA el permiso, no lo PIDE.
+     *
+     * Antes se llamaba a `requestForegroundPermissionsAsync`, que muestra el
+     * dialogo del sistema cuando el permiso no esta concedido. Como esto corre
+     * durante el primer analisis, el dialogo aparecia encima de la pantalla de
+     * carga, segundos despues de que la persona ya habia respondido en el
+     * onboarding: pedia dos veces lo mismo y la segunda vez sin contexto.
+     *
+     * El permiso se pide donde se explica: `app/onboarding/location.tsx`. Aqui
+     * solo se comprueba. Si no esta concedido —se omitio en el onboarding o se
+     * revoco despues en ajustes— se devuelve null sin interrumpir nada, que es
+     * lo que corresponde a un dato secundario.
+     */
+    const { granted } = await Location.getForegroundPermissionsAsync();
     if (!granted) return null;
 
     const position = await Location.getCurrentPositionAsync({
