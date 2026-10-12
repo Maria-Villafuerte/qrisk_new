@@ -16,12 +16,12 @@ persona apunta la cámara y ya está en el sitio del atacante.
 QRisk se pone en medio. Lee el código, muestra **a dónde apunta de verdad**, lo
 analiza en un entorno aislado y devuelve un veredicto en lenguaje llano:
 
-| Veredicto | Significado |
-|---|---|
-| **Seguro** | Sin señales de riesgo. |
+| Veredicto            | Significado                                                            |
+| -------------------- | ---------------------------------------------------------------------- |
+| **Seguro**     | Sin señales de riesgo.                                                |
 | **Sospechoso** | Señales de riesgo; ábrelo solo si confías en quien puso el código. |
-| **Malicioso** | Peligroso. No abrirlo ni ingresar datos. |
-| **Incierto** | No se pudo completar el análisis. Tratarlo con precaución. |
+| **Malicioso**  | Peligroso. No abrirlo ni ingresar datos.                               |
+| **Incierto**   | No se pudo completar el análisis. Tratarlo con precaución.           |
 
 ### Regla de seguridad fundamental
 
@@ -35,10 +35,10 @@ Esta regla manda sobre cualquier otra decisión de producto.
 **Lo que sí puede hacer la persona: abrir el sitio a propósito.** Después de ver
 el veredicto hay un botón para hacerlo, y la fricción escala con el riesgo:
 
-| Veredicto | Qué pasa al tocar "Abrir" |
-|---|---|
-| Seguro | Abre directo en el navegador del sistema |
-| Sospechoso / Malicioso / Incierto | Hoja de confirmación con el dominio y cuántas señales de riesgo se encontraron. **"Cancelar" es el botón primario** |
+| Veredicto                         | Qué pasa al tocar "Abrir"                                                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Seguro                            | Abre directo en el navegador del sistema                                                                                     |
+| Sospechoso / Malicioso / Incierto | Hoja de confirmación con el dominio y cuántas señales de riesgo se encontraron.**"Cancelar" es el botón primario** |
 
 Dos cosas que esto **no** rompe: el análisis nunca dejó de ocurrir en el
 sandbox, y el sitio se abre **fuera** de QRisk, en el navegador del sistema —
@@ -62,15 +62,15 @@ arbitrarias:
 
 ### Versiones verificadas
 
-| Herramienta | Versión | Nota |
-|---|---|---|
-| Node | 20.20.2 | 20 o superior |
-| npm | 10.8.2 | |
-| Expo SDK | 57.0.12 | `react-native` 0.86.2, React 19.2.3 |
-| JDK | 17 (Temurin 17.0.17) | Para Android. El 17 es el que pide Gradle 9 |
-| Gradle | 9.3.1 | Lo trae el wrapper; no hay que instalarlo |
-| Android mínimo | API 24 (Android 7.0) | Lo fija Expo SDK 57; lo define `rootProject.ext.minSdkVersion` |
-| Xcode | Última estable | Solo para iOS, **solo en macOS** |
+| Herramienta     | Versión             | Nota                                                            |
+| --------------- | -------------------- | --------------------------------------------------------------- |
+| Node            | 20.20.2              | 20 o superior                                                   |
+| npm             | 10.8.2               |                                                                 |
+| Expo SDK        | 57.0.12              | `react-native` 0.86.2, React 19.2.3                           |
+| JDK             | 17 (Temurin 17.0.17) | Para Android. El 17 es el que pide Gradle 9                     |
+| Gradle          | 9.3.1                | Lo trae el wrapper; no hay que instalarlo                       |
+| Android mínimo | API 24 (Android 7.0) | Lo fija Expo SDK 57; lo define`rootProject.ext.minSdkVersion` |
+| Xcode           | Última estable      | Solo para iOS,**solo en macOS**                           |
 
 ### Instalación
 
@@ -207,11 +207,11 @@ Sin esa variable se usa `expo.extra.apiBaseUrl` de `app.json`.
 `eas.json` **ya está en el repo** con tres perfiles, así que **no hace falta
 correr `eas build:configure`**:
 
-| Perfil | Sale | Para qué |
-|---|---|---|
-| `development` | APK con dev client | Desarrollo con Metro |
-| `preview` | **APK** | **Instalar y demostrar.** Es el de la defensa |
-| `production` | **AAB** | Play Store |
+| Perfil          | Sale               | Para qué                                           |
+| --------------- | ------------------ | --------------------------------------------------- |
+| `development` | APK con dev client | Desarrollo con Metro                                |
+| `preview`     | **APK**      | **Instalar y demostrar.** Es el de la defensa |
+| `production`  | **AAB**      | Play Store                                          |
 
 Los tres apuntan al backend real: ya no hay modo que forzar.
 
@@ -248,10 +248,10 @@ El build local usa la firma de debug salvo que configures un keystore en
 > **⚠️ El build local se cuelga en esta máquina.** Verificado el 2026-09-20 con
 > **dos intentos**, ninguno llegó a producir un APK:
 >
-> | Intento | Hasta dónde llegó | Síntoma |
-> |---|---|---|
-> | 1º (~35 min) | Arranque | Bloqueado en un lock. CPU **~1 s cada 30 s**, cero archivos escritos |
-> | 2º (~25 min) | `mergeDebugAssets` y algo de C++ | CPU **~4 s cada 55 s** pero **cero archivos en 12 min** |
+> | Intento       | Hasta dónde llegó                | Síntoma                                                                  |
+> | ------------- | ---------------------------------- | ------------------------------------------------------------------------- |
+> | 1º (~35 min) | Arranque                           | Bloqueado en un lock. CPU**~1 s cada 30 s**, cero archivos escritos |
+> | 2º (~25 min) | `mergeDebugAssets` y algo de C++ | CPU**~4 s cada 55 s** pero **cero archivos en 12 min**        |
 >
 > El segundo llegó más lejos tras `./gradlew.bat --stop` (que libera el lock),
 > pero se volvió a detener. Hay además un volcado fatal previo de la JVM en
@@ -296,15 +296,15 @@ Retomarlo pediría una **Mac** para el prebuild y una cuenta **Apple Developer**
 Todo en **`app.json`** — es la fuente de verdad. `android/` e `ios/` son
 generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 
-| Qué | Dónde |
-|---|---|
-| Versión visible | `expo.version` (`1.0.0`) |
-| Build Android | `expo.android.versionCode` (entero, sube en cada envío) |
-| Build iOS | `expo.ios.buildNumber` (cadena, sube en cada envío) |
-| ID de la app | `expo.android.package` y `expo.ios.bundleIdentifier` (`com.qrisk.app`) |
-| Nombre visible | `expo.name` (`QRisk`) |
-| Ícono y splash | `expo.icon`, `expo.android.adaptiveIcon` |
-| Permisos | en cada plugin de `expo.plugins`, + `expo.ios.infoPlist` |
+| Qué             | Dónde                                                                       |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Versión visible | `expo.version` (`1.0.0`)                                                 |
+| Build Android    | `expo.android.versionCode` (entero, sube en cada envío)                   |
+| Build iOS        | `expo.ios.buildNumber` (cadena, sube en cada envío)                       |
+| ID de la app     | `expo.android.package` y `expo.ios.bundleIdentifier` (`com.qrisk.app`) |
+| Nombre visible   | `expo.name` (`QRisk`)                                                    |
+| Ícono y splash  | `expo.icon`, `expo.android.adaptiveIcon`                                 |
+| Permisos         | en cada plugin de`expo.plugins`, + `expo.ios.infoPlist`                  |
 
 > El identificador `com.qrisk.app` **se congela al publicar**. Cambiarlo después
 > obliga a crear una app nueva en la tienda, perdiendo instalaciones y reseñas.
@@ -318,13 +318,13 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 - [ ] Respaldo del keystore guardado en un lugar seguro (`eas credentials`).
 - [ ] Probado en **dispositivo Android físico** (iOS está fuera de alcance).
 - [ ] Los permisos piden lo mínimo (`SYSTEM_ALERT_WINDOW` y `RECORD_AUDIO`
-      siguen bloqueados en `app.json`).
+  siguen bloqueados en `app.json`).
 - [ ] Prueba 1.4 corrida y métricas anotadas (§6).
 - [ ] [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md)
-      corrida: arranque en frío, geocodificación, Story Card, sin conexión.
+  corrida: arranque en frío, geocodificación, Story Card, sin conexión.
 - [ ] Probado con wifi apagado: debe dar "incierto", no fallar.
 - [ ] **El QR de la Story Card no se puede escanear** desde otro teléfono
-      (§C4 de la prueba). Es el chequeo de seguridad que no se puede saltar.
+  (§C4 de la prueba). Es el chequeo de seguridad que no se puede saltar.
 
 ---
 
@@ -332,22 +332,22 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 
 ✅ funciona · 🟡 parcial · ❌ pendiente · ⛔ fuera de alcance
 
-| Funcionalidad | Estado | Qué falta / qué se necesita para probarlo |
-|---|---|---|
-| Escaneo de QR | ✅ | Cámara real con `expo-camera`, antorcha y bloqueo tras la primera lectura. **Falta medir** T_scan y TDR en hardware (§6). |
-| Clasificación URL / no-URL | ✅ | `classifyQr` con 18 tests. Cubre https, dominios sin esquema, Wi-Fi, vCard, mailto, tel, geo y texto suelto. |
-| Análisis (backend real) | ✅ | **El endpoint responde HTTP 200 desde el 2026-09-20** y la app corre solo contra él: el mock se eliminó. Devuelve un `score_heuristico` con sus criterios; la app deriva el veredicto de ese puntaje (§5.2). Latencia medida: 5.5 s la primera llamada (arranque en frío de Lambda), 1.6-3.1 s las siguientes. |
-| Filtro F2.1 (heurística) | ✅ | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15). |
-| Filtro F2.2 (comportamiento) | ✅ | **Funciona: consulta VirusTotal.** Verificado de nuevo el 2026-10-01 (`malware.wicar.org` → 18 motores lo marcan, `filtro_decisivo: F2.2`). Sus indicadores **se muestran en pantalla desde el 2026-10-01**: hasta entonces el adaptador declaraba `indicadores_f2_2` y no lo leía, así que esa evidencia se perdía y el sitio se veía con una sola alerta. Hoy se pintan junto a los criterios de F2.1 en la misma sección (§5.2). |
-| Filtro F2.3 (vista previa) | 🟡 | **La app la muestra cuando viene, pero es intermitente.** Apareció el 2026-09-30 en `screenshot_url` (URL firmada de S3, PNG real verificado). **El 2026-10-01 ninguna de las seis llamadas la trajo**, incluida una URL nueva de 15.3 s. El código lo maneja: el campo es opcional y la imagen se oculta si falla. Se pinta como **imagen estática, nunca un WebView**. **No contar con ella en la defensa.** |
-| Resultado simple | ✅ | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles. |
-| Resultado extendido | ✅ | Medidor de riesgo y el acordeón con los **criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico. |
-| Historial persistente | ✅ | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir. |
-| Reporte de QR malicioso | 🟡 | Valida, arma el payload anónimo y **no pierde lo escrito si falla la red**. **El endpoint `/report` ya existe** (entrega S11) y la app apunta a él con el payload del contrato (`url`, `motivo`, `analisis_id`). Verificado el 2026-10-11: valida bien (400 con los códigos del contrato) pero **el guardado responde 500**, así que hoy sigue fallando. La app distingue ese caso del fallo de red y lo dice. |
-| Story Card | ✅ | Foto real (cámara o galería), captura con `captureRef`, compartir y guardar en la galería. **Probar en teléfono físico**: los diálogos del sistema no se pueden verificar de otro modo. |
-| Geocodificación inversa | ✅ | `expo-location` **en el dispositivo**, nunca en el servidor. Si falla, devuelve `null` y la UI oculta la fila. **Probar en teléfono** con GPS. |
-| iOS | ⛔ | **Fuera del alcance de esta entrega**, que es solo Android. La configuración se conserva por si alguien lo retoma: `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de `Info.plist`, la safe area y el teclado. No se borró nada. |
-| Abrir el sitio analizado | ✅ | Botón real: abre en el **navegador del sistema**, nunca embebido. En un sitio seguro abre directo; con cualquier señal de riesgo pide confirmación mostrando el dominio y cuántas alertas se hallaron, con "Cancelar" como acción primaria. Ver §1 y §5.1. |
+| Funcionalidad                | Estado | Qué falta / qué se necesita para probarlo                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Escaneo de QR                | ✅     | Cámara real con`expo-camera`, antorcha y bloqueo tras la primera lectura. **Falta medir** T_scan y TDR en hardware (§6).                                                                                                                                                                                                                                                                                                                           |
+| Clasificación URL / no-URL  | ✅     | `classifyQr` con 18 tests. Cubre https, dominios sin esquema, Wi-Fi, vCard, mailto, tel, geo y texto suelto.                                                                                                                                                                                                                                                                                                                                               |
+| Análisis (backend real)     | ✅     | **El endpoint responde HTTP 200 desde el 2026-09-20** y la app corre solo contra él: el mock se eliminó. Devuelve un `score_heuristico` con sus criterios; la app deriva el veredicto de ese puntaje (§5.2). Latencia medida: 5.5 s la primera llamada (arranque en frío de Lambda), 1.6-3.1 s las siguientes.                                                                                                                                   |
+| Filtro F2.1 (heurística)    | ✅     | **El backend sí lo implementó.** Devuelve un puntaje 0-100 con los criterios que lo componen, cada uno con su peso y su explicación en español. La app los pinta tal cual en el acordeón de detalle. Criterios verificados: TLD de riesgo (25), host que es una IP (30), sin HTTPS (15), palabra clave sospechosa (15).                                                                                                                           |
+| Filtro F2.2 (comportamiento) | ✅     | **Funciona: consulta VirusTotal.** Verificado de nuevo el 2026-10-01 (`malware.wicar.org` → 18 motores lo marcan, `filtro_decisivo: F2.2`). Sus indicadores **se muestran en pantalla desde el 2026-10-01**: hasta entonces el adaptador declaraba `indicadores_f2_2` y no lo leía, así que esa evidencia se perdía y el sitio se veía con una sola alerta. Hoy se pintan junto a los criterios de F2.1 en la misma sección (§5.2). |
+| Filtro F2.3 (vista previa)   | 🟡     | **La app la muestra cuando viene, pero es intermitente.** Apareció el 2026-09-30 en `screenshot_url` (URL firmada de S3, PNG real verificado). **El 2026-10-01 ninguna de las seis llamadas la trajo**, incluida una URL nueva de 15.3 s. El código lo maneja: el campo es opcional y la imagen se oculta si falla. Se pinta como **imagen estática, nunca un WebView**. **No contar con ella en la defensa.**                  |
+| Resultado simple             | ✅     | Emblema, veredicto, dominio, resumen. La jerarquía de los botones se invierte con el riesgo: en un sitio seguro lo recomendado es abrir; con señales, ver los detalles.                                                                                                                                                                                                                                                                                    |
+| Resultado extendido          | ✅     | Medidor de riesgo y el acordeón con los**criterios reales** que devolvió el backend ("Host es una IP: 192.168.1.1"), no texto genérico.                                                                                                                                                                                                                                                                                                             |
+| Historial persistente        | ✅     | `expo-sqlite/kv-store`, tope 20, el más viejo se descarta. Guarda el análisis completo, así que una fila reabre **su** veredicto sin red. Probar: escanear, cerrar la app por completo, reabrir.                                                                                                                                                                                                                                                  |
+| Reporte de QR malicioso      | 🟡     | Valida, arma el payload anónimo y**no pierde lo escrito si falla la red**. **El endpoint `/report` ya existe** (entrega S11) y la app apunta a él con el payload del contrato (`url`, `motivo`, `analisis_id`). Verificado el 2026-10-11: valida bien (400 con los códigos del contrato) pero **el guardado responde 500**, así que hoy sigue fallando. La app distingue ese caso del fallo de red y lo dice.                  |
+| Story Card                   | ✅     | Foto real (cámara o galería), captura con`captureRef`, compartir y guardar en la galería. **Probar en teléfono físico**: los diálogos del sistema no se pueden verificar de otro modo.                                                                                                                                                                                                                                                         |
+| Geocodificación inversa     | ✅     | `expo-location` **en el dispositivo**, nunca en el servidor. Si falla, devuelve `null` y la UI oculta la fila. **Probar en teléfono** con GPS.                                                                                                                                                                                                                                                                                              |
+| iOS                          | ⛔     | **Fuera del alcance de esta entrega**, que es solo Android. La configuración se conserva por si alguien lo retoma: `bundleIdentifier`, `buildNumber`, los cuatro textos de permiso de `Info.plist`, la safe area y el teclado. No se borró nada.                                                                                                                                                                                               |
+| Abrir el sitio analizado     | ✅     | Botón real: abre en el**navegador del sistema**, nunca embebido. En un sitio seguro abre directo; con cualquier señal de riesgo pide confirmación mostrando el dominio y cuántas alertas se hallaron, con "Cancelar" como acción primaria. Ver §1 y §5.1.                                                                                                                                                                                       |
 
 ---
 
@@ -361,11 +361,11 @@ navegador…"* y no abría nada. Prometía y mentía.
 **Qué hay ahora:** un botón que abre de verdad, con fricción proporcional al
 riesgo.
 
-| Veredicto | Botón primario | Al tocar "Abrir" |
-|---|---|---|
-| Seguro | **Abrir sitio** | Abre directo en el navegador del sistema |
-| Sospechoso | Ver más detalles | *"Abrir con precaución"* → hoja de confirmación |
-| Malicioso | Ver más detalles | *"Abrir bajo mi propio riesgo"* → hoja de confirmación |
+| Veredicto  | Botón primario       | Al tocar "Abrir"                                           |
+| ---------- | --------------------- | ---------------------------------------------------------- |
+| Seguro     | **Abrir sitio** | Abre directo en el navegador del sistema                   |
+| Sospechoso | Ver más detalles     | *"Abrir con precaución"* → hoja de confirmación       |
+| Malicioso  | Ver más detalles     | *"Abrir bajo mi propio riesgo"* → hoja de confirmación |
 
 La hoja repite el dominio y **cuántas señales de riesgo se encontraron** —el
 dato concreto, no una advertencia genérica que ya nadie lee— y pone
@@ -400,11 +400,11 @@ ante la duda, la fricción se queda.
 **El backend concluye a veces, y cuando lo hace la app respeta su palabra.**
 Estado medido el **2026-09-30**:
 
-| Caso | `veredicto_final` | Qué hace la app |
-|---|---|---|
-| VirusTotal reporta detecciones | `SOSPECHOSO` (decide F2.2) | Lo usa tal cual |
-| F2.1 da puntaje alto | `SOSPECHOSO` (decide F2.1) | Lo usa tal cual |
-| Nada reporta nada | **`PENDIENTE`** | Deriva el veredicto del puntaje |
+| Caso                           | `veredicto_final`          | Qué hace la app                |
+| ------------------------------ | ---------------------------- | ------------------------------- |
+| VirusTotal reporta detecciones | `SOSPECHOSO` (decide F2.2) | Lo usa tal cual                 |
+| F2.1 da puntaje alto           | `SOSPECHOSO` (decide F2.1) | Lo usa tal cual                 |
+| Nada reporta nada              | **`PENDIENTE`**      | Deriva el veredicto del puntaje |
 
 El caso `PENDIENTE` sigue siendo el más común —`github.com` y `google.com` caen
 ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos dirían
@@ -417,9 +417,9 @@ ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos dirían
 que convence es el detalle. La app pinta en la misma sección **las dos** listas
 que manda el backend, en este orden:
 
-| Campo del backend | Qué es | Ejemplo real |
-|---|---|---|
-| `criterios_f2_1` | La heurística, con su peso | *"Host es una IP: 192.168.1.1"* |
+| Campo del backend    | Qué es                        | Ejemplo real                              |
+| -------------------- | ------------------------------ | ----------------------------------------- |
+| `criterios_f2_1`   | La heurística, con su peso    | *"Host es una IP: 192.168.1.1"*         |
 | `indicadores_f2_2` | El comportamiento (VirusTotal) | *"18 motores lo marcan como malicioso"* |
 
 Van juntas y no en dos acordeones porque **el backend no reporta los filtros
@@ -461,11 +461,11 @@ guardar — si se persistiera, el historial se llenaría de enlaces muertos.
 Así que la app deriva el veredicto del puntaje, con los cortes de
 [verdictThresholds.ts](src/services/analysis/verdictThresholds.ts):
 
-| `score_heuristico` | Veredicto | Por qué ese corte |
-|---|---|---|
-| 0–29 | **seguro** | Un solo criterio menor (sin HTTPS = 15) no basta: marcar de riesgo todo sitio sin HTTPS daría tantos falsos positivos que la app dejaría de creerse |
-| 30–59 | **sospechoso** | 30 es el peso exacto de "el host es una IP", y lo que suman dos criterios menores. Merece advertencia, no condena |
-| 60–100 | **malicioso** | Tres o más señales a la vez (IP + sin HTTPS + "login": el phishing clásico) |
+| `score_heuristico` | Veredicto            | Por qué ese corte                                                                                                                                    |
+| -------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0–29                | **seguro**     | Un solo criterio menor (sin HTTPS = 15) no basta: marcar de riesgo todo sitio sin HTTPS daría tantos falsos positivos que la app dejaría de creerse |
+| 30–59               | **sospechoso** | 30 es el peso exacto de "el host es una IP", y lo que suman dos criterios menores. Merece advertencia, no condena                                     |
+| 60–100              | **malicioso**  | Tres o más señales a la vez (IP + sin HTTPS + "login": el phishing clásico)                                                                        |
 
 > **El veredicto no es inventado.** El puntaje y los criterios son del backend;
 > lo único que pone la app son los cortes, alineados con los pesos que él mismo
@@ -500,10 +500,10 @@ Estado actual: **249 tests en verde** (19 suites), 99.7% statements, **100% line
 
 Son dos documentos, pensados para correrse sin tener que pensar:
 
-| Documento | Qué cubre | Cuánto toma |
-|---|---|---|
-| [prueba_1.4_escaneo.md](TAREAS_POR_HACER/prueba_1.4_escaneo.md) | T_scan y TDR: 30 QRs variando tamaño, ángulo e iluminación | ~45 min |
-| [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) | Arranque en frío, geocodificación, Story Card, camino sin conexión, teclado | ~40 min |
+| Documento                                                              | Qué cubre                                                                     | Cuánto toma |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------ |
+| [prueba_1.4_escaneo.md](TAREAS_POR_HACER/prueba_1.4_escaneo.md)         | T_scan y TDR: 30 QRs variando tamaño, ángulo e iluminación                  | ~45 min      |
+| [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) | Arranque en frío, geocodificación, Story Card, camino sin conexión, teclado | ~40 min      |
 
 ### Medición en hardware (T_scan y TDR)
 
@@ -542,19 +542,19 @@ en memoria: se pierden al recargar.
 
 Para que nadie tenga que adivinar el estado real:
 
-| Verificación | Resultado |
-|---|---|
-| `npx tsc --noEmit` | ✅ Limpio (reverificado el 2026-10-01) |
-| `npm test` | ✅ **249 tests**, 19 suites, todo verde (eran 218; +8 de F2.2, +15 de robustez) |
-| Cobertura de `src/services` | ✅ 99.7% statements, **100% lines**, **100% functions** (umbral 70%) |
-| **Indicadores de F2.2 en pantalla** | ✅ Verificado el 2026-10-01 con la respuesta en vivo de `malware.wicar.org`: la sección muestra **"3 ALERTAS"** con *"18 motores lo marcan como malicioso"*. Antes mostraba 1 alerta y descartaba la evidencia de VirusTotal |
-| `npx expo export --platform android` | ✅ Exit 0. **El código JS de toda la app compila** para Android |
-| **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador: `github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |
-| Latencia del endpoint | ⚠️ Confirmada el **2026-10-01**: **15.3 s en una URL nueva**, 0.3–2.9 s si está en caché. Coherente con la medida del 2026-09-30 (14.2–14.5 s). El tope de 25 s sigue teniendo margen; la pantalla avisa a los 8 s |
-| Captura de F2.3 | ⚠️ Verificada el 2026-09-30 (PNG real, HTTP 200, 70 KB). **El 2026-10-01 el backend no la devolvió en ninguna llamada**: el campo es intermitente. La app no se rompe sin ella |
-| Build nativo (`gradlew assembleDebug`) | ❌ **No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build** |
-| App corriendo en un teléfono | ❌ **No verificado.** No hay dispositivo ni emulador conectado a esta máquina (`adb devices` vacío) |
-| Cámara, GPS, galería, compartir | ❌ **No verificado.** Requieren hardware: ver [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) |
+| Verificación                                     | Resultado                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                              | ✅ Limpio (reverificado el 2026-10-01)                                                                                                                                                                                                       |
+| `npm test`                                      | ✅**249 tests**, 19 suites, todo verde (eran 218; +8 de F2.2, +15 de robustez)                                                                                                                                                         |
+| Cobertura de`src/services`                      | ✅ 99.7% statements,**100% lines**, **100% functions** (umbral 70%)                                                                                                                                                              |
+| **Indicadores de F2.2 en pantalla**         | ✅ Verificado el 2026-10-01 con la respuesta en vivo de`malware.wicar.org`: la sección muestra **"3 ALERTAS"** con *"18 motores lo marcan como malicioso"*. Antes mostraba 1 alerta y descartaba la evidencia de VirusTotal       |
+| `npx expo export --platform android`            | ✅ Exit 0.**El código JS de toda la app compila** para Android                                                                                                                                                                        |
+| **Los 3 veredictos contra el backend REAL** | ✅ Verificado pasando las respuestas en vivo por el adaptador:`github.com` → seguro (0), `banco-lndustrial-seguro.top` → sospechoso (40), `192.168.1.1/login.php` → malicioso (60), con sus criterios reales y sin marcar degradado |
+| Latencia del endpoint                             | ⚠️ Confirmada el**2026-10-01**: **15.3 s en una URL nueva**, 0.3–2.9 s si está en caché. Coherente con la medida del 2026-09-30 (14.2–14.5 s). El tope de 25 s sigue teniendo margen; la pantalla avisa a los 8 s          |
+| Captura de F2.3                                   | ⚠️ Verificada el 2026-09-30 (PNG real, HTTP 200, 70 KB).**El 2026-10-01 el backend no la devolvió en ninguna llamada**: el campo es intermitente. La app no se rompe sin ella                                                       |
+| Build nativo (`gradlew assembleDebug`)          | ❌**No se logró.** Dos intentos (~35 y ~25 min), los dos colgados sin producir APK. Es del entorno, no del código — ver la nota de §4. **Usar EAS Build**                                                                    |
+| App corriendo en un teléfono                     | ❌**No verificado.** No hay dispositivo ni emulador conectado a esta máquina (`adb devices` vacío)                                                                                                                                 |
+| Cámara, GPS, galería, compartir                 | ❌**No verificado.** Requieren hardware: ver [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md)                                                                                                                    |
 
 Lo que **sí** garantiza el export de Expo: que no hay imports rotos, rutas mal
 declaradas ni errores de sintaxis en ninguna pantalla. Lo que **no** garantiza:
@@ -562,25 +562,25 @@ nada de lo que solo se ve corriendo en un teléfono.
 
 ### Métricas del anteproyecto
 
-| Métrica | Objetivo | Estado |
-|---|---|---|
-| Clasificación URL / no-URL | ≥ 98% | ✅ Cubierta por tests |
-| Cobertura de pruebas unitarias | ≥ 70% | ✅ 100% statements |
-| Persistencia offline del historial | 100% recuperable | ✅ Cubierta por tests |
-| Reportes con payload completo | 100% | ✅ Cubierta por tests |
-| T_scan (p90) | ≤ 5 s | ⏳ Instrumentado; **falta correr la prueba 1.4** |
-| TDR (tasa de detección) | ≥ 95% | ⏳ Igual: teléfono físico + 30 QRs |
-| T_F1 (p90) | ≤ 5 s | ⏳ Timeout implementado; **necesita backend funcionando** |
-| T_total | ≤ 35 s | ⏳ Igual |
-| Detección de maliciosos | ≥ 90% | ⏳ Necesita backend + muestra de PhishTank/Tranco |
-| Falsos positivos | ≤ 5% | ⏳ Igual |
-| Geocodificación legible | ≥ 85% | ⏳ Lógica cubierta; checklist listo en [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) §B |
-| Story Card generada | ≥ 90% | ⏳ Checklist listo en [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) §C |
-| Comprensión del veredicto | ≥ 90% | ⏳ Prueba de usabilidad (5 participantes) |
-| Finalización del flujo | ≥ 85% | ⏳ Igual |
-| T_learn | ≤ 60 s | ⏳ Igual |
-| T_start | ≤ 3 s | ⏳ Medir en dispositivo de gama media |
-| Compatibilidad Android ≥ 10 | sin errores críticos | ⏳ El bundle JS exporta limpio; **falta el APK y probarlo en teléfono** (§8.2). **iOS: fuera de alcance** (§4) |
+| Métrica                           | Objetivo              | Estado                                                                                                                       |
+| ---------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Clasificación URL / no-URL        | ≥ 98%                | ✅ Cubierta por tests                                                                                                        |
+| Cobertura de pruebas unitarias     | ≥ 70%                | ✅ 100% statements                                                                                                           |
+| Persistencia offline del historial | 100% recuperable      | ✅ Cubierta por tests                                                                                                        |
+| Reportes con payload completo      | 100%                  | ✅ Cubierta por tests                                                                                                        |
+| T_scan (p90)                       | ≤ 5 s                | ⏳ Instrumentado;**falta correr la prueba 1.4**                                                                        |
+| TDR (tasa de detección)           | ≥ 95%                | ⏳ Igual: teléfono físico + 30 QRs                                                                                         |
+| T_F1 (p90)                         | ≤ 5 s                | ⏳ Timeout implementado;**necesita backend funcionando**                                                               |
+| T_total                            | ≤ 35 s               | ⏳ Igual                                                                                                                     |
+| Detección de maliciosos           | ≥ 90%                | ⏳ Necesita backend + muestra de PhishTank/Tranco                                                                            |
+| Falsos positivos                   | ≤ 5%                 | ⏳ Igual                                                                                                                     |
+| Geocodificación legible           | ≥ 85%                | ⏳ Lógica cubierta; checklist listo en[prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) §B            |
+| Story Card generada                | ≥ 90%                | ⏳ Checklist listo en[prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md) §C                              |
+| Comprensión del veredicto         | ≥ 90%                | ⏳ Prueba de usabilidad (5 participantes)                                                                                    |
+| Finalización del flujo            | ≥ 85%                | ⏳ Igual                                                                                                                     |
+| T_learn                            | ≤ 60 s               | ⏳ Igual                                                                                                                     |
+| T_start                            | ≤ 3 s                | ⏳ Medir en dispositivo de gama media                                                                                        |
+| Compatibilidad Android ≥ 10       | sin errores críticos | ⏳ El bundle JS exporta limpio;**falta el APK y probarlo en teléfono** (§8.2). **iOS: fuera de alcance** (§4) |
 
 ### QRs de ejemplo
 
@@ -602,11 +602,11 @@ Mesa 12                                 -> contenido, NO debe ir a análisis
 Estos son los que hacen falta para enseñar los tres veredictos. **Los puntajes
 están verificados contra el endpoint real el 2026-09-20** — no son inventados:
 
-| Contenido del QR | Puntaje | Veredicto | Qué detecta el backend |
-|---|---|---|---|
-| `https://github.com` | 0 | 🟢 **seguro** | Nada. Sirve para mostrar el caso limpio |
-| `http://banco-lndustrial-seguro.top/acceso` | 40 | 🟡 **sospechoso** | TLD `.top` de riesgo + sin HTTPS |
-| `http://192.168.1.1/login.php` | 60 | 🔴 **malicioso** | Host que es una IP + sin HTTPS + palabra "login" |
+| Contenido del QR                              | Puntaje | Veredicto              | Qué detecta el backend                          |
+| --------------------------------------------- | ------- | ---------------------- | ------------------------------------------------ |
+| `https://github.com`                        | 0       | 🟢**seguro**     | Nada. Sirve para mostrar el caso limpio          |
+| `http://banco-lndustrial-seguro.top/acceso` | 40      | 🟡**sospechoso** | TLD`.top` de riesgo + sin HTTPS                |
+| `http://192.168.1.1/login.php`              | 60      | 🔴**malicioso**  | Host que es una IP + sin HTTPS + palabra "login" |
 
 > Los puntajes los calcula el backend en vivo, así que **pueden cambiar** si
 > Fabi ajusta los pesos. Conviene volver a pasar estas tres URLs por `curl`
@@ -667,11 +667,11 @@ El historial se carga del disco **de forma síncrona** en el primer render
 Tres cosas, las tres en el mismo kv-store síncrono y cada una con su clave
 versionada:
 
-| Qué | Dónde | Por qué síncrono |
-|---|---|---|
-| Historial (tope 20) | [historyStorage.ts](src/services/storage/historyStorage.ts) | Para que la lista no aparezca vacía un instante |
-| Si ya se vio el onboarding | [onboardingStorage.ts](src/services/storage/onboardingStorage.ts) | `app/index.tsx` decide **durante el render** a dónde redirigir; asíncrono daría un parpadeo de la pantalla equivocada |
-| Si se concedió la ubicación | [locationStorage.ts](src/services/storage/locationStorage.ts) | Se lee en el primer render del contexto |
+| Qué                          | Dónde                                                           | Por qué síncrono                                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Historial (tope 20)           | [historyStorage.ts](src/services/storage/historyStorage.ts)       | Para que la lista no aparezca vacía un instante                                                                                 |
+| Si ya se vio el onboarding    | [onboardingStorage.ts](src/services/storage/onboardingStorage.ts) | `app/index.tsx` decide **durante el render** a dónde redirigir; asíncrono daría un parpadeo de la pantalla equivocada |
+| Si se concedió la ubicación | [locationStorage.ts](src/services/storage/locationStorage.ts)     | Se lee en el primer render del contexto                                                                                          |
 
 Los tres fallan hacia el lado seguro: si la lectura revienta, el historial sale
 vacío, el onboarding se repite y la ubicación queda apagada. Ninguno tumba la app.
@@ -722,10 +722,10 @@ descomentar.
 
 Es deliberado que **no** sea el tipo `AnalysisStageKey`, y la diferencia importa:
 
-| | Qué es | Quién manda |
-|---|---|---|
-| `AnalysisStageKey` | El **vocabulario**: las claves que la app sabe pintar | El contrato con el backend |
-| `ENABLED_FILTERS` | La **lista activa**: lo que esta versión anuncia | Una decisión de producto |
+|                      | Qué es                                                    | Quién manda               |
+| -------------------- | ---------------------------------------------------------- | -------------------------- |
+| `AnalysisStageKey` | El**vocabulario**: las claves que la app sabe pintar | El contrato con el backend |
+| `ENABLED_FILTERS`  | La**lista activa**: lo que esta versión anuncia     | Una decisión de producto  |
 
 `AnalysisStageKey` es un tipo de **entrada**: tipa lo que el backend manda
 (`sections[].key`, `pending[]`). Recortarlo haría que el adaptador rechazara
@@ -783,14 +783,14 @@ antes de cambiarlo.
 
 Cuatro llamadas en vivo el 2026-10-11, no ejemplos de la documentación:
 
-| Caso | `veredicto_final` | `filtro_decisivo` | Tiempo | Captura |
-|---|---|---|---|---|
-| `resultadoF1: "SEGURO"` | **SEGURO** | F1 | **5.5 s** | no |
-| `resultadoF1: "MALICIOSO"` | **MALICIOSO** | F1 | 5.3 s | no |
-| Score 95 (`.top` + login) | SOSPECHOSO | F2.1 | 10.6-24.5 s | no |
-| Acortador + VirusTotal | SOSPECHOSO | F2.2 | 27.8 s | **sí** |
-| Score 55 | PENDIENTE | null | 24.2 s | no |
-| `github.com` sin F1 | PENDIENTE | null | 33.2 s | sí |
+| Caso                         | `veredicto_final` | `filtro_decisivo` | Tiempo          | Captura       |
+| ---------------------------- | ------------------- | ------------------- | --------------- | ------------- |
+| `resultadoF1: "SEGURO"`    | **SEGURO**    | F1                  | **5.5 s** | no            |
+| `resultadoF1: "MALICIOSO"` | **MALICIOSO** | F1                  | 5.3 s           | no            |
+| Score 95 (`.top` + login)  | SOSPECHOSO          | F2.1                | 10.6-24.5 s     | no            |
+| Acortador + VirusTotal       | SOSPECHOSO          | F2.2                | 27.8 s          | **sí** |
+| Score 55                     | PENDIENTE           | null                | 24.2 s          | no            |
+| `github.com` sin F1        | PENDIENTE           | null                | 33.2 s          | sí           |
 
 **El techo del veredicto se rompió:** el backend ya devuelve MALICIOSO y
 SEGURO, cosa que no hacía. El pendiente nº 1 de §8 está resuelto en su parte
@@ -867,13 +867,13 @@ con la evidencia a la vista.
 
 ### Verificación tras la integración
 
-| Verificación | Resultado |
-|---|---|
-| `npx tsc --noEmit` | ✅ Limpio |
-| `npm test` | ✅ **307 tests**, 20 suites (eran 249 en 19) |
-| Cobertura de `src/services` | ✅ 99.75 % statements, **100 % líneas y funciones** |
-| `npx expo export --platform android` | ✅ Exit 0 |
-| Los 4 caminos de la cascada contra el backend real | ✅ F1, F2.1, F2.2 y PENDIENTE |
+| Verificación                                      | Resultado                                                 |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `npx tsc --noEmit`                               | ✅ Limpio                                                 |
+| `npm test`                                       | ✅**307 tests**, 20 suites (eran 249 en 19)         |
+| Cobertura de`src/services`                       | ✅ 99.75 % statements,**100 % líneas y funciones** |
+| `npx expo export --platform android`             | ✅ Exit 0                                                 |
+| Los 4 caminos de la cascada contra el backend real | ✅ F1, F2.1, F2.2 y PENDIENTE                             |
 
 Evidencia en [RESULTADOS/fase3/](RESULTADOS/fase3/).
 
@@ -894,7 +894,6 @@ Por prioridad, con lo que desbloquea cada uno.
    MALICIOSO hoy.
    → **Desbloquea:** Fabi, si se quiere que la heurística también concluya
    MALICIOSO.
-
 2. **El 504 de API Gateway.** Medido el 2026-10-11: **de tres URLs nuevas, una
    devolvió HTTP 504 a los 35.2 s**, con la Lambda todavía trabajando. Es el
    límite duro de API Gateway y **ningún timeout del cliente puede superarlo**.
@@ -905,7 +904,6 @@ Por prioridad, con lo que desbloquea cada uno.
    → **Desbloquea:** Fabi. Devolver el veredicto primero y la captura aparte,
    o subir el límite de Gateway. Es el pendiente de backend más importante que
    queda.
-
 3. **La caché no está funcionando.** El contrato declara TTL de 7 días para
    SOSPECHOSO/MALICIOSO y 24 h para PENDIENTE/SEGURO, con `desde_cache: true`
    en la respuesta. Medido el 2026-10-11: **la segunda consulta de la misma URL
@@ -913,13 +911,11 @@ Por prioridad, con lo que desbloquea cada uno.
    llamada**. La app soporta el campo y nada depende de él.
    → **Impacto:** cada escaneo paga el costo completo, lo que agrava el punto 2.
    → **Desbloquea:** Fabi.
-
 4. **`PENDIENTE` cuando el sitio está limpio.** `github.com` sin `resultadoF1`
    sigue devolviendo PENDIENTE con score 0: cero señales es evidencia de limpio,
    no de desconocido. La app lo suple por dos vías ahora: su lista local de F1
    (que da SEGURO en 5.5 s) y la derivación del puntaje (§5.2).
    → **Desbloquea:** Fabi, para los dominios que no estén en la lista local.
-
 5. **El guardado de `/report` responde 500.** El endpoint **existe** (entrega
    S11) y valida bien: devuelve 400 con los códigos del contrato
    (`INVALID_INPUT`, `URL_INVALIDA`). Pero el guardado falla de forma
@@ -928,18 +924,15 @@ Por prioridad, con lo que desbloquea cada uno.
    contrato y **distingue el 500 del fallo de red**, para no mandar a la persona
    a revisar una conexión que está bien.
    → **Desbloquea:** Fabi.
-
 6. ~~**Generar el APK.**~~ **RESUELTO.** Hay ocho builds en EAS, siete
    terminados; el más reciente (`f1990f37`) es del commit actual. El build
    **local** de Gradle sigue colgándose en esta máquina, y eso no cambió: la vía
    es EAS. Ver [RESULTADOS/fase1_resultados.md](RESULTADOS/fase1_resultados.md).
-
 7. **Correr la prueba 1.4** (T_scan y TDR). Es la única métrica de escaneo que
    falta y decide si se sigue con `expo-camera` o se migra a
    `react-native-vision-camera`.
    → **Desbloquea:** 30 QRs impresos. El teléfono ya está: Galaxy A11,
    Android 11 (ver [RESULTADOS/fase1_resultados.md](RESULTADOS/fase1_resultados.md)).
-
 8. **iOS: fuera del alcance de esta entrega.** No es un pendiente — la entrega
    es **solo Android**, por decisión explícita y por no disponer de una Mac.
    Todo lo que no requiere macOS quedó configurado y **no se borró nada**:
@@ -947,7 +940,6 @@ Por prioridad, con lo que desbloquea cada uno.
    `Info.plist`, la safe area y el teclado. Si alguien lo retoma, los pasos
    están en [ios_en_la_mac.md](TAREAS_POR_HACER/ios_en_la_mac.md) y hacen falta
    una Mac más una cuenta Apple Developer (US$99/año).
-
 9. ~~**Los 8 puntos abiertos del contrato**~~ **CERRADOS.** El contrato
    vigente es [qrisk-endpoint-doc.md](qrisk-endpoint-doc.md), que define una
    sola llamada bloqueante (no polling ni SSE), el TTL de la URL de S3 (1 h) y
@@ -957,17 +949,15 @@ Por prioridad, con lo que desbloquea cada uno.
    → **Queda un detalle del contrato:** `redireccion_detectada` puede traer en
    `detalle` una categoría en vez de la URL destino. La app lo pinta como texto
    informativo, que es lo que la propia documentación recomienda.
-
 10. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
-   finalización del flujo y T_learn.
-   → **Desbloquea:** agendar a los participantes.
-
+    finalización del flujo y T_learn.
+    → **Desbloquea:** agendar a los participantes.
 11. **Sin detección de conectividad.** La app no distingue "modo avión" de
-   "servidor caído": las dos degradan a `incierto` con el mismo mensaje
-   genérico. Es honesto pero poco específico. Distinguirlas pide una dependencia
-   nueva (`@react-native-community/netinfo`), que quedó fuera del alcance de
-   esta entrega.
-   → **Desbloquea:** decidir si vale la dependencia.
+    "servidor caído": las dos degradan a `incierto` con el mismo mensaje
+    genérico. Es honesto pero poco específico. Distinguirlas pide una dependencia
+    nueva (`@react-native-community/netinfo`), que quedó fuera del alcance de
+    esta entrega.
+    → **Desbloquea:** decidir si vale la dependencia.
 
 ### Deuda técnica menor
 
@@ -979,7 +969,6 @@ Por prioridad, con lo que desbloquea cada uno.
   la API en vivo está en
   [RESULTADOS/fase4_5/f1_verificacion_en_vivo.js](RESULTADOS/fase4_5/f1_verificacion_en_vivo.js),
   que corre con Node: **8/8 casos correctos, 72-324 ms**.
-
 - `expo-sqlite/kv-store` se mockea en los tests (`jest.setup.js`): el módulo
   nativo no existe en Node. Se prueba la lógica del historial, no el driver.
 - `react-dom@19.2.3` está fijado como devDependency para mantener el lockfile
@@ -999,12 +988,12 @@ Por prioridad, con lo que desbloquea cada uno.
 Cuatro casos que no se habían observado nunca, pero cuyo fallo habría sido
 silencioso y en el peor momento. Ninguno cambia lo que se ve hoy:
 
-| Qué | Antes | Ahora |
-|---|---|---|
-| Puntaje fuera de 0-100 ([verdictThresholds.ts](src/services/analysis/verdictThresholds.ts)) | Un `-20` daba **"seguro"** y un `150` pintaba el medidor desbordado | Fuera de escala → "incierto" y medidor neutro. Un puntaje así significa que el backend cambió de escala, no que el sitio sea inofensivo |
-| `sections[]` sin validar ([adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts)) | Se confiaba en un `as`: un `findings` que no fuera arreglo rompía la pantalla de detalle | Se valida la forma mínima y se descarta lo que no se puede pintar, igual que `isHistoryEntry` con lo que sale del disco |
-| Cancelar ≠ timeout ([httpClient.ts](src/services/api/httpClient.ts)) | Salir de la pantalla reportaba *"El análisis tardó demasiado"*, marcado reintentable | Código `CANCELLED` propio, no reintentable: nadie espera ya esa respuesta |
-| Atrás desde el historial ([result.tsx](app/analysis/result.tsx)) | `replace('/scanner')` **destruía** el historial: abrir una fila y tocar atrás dejaba en la cámara | `back()` vuelve a donde se vino. Desde el escáner se comporta igual que antes |
+| Qué                                                                                       | Antes                                                                                                        | Ahora                                                                                                                                      |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Puntaje fuera de 0-100 ([verdictThresholds.ts](src/services/analysis/verdictThresholds.ts)) | Un`-20` daba **"seguro"** y un `150` pintaba el medidor desbordado                                 | Fuera de escala → "incierto" y medidor neutro. Un puntaje así significa que el backend cambió de escala, no que el sitio sea inofensivo |
+| `sections[]` sin validar ([adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts))     | Se confiaba en un`as`: un `findings` que no fuera arreglo rompía la pantalla de detalle                 | Se valida la forma mínima y se descarta lo que no se puede pintar, igual que`isHistoryEntry` con lo que sale del disco                  |
+| Cancelar ≠ timeout ([httpClient.ts](src/services/api/httpClient.ts))                       | Salir de la pantalla reportaba*"El análisis tardó demasiado"*, marcado reintentable                      | Código`CANCELLED` propio, no reintentable: nadie espera ya esa respuesta                                                                |
+| Atrás desde el historial ([result.tsx](app/analysis/result.tsx))                           | `replace('/scanner')` **destruía** el historial: abrir una fila y tocar atrás dejaba en la cámara | `back()` vuelve a donde se vino. Desde el escáner se comporta igual que antes                                                           |
 
 > **Por qué estos y no otros.** El criterio fue el mismo en los cuatro: el fallo
 > sería invisible hasta que ocurre, y entonces se ve como un veredicto

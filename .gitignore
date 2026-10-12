@@ -1,7 +1,9 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 Plantilla_para_Trabajos_de_Graduación_UVG_2/
-
+GUIA_DEFENSA.md/
+qrs_de_prueba.md
+GUIA_DEFENSA.md
 # dependencies
 node_modules/
 
