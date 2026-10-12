@@ -27,36 +27,41 @@ export const apiBaseUrl: string = (
 /**
  * Topes de tiempo.
  *
- * `analyze` son 40 s y NO los 5 s que pide la metrica T_F1, por una razon
- * medida contra el backend real. Historial de la medicion:
+ * POST /analyze: PRESUPUESTO DE 90 s CON UN REINTENTO (desde el 2026-10-12).
+ *
+ * Historial de lo que tarda el backend, medido contra el endpoint real:
  *
  *   2026-09-20: 5.5 s la primera llamada (Lambda en frio), 1.6-3.1 s el resto.
- *   2026-09-30: 14.2-14.5 s para una URL que el backend no haya visto antes;
- *               0.3 s si ya la tiene en cache. El salto coincide con la
- *               aparicion de F2.3 (la captura), que abre un navegador headless.
- *   2026-10-11: **24-35 s** con la cascada completa (F2.1 + F2.2 + F2.3) ya
- *               implementada. Medido: corte por F2.1 24.5 s, por F2.2 28.1 s,
- *               PENDIENTE 33.2 s. La documentacion del backend declara "hasta
- *               ~35 s" y pide configurar el cliente en 40-45 s.
+ *   2026-09-30: 14.2-14.5 s para una URL nueva; 0.3 s si ya esta en cache.
+ *   2026-10-11: 24-35 s con la cascada completa (F2.1 + F2.2 + F2.3).
+ *   2026-10-12: casi toda URL nueva da 504 a los 35 s. La cache no acierta.
  *
- * POR QUE 40 Y NO 45. Hay un techo que no depende de esta app: **API Gateway
- * corta la peticion a los 35 s y responde HTTP 504**, con la Lambda todavia
- * trabajando. Se midio el 2026-10-11: de tres URLs nuevas, una devolvio 504 a
- * los 35.2 s. Por encima de ~36 s no hay nada que esperar, porque el 504 ya
- * llego; los 40 s son margen para el viaje de red y para que el corte lo
- * decida el servidor, no el cliente.
+ * EL TECHO NO ES DE LA APP. API Gateway corta cada peticion a los 35 s y
+ * responde HTTP 504, con la Lambda todavia trabajando. La cascada tarda
+ * alrededor de esos mismos 35 s, asi que a veces entra y a veces no.
  *
- * El tope no es la metrica: T_F1 mide lo que tarda el backend en responder, no
- * cuando la app se rinde. Cortar antes no mejora el numero, solo convierte
- * analisis buenos en inciertos: con el tope anterior de 25 s, los analisis de
- * 26-35 s —que SI completaban— se perdian por culpa del cliente.
+ * POR QUE UN REINTENTO. Medido el 2026-10-12: tras un 504, la segunda consulta
+ * de la misma URL puede ser mas rapida (26.7 y 30.9 s), porque VirusTotal y
+ * URLScan ya la analizaron en el primer intento. Rescato 1 de 3 URLs nuevas,
+ * asi que ayuda pero NO resuelve el problema: eso le toca al backend (subir el
+ * limite de Gateway o usar una Lambda Function URL). Cada reintento gasta
+ * cuota de VirusTotal del backend.
  *
- * Si Fabi resuelve el 504 (devolver el veredicto antes que la captura, o subir
- * el limite de Gateway), hay que volver a medir y bajar esto.
+ * El presupuesto acota la espera total del analisis en el servidor: el
+ * reintento solo se lanza si queda tiempo para que pueda completar
+ * (`analyzeRetryMinMs`), y su propio tope es lo que reste de los 90 s.
+ *
+ * El tope del reporte es aparte: un formulario corto no espera tanto.
  */
 export const timeouts = {
-  /** Corte del POST /analyze. Cubre la cascada completa; ver la nota de arriba. */
-  analyze: 40_000,
+  /** Espera maxima total de POST /analyze, sumando el reintento. */
+  analyze: 90_000,
+  /**
+   * Tiempo minimo que tiene que quedar del presupuesto para reintentar tras un
+   * 504. Los reintentos que completaron tardaron 26.7-30.9 s; con menos de 30 s
+   * el reintento casi seguro no alcanzaria y solo gastaria cuota.
+   */
+  analyzeRetryMinMs: 30_000,
   /**
    * Corte del POST /report. El endpoint no consulta APIs externas y responde
    * en ~5 s, asi que no necesita el presupuesto del analisis: un reporte que

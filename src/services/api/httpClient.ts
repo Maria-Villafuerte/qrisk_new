@@ -2,14 +2,16 @@ import { apiBaseUrl } from './config';
 import { ApiError, toApiError, toTransportError } from './errors';
 
 /**
- * Cliente HTTP minimo. No usa librerias: `fetch` ya viene en React Native y el
- * unico requisito real es cortar por tiempo, que se resuelve con
- * AbortController.
+ * Cliente HTTP minimo. No usa librerias: `fetch` ya viene en React Native, y
+ * el corte por tiempo (cuando se pide) se resuelve con AbortController.
  */
 
 interface PostOptions {
-  /** Milisegundos antes de abortar. */
-  timeoutMs: number;
+  /**
+   * Milisegundos antes de abortar. Sin el, la peticion espera lo que tarde el
+   * servidor (hoy, POST /analyze: ver la nota de `timeouts` en config.ts).
+   */
+  timeoutMs?: number;
   /** Permite cancelar desde afuera (por ejemplo, al salir de la pantalla). */
   signal?: AbortSignal;
 }
@@ -20,7 +22,10 @@ interface PostOptions {
  */
 export async function postJson<T>(path: string, body: unknown, options: PostOptions): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs);
+  const timer =
+    options.timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => controller.abort(), options.timeoutMs);
 
   // Quien aborto. `AbortController` marca las dos razones con el mismo
   // `AbortError`, asi que sin esta bandera una cancelacion del llamador se

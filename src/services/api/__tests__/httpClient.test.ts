@@ -167,3 +167,44 @@ describe('postJson · cancelacion del llamador', () => {
     ).rejects.toMatchObject({ code: 'TIMEOUT', retryable: true });
   });
 });
+
+describe('postJson · sin tope de tiempo', () => {
+  it('sin `timeoutMs` no corta: espera lo que tarde el servidor', async () => {
+    jest.useFakeTimers();
+    try {
+      let respond: (value: unknown) => void = () => {};
+      (globalThis as { fetch?: unknown }).fetch = jest.fn(
+        () =>
+          new Promise((resolve) => {
+            respond = resolve;
+          }),
+      );
+
+      const pending = postJson('/analyze', {}, {});
+      // Mucho mas que cualquier tope que haya tenido el analisis (40 s).
+      jest.advanceTimersByTime(10 * 60_000);
+      respond({ ok: true, status: 200, text: async () => '{"veredicto_final":"SEGURO"}' });
+
+      await expect(pending).resolves.toEqual({ veredicto_final: 'SEGURO' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('sin tope, cancelar desde afuera sigue funcionando', async () => {
+    (globalThis as { fetch?: unknown }).fetch = jest.fn(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        }),
+    );
+    const external = new AbortController();
+
+    const pending = postJson('/analyze', {}, { signal: external.signal });
+    external.abort();
+
+    await expect(pending).rejects.toMatchObject({ code: 'CANCELLED' });
+  });
+});
