@@ -233,6 +233,9 @@ export default function StoryCardRoute() {
             style={styles.flex}
           />
         </View>
+        <Text style={styles.photoActionsHint}>
+          Muestra dónde está este QR en tu entorno para que otros lo reconozcan
+        </Text>
       </View>
 
       <View style={styles.footer}>
@@ -398,6 +401,16 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     width: '100%',
     maxWidth: 300,
+  },
+  photoActionsHint: {
+    fontFamily: fontFamily.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: palette.textSecondary,
+    textAlign: 'center',
+    maxWidth: 300,
+    // Pegado a los botones: el gap del cuerpo lo separaria demasiado.
+    marginTop: -spacing.xs,
   },
   flex: {
     flex: 1,
