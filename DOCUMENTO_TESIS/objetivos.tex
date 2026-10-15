@@ -1,0 +1,10 @@
+\section{Objetivo General}
+Reducir el riesgo de acceso a sitios maliciosos codificados en códigos QR por usuarios móviles, mediante el desarrollo de una interfaz multiplataforma en React Native que integra el flujo completo de escaneo, presentación de resultados y consulta a las APIs de threat intelligence del primer filtro.
+
+\section{Objetivos Específicos}
+\begin{itemize}
+\item Implementar el módulo de escaneo de códigos QR con extracción de URL en menos de 5 segundos y clasificación del tipo de contenido, mediante \texttt{react-native-vision-camera} con CodeScanner nativo en iOS y Android.
+\item Desarrollar el flujo de interacción principal entre el escaneo y la presentación del veredicto, mediante la implementación de la pantalla de carga con animación skeleton/shimmer y la pantalla de resultado con dos niveles de detalle (simple y extendido).
+\item Implementar las funcionalidades secundarias de historial offline, reporte y alerta social, mediante almacenamiento local sin cuenta de usuario, integración con el endpoint de reportes y generación de Story Card con geocodificación inversa.
+\item Integrar el filtro F1 de consulta a listas de reputación con tiempo de respuesta inferior a 5 segundos, mediante la conexión con las APIs de Google Safe Browsing, PhishTank y VirusTotal como primer filtro de análisis.
+\end{itemize}

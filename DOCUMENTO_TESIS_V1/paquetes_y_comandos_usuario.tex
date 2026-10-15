@@ -1,0 +1,33 @@
+% ================================================================================
+% Paquetes y comandos propios del trabajo
+% ================================================================================
+\usepackage{tikz}
+\usetikzlibrary{positioning, arrows.meta, shapes.geometric}
+\usepackage{url}
+\urlstyle{same}
+
+% Recuadro para marcar lo que todavía falta medir o completar.
+% Se busca en el PDF por la palabra "Pendiente".
+\newcommand{\pendiente}[1]{%
+	\par\noindent
+	\fcolorbox{orange}{yellow!15}{%
+		\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{%
+			\small\textbf{Pendiente:} #1}}%
+	\par}
+
+% Espacio reservado para una figura que se agregará después.
+\newcommand{\figurapendiente}[2]{%
+	\begin{figure}[H]
+		\centering
+		\fbox{\parbox[c][5cm][c]{0.8\linewidth}{\centering\small
+			Espacio reservado para la figura\\[0.5ex] \textit{#1}}}
+		\caption{#1}
+		\label{#2}
+	\end{figure}}
+
+% Notación de las métricas
+\newcommand{\tscan}{\ensuremath{T_{\mathit{scan}}}}
+\newcommand{\tfuno}{\ensuremath{T_{\mathit{F1}}}}
+\newcommand{\ttotal}{\ensuremath{T_{\mathit{total}}}}
+\newcommand{\tlearn}{\ensuremath{T_{\mathit{learn}}}}
+\newcommand{\tstart}{\ensuremath{T_{\mathit{start}}}}

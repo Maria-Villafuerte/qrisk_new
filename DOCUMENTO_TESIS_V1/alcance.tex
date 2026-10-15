@@ -1,0 +1,56 @@
+\label{chap:alcance}
+\section{Definición del alcance}
+
+Este trabajo comprende el diseño, la implementación y la evaluación del módulo móvil de QRisk, que forma parte de un sistema compuesto por una aplicación en React Native y un motor de análisis desplegado en AWS. El módulo cubre el flujo completo de la experiencia de usuario y se organiza en tres bloques:
+
+\begin{itemize}
+	\item \textbf{Escaneo e interacción principal:} lectura del código QR con la cámara, clasificación del contenido, pantalla de carga y presentación del veredicto en dos niveles de detalle.
+	\item \textbf{Filtro F1 de reputación:} resolución en el dispositivo del primer filtro del sistema y su integración de extremo a extremo con la cascada del servidor. La aplicación también presenta los resultados de los filtros F2.1 (heurístico), F2.2 (comportamiento) y F2.3 (vista previa visual), cuya implementación corresponde al módulo de servidor.
+	\item \textbf{Funcionalidades secundarias:} historial local disponible sin conexión con un máximo de 20 escaneos, reporte anónimo de códigos maliciosos y la Story Card compartible con geocodificación inversa.
+\end{itemize}
+
+El producto final es un prototipo instalable en dispositivos Android físicos. No contempla su publicación en tiendas de aplicaciones.
+
+\section{Delimitación funcional y técnica}
+
+\begin{table}[H]
+	\centering
+	\caption{Componentes incluidos en el módulo}
+	\label{tab:delimitacion}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{8.8cm}@{}}
+		\toprule
+		\textbf{Componente} & \textbf{Descripción} \\
+		\midrule
+		Escaneo & Decodificación del QR en tiempo real con los servicios nativos del dispositivo, linterna y bloqueo tras la primera lectura \\
+		Clasificación & Separación entre URL y contenido no navegable (Wi-Fi, contacto, correo, teléfono, ubicación y texto) \\
+		Filtro F1 & Lista local de dominios confiables y consultas en paralelo a Google Safe Browsing y PhishTank \\
+		Integración con la cascada & Envío de la URL y del resultado de F1 al servidor, lectura de la respuesta y presentación de los filtros F2.1, F2.2 y F2.3 \\
+		Resultado & Pantalla de carga por etapas, resultado simple y resultado extendido \\
+		Historial & Últimos 20 escaneos, consultables sin conexión y sin cuenta de usuario \\
+		Reporte & Envío anónimo de un código sospechoso al servidor \\
+		Story Card & Imagen compartible con foto del entorno, QR cubierto, lugar y veredicto \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+La unidad de análisis es exclusivamente la URL textual extraída del código, según el RFC~3986 \cite{rfc3986}. No se analiza el símbolo QR como imagen ni el resto de los contenidos codificables, que solo se muestran al usuario de forma segura.
+
+\section{Restricciones}
+
+\begin{itemize}
+	\item \textbf{Temporal:} diecisiete semanas de trabajo efectivo dentro de un semestre de veinte, con un margen para imprevistos.
+	\item \textbf{Equipo:} dos integrantes, cada una responsable de un módulo, sin recursos adicionales.
+	\item \textbf{Económica:} el sistema opera dentro de los planes gratuitos de las APIs externas y de la capa gratuita de AWS.
+	\item \textbf{Hardware:} las pruebas se realizan sobre un teléfono Android de gama media. No se dispuso de una computadora con macOS para compilar la versión de iOS.
+	\item \textbf{Conectividad:} el análisis requiere conexión a internet. Sin conexión, la aplicación no produce un veredicto, lo comunica al usuario y mantiene disponible el historial.
+\end{itemize}
+
+\section{Exclusiones explícitas}
+
+\begin{itemize}
+	\item \textbf{Funcionales:} cuentas de usuario y autenticación, historial ilimitado, animaciones del comportamiento del sitio, notificaciones y escaneo en segundo plano.
+	\item \textbf{De contenido:} análisis de seguridad sobre credenciales Wi-Fi, contactos o esquemas de pago codificados en el QR, y URLs con esquemas distintos de \texttt{http} y \texttt{https}.
+	\item \textbf{Técnicas:} implementación de los filtros F2.1, F2.2 y F2.3; modelos propios de aprendizaje automático; análisis de HTML o JavaScript en el dispositivo; publicación en tiendas; pruebas de carga a escala.
+	\item \textbf{De plataforma:} la versión para iOS. Aunque el protocolo contemplaba ambas plataformas, la entrega se limita a Android por la falta de hardware de Apple durante el desarrollo. La configuración que no requiere macOS se conserva en el proyecto para que pueda retomarse.
+	\item \textbf{De investigación:} estudios de usabilidad con muestras estadísticamente representativas, estudios de campo en entornos reales y comparaciones con soluciones comerciales.
+\end{itemize}

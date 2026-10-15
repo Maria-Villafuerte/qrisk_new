@@ -1,0 +1,435 @@
+% ================================================================================
+% CAPÍTULO: METODOLOGÍA
+% ================================================================================
+\chapter{Metodología}
+\label{chap:metodologia}
+
+\section{Enfoque del trabajo}
+
+El presente trabajo es un proyecto de desarrollo de software de naturaleza aplicada. Su objetivo no es generar conocimiento teórico nuevo sobre la detección de URLs maliciosas, tema ya tratado en los antecedentes, sino construir un artefacto funcional que lleve capacidades de análisis existentes al único punto de la cadena del ataque donde todavía pueden aplicarse: el intervalo entre la lectura del código QR y la apertura del navegador. El desarrollo se enmarca en la modalidad de prototipado, apropiada cuando los requisitos se refinan a medida que se validan los componentes del sistema.
+
+La evaluación se organiza alrededor de dos preguntas verificables. La primera es si el prototipo cumple los tiempos y las tasas de acierto que lo vuelven usable. La segunda es si el veredicto que produce se entiende lo suficiente como para que el usuario tome una buena decisión.
+
+Desde el inicio se estableció una distinción que ordena todo el diseño de la evaluación. Este trabajo mide el desempeño del módulo móvil: la latencia del escaneo, la tasa de lectura de códigos, la clasificación del contenido, el tiempo del filtro F1, la integridad del flujo y la comprensión del veredicto. La capacidad de detección de los filtros F2.1, F2.2 y F2.3 depende del módulo de servidor. Cuando una métrica depende de ese módulo, se declara explícitamente.
+
+\section{Metodología de gestión}
+
+Para organizar el trabajo se adoptó Kanban, un método de gestión visual que representa las tareas como tarjetas que avanzan por un tablero de estados \cite{anderson2010kanban}. El tablero se llevó en Monday.com con las columnas pendiente, en progreso, en revisión y completado, y se dividió en dos carriles, uno por módulo, con un espacio para las tareas de integración que requerían coordinación entre ambas integrantes. Una tarea pasaba a completada solo cuando la funcionalidad estaba integrada y verificada con pruebas o contra el contrato de interfaz.
+
+La elección respondió a las características del equipo y del problema. Con dos integrantes y responsabilidades diferenciadas, una metodología con roles y ceremonias como Scrum resultaba más pesada de lo necesario. Una metodología secuencial tampoco era adecuada, porque el comportamiento real de varias piezas, como las APIs de reputación, las librerías de cámara y la latencia del servidor, solo podía conocerse al implementarlas. Kanban permitió reordenar prioridades sin esperar el cierre de un ciclo, que fue justamente lo que ocurrió durante el proyecto.
+
+\section{Fases del proyecto}
+
+El protocolo organizó el trabajo en seis fases a lo largo de diecisiete semanas, resumidas en el cuadro~\ref{tab:fases}.
+
+\begin{table}[H]
+	\centering
+	\caption{Fases planificadas en el protocolo}
+	\label{tab:fases}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{6cm}@{}}
+		\toprule
+		\textbf{Fase} & \textbf{Semanas} & \textbf{Entregable principal} \\
+		\midrule
+		1. Diseño y configuración del entorno & 1 y 2 & Contrato de interfaz inicial y wireframes del flujo principal \\
+		2. Escaneo, F1 y arquitectura base & 3 a 6 & Flujo de extremo a extremo: escaneo, F1 y resultado simple \\
+		3. Resultado extendido (F2.1) & 7 a 9 & Desglose heurístico en pantalla \\
+		4. Pantallas F2.2 y F2.3 y funcionalidades secundarias & 10 a 12 & Prototipo completo con historial, reporte y Story Card \\
+		5. Pruebas, refinamiento y documentación & 13 a 15 & Mediciones e informe del módulo \\
+		Cierre & 16 y 17 & Revisión del asesor y defensa \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection{Reorganización por bloques de trabajo}
+
+A mitad del proyecto el orden de las fases dejó de describir el estado real del trabajo. Había tareas de fases avanzadas terminadas, como las pantallas de resultado construidas sobre datos de prueba, y tareas de fases iniciales todavía abiertas, como el escaneo en hardware y la integración con el servidor. Por esa razón el desarrollo se reorganizó en bloques ordenados por dependencia técnica y por riesgo, con tres reglas: primero lo que desbloquea el trabajo de la otra integrante, después lo que elimina más riesgo técnico y al final lo que solo depende del tiempo disponible. El cuadro~\ref{tab:bloques} resume los bloques.
+
+\begin{table}[H]
+	\centering
+	\caption{Bloques de desarrollo y criterio de cierre}
+	\label{tab:bloques}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1cm}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{6.8cm}@{}}
+		\toprule
+		\textbf{N.\textsuperscript{o}} & \textbf{Objetivo} & \textbf{Criterio de cierre} \\
+		\midrule
+		0 & Desbloquear el módulo de servidor & Contrato de interfaz entregado \\
+		1 & Escaneo real en dispositivo & Prueba de lectura superada; decisión sobre la librería de cámara \\
+		2 & Persistencia local & Historial y preferencias sobreviven al reinicio \\
+		3 & Integración con el servidor & Flujo de extremo a extremo con degradación controlada \\
+		4 & Funcionalidades parciales & Reporte, Story Card e historial operativos \\
+		5 & Compatibilidad con iOS & Fuera de alcance por falta de hardware \\
+		6 & Pruebas y métricas & Cobertura, mediciones y pruebas de usabilidad \\
+		7 & Cierre y documentación & Informe y defensa \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+El bloque~5 se mantuvo en el plan aunque quedó fuera del alcance, para que la exclusión fuera una decisión visible y no una omisión.
+
+\subsection{El contrato de interfaz como instrumento}
+
+La coordinación con el módulo de servidor se formalizó mediante un contrato de interfaz escrito antes de que existiera el servicio. El contrato no se derivó de lo que el servidor podría ofrecer, sino de lo que la aplicación necesitaba: las pantallas ya construidas sobre datos de prueba determinaban exactamente qué campos hacían falta, con qué tipos y en qué momento. De esta forma, las definiciones de tipos de la aplicación funcionaron como una especificación ya validada contra una interfaz real.
+
+El contrato fijó el formato JSON en UTF-8, las marcas de tiempo en ISO~8601 y la ausencia de cuentas de usuario, y trasladó a la API la regla de seguridad del producto: ningún servicio puede devolver HTML para que el cliente lo renderice ni redirigir el dispositivo hacia el sitio analizado. La versión vigente define una sola llamada bloqueante para el análisis y un servicio separado para los reportes, y se resume en el anexo~\ref{anx:contrato}.
+
+\section{Estrategia de validación}
+
+La validación se organizó en tres niveles, separados por el tipo de pregunta que cada uno puede responder. Asignar a un nivel una pregunta que no puede contestar es la forma más común de producir evidencia que parece sólida sin serlo.
+
+\subsection{Nivel 1: pruebas automatizadas de la lógica de negocio}
+
+El primer nivel cubre la capa de servicios mediante pruebas unitarias con Jest y el preset de Expo. La cobertura se mide únicamente sobre esa capa, con un umbral del 70~\% en sentencias, ramas, funciones y líneas que interrumpe la ejecución si no se alcanza. Las pantallas y el sistema de diseño quedan fuera a propósito: que un color comunique riesgo o que la jerarquía de botones lleve a la decisión correcta no es algo que una prueba unitaria pueda afirmar, y se valida en el dispositivo y con usuarios.
+
+El aislamiento se logra sustituyendo el almacén clave valor por una implementación en memoria con la misma interfaz síncrona, simulando la función de red y reemplazando el cliente HTTP y el módulo de ubicación. Ninguna prueba realiza peticiones reales, por lo que el conjunto es determinista y reproducible sin conexión ni credenciales. Algunas pruebas fijan además decisiones de diseño que podrían romperse en silencio, como el valor de los tiempos límite o la tabla de códigos QR de ejemplo de la documentación, que se recorre completa para verificar que cada entrada produzca la clasificación que declara.
+
+\subsection{Nivel 2: verificación en dispositivo y contra servicios reales}
+
+El segundo nivel cubre lo que no puede verificarse desde una computadora: la cámara, los diálogos del sistema operativo, el GPS, la galería, la acción de compartir y el comportamiento real de los servicios externos. Comprende el banco de pruebas de lectura, el protocolo de verificación en el teléfono y las corridas del código real de la aplicación contra los servicios de reputación y contra el servidor, descritos en la sección~\ref{sec:mediciones}.
+
+\subsection{Nivel 3: pruebas de usabilidad}
+
+El tercer nivel evalúa lo que ninguna prueba automatizada responde: si el veredicto se entiende. Se planificó con cinco participantes y tres indicadores: comprensión del veredicto, con criterio de al menos el 90~\%; finalización del flujo sin ayuda, con criterio de al menos el 85~\%; y tiempo del primer escaneo exitoso, con criterio de 60~s como máximo. Medir la comprensión por separado del desempeño técnico se basa en el modelo de Cranor, según el cual un comportamiento seguro exige notar, entender y actuar \cite{cranor2008framework}. Un veredicto correcto que no se entiende no cambia la conducta y, por lo tanto, no protege.
+
+El número de participantes sigue el argumento de Nielsen y Landauer de que una muestra pequeña ya permite encontrar la mayor parte de los problemas de usabilidad de una interfaz \cite{nielsen1993mathematical}. Con cinco personas los resultados se interpretan como indicios y no como estimaciones poblacionales.
+
+\section{Diseño de las mediciones}
+\label{sec:mediciones}
+
+\subsection{Tiempo de lectura y tasa de detección}
+
+La lectura del código se evalúa con tres indicadores. La tasa de detección (TDR) es el número de códigos leídos dividido entre el número de códigos presentados, con criterio de al menos el 95~\%. El tiempo de escaneo (\tscan) es el intervalo entre el momento en que el lector está listo y el momento en que entrega el contenido, con criterio de 5~s o menos en el percentil~90; no incluye el análisis posterior, que se mide aparte. La precisión de clasificación es la proporción de códigos que abren la pantalla correcta según su contenido, con criterio de al menos el 98~\%.
+
+Se eligió el percentil~90 y no el promedio porque una sola lectura lenta no debe descalificar la aplicación, pero tampoco debe poder esconderse en un promedio. Con nueve lecturas de 500~ms y una de 20~s el percentil~90 sigue cumpliendo el criterio; hacen falta dos lecturas lentas para moverlo. El percentil se calcula por interpolación lineal \cite{hyndman1996sample}.
+
+La aplicación ya incluye la instrumentación para medir en el teléfono: cada lectura registra su duración y un resumen calcula la mediana, el percentil~90, el máximo y la tasa de detección. Esta forma de medir tiene una limitación: los fallos deben anotarse manualmente, porque la aplicación no tiene manera de saber que hubo un código frente a la cámara que nunca se decodificó.
+
+\subsubsection{Banco de pruebas automatizado de lectura}
+
+Para reducir la dependencia del cronometraje manual se planificó un banco de pruebas automatizado. En lugar de presentar cada código frente a la cámara y anotar el resultado, el banco toma un conjunto de imágenes de códigos QR almacenadas en una carpeta, las procesa una por una con el lector y registra automáticamente el tiempo de cada lectura y si fue exitosa o no. De esta forma los fallos quedan registrados sin intervención humana y la medición puede repetirse las veces que sea necesario con exactamente las mismas imágenes.
+
+\pendiente{Describir el banco de pruebas cuando esté construido: herramienta y lector utilizados, cómo se generaron o fotografiaron las imágenes, cantidad de imágenes por condición (tamaño, ángulo, iluminación y tipo de contenido), cómo se mide el tiempo, en qué equipo corre y qué diferencia hay entre decodificar una imagen fija y leer desde la cámara en vivo.}
+
+La muestra de referencia del protocolo varía las tres condiciones que impone el uso real, según el cuadro~\ref{tab:muestra}. El banco automatizado debe conservar esta misma variedad para que sus resultados sean comparables con el criterio del protocolo.
+
+\begin{table}[H]
+	\centering
+	\caption{Composición de referencia de la muestra de lectura}
+	\label{tab:muestra}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{10.2cm}@{}}
+		\toprule
+		\textbf{Condición} & \textbf{Niveles} \\
+		\midrule
+		Tamaño & Pequeño (cerca de 2~cm, etiqueta o ticket), mediano (cerca de 5~cm, volante o menú) y grande (15~cm o más, cartel a distancia) \\
+		Ángulo & De frente, inclinado cerca de 30\textdegree{} e inclinado cerca de 45\textdegree \\
+		Iluminación & Luz de día, penumbra y oscuridad con linterna \\
+		Contenido & Mayoría con URL; el resto con credenciales Wi-Fi, texto, contacto, correo, teléfono y ubicación \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+El protocolo estableció también un criterio de decisión sobre la librería de cámara. Si la tasa de detección resultara inferior al 95~\% o el percentil~90 superara los 5~s, correspondería migrar a \texttt{react-native-vision-camera}. Antes de concluirlo se descartan tres causas de menor costo: que el fallo se concentre en ángulos de 45\textdegree, en penumbra o en códigos pequeños a distancia. Si el fallo se concentra en un solo eje se documenta como una limitación conocida; si se reparte en los tres, la migración queda justificada.
+
+\subsection{Mediciones de los filtros de análisis}
+
+El tiempo del filtro F1 (\tfuno) se mide desde que la aplicación inicia las consultas de reputación hasta que obtiene su conclusión, con criterio de 5~s en el percentil~90. El tiempo total (\ttotal) se mide desde el envío de la URL hasta que la aplicación tiene el veredicto final, con criterio de 35~s para la cascada completa.
+
+Para estas mediciones se ejecutó el código real de la aplicación, y no una réplica, sobre muestras públicas de URLs. Se usaron dos fuentes. La primera fue el conjunto de URLs maliciosas publicado en Kaggle \cite{kaggle_maliciousurls}, del que se extrajeron muestras aleatorias reproducibles con semilla fija, equilibradas entre las clases phishing, malware, desfiguración y benignas. La segunda fue el registro reciente de URLhaus \cite{urlhaus_api}, que contiene amenazas activas reportadas pocas horas antes de la consulta. Estas muestras permiten medir tiempos y observar qué filtro detecta cada tipo de amenaza, pero tienen limitaciones de etiquetado que se discuten en los resultados.
+
+La tasa de detección de maliciosos (TDM) y la tasa de falsos positivos (TFP) se definen, como en el protocolo, sobre una muestra de URLs maliciosas verificadas y de URLs legítimas tomadas de la lista Tranco \cite{lepochat2019tranco}. La TDM cuenta las maliciosas que reciben el veredicto malicioso, con criterio de al menos el 90~\%, y la TFP cuenta las legítimas que reciben ese mismo veredicto, con criterio de 5~\% como máximo. Además se registra la tasa de advertencia, que suma los veredictos malicioso y sospechoso, porque un sospechoso sobre un sitio peligroso también protege al usuario.
+
+\subsection{Protocolo de verificación en dispositivo}
+
+El protocolo en el teléfono es una lista de verificación de aproximadamente cincuenta minutos, organizada en bloques con un resultado esperado por paso: arranque en frío y onboarding, análisis real contra el servidor, geocodificación inversa al aire libre, generación de la Story Card, camino sin conexión, y comportamiento del teclado y de las áreas seguras de la pantalla. La instrucción general es registrar qué falló y qué se observó, en lugar de marcar únicamente aprobado o reprobado.
+
+Dos pasos no pueden omitirse. El primero consiste en intentar escanear con un segundo teléfono el código que aparece cubierto en la Story Card; si se lee, es un fallo grave de seguridad. El segundo verifica que la preferencia de ubicación sobreviva al reinicio, una regresión que se detectó y corrigió durante el desarrollo.
+
+\subsection{Métricas e instrumentos}
+
+El cuadro~\ref{tab:metricas} asocia cada métrica del protocolo con el instrumento que la mide. Sin esa columna, una métrica puede enunciarse sin que exista un procedimiento capaz de producirla.
+
+\begin{table}[H]
+	\centering
+	\caption{Métricas del módulo y su instrumento de medición}
+	\label{tab:metricas}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{5.6cm}@{}}
+		\toprule
+		\textbf{Métrica} & \textbf{Criterio} & \textbf{Instrumento} \\
+		\midrule
+		Clasificación URL o no URL & al menos 98~\% & Pruebas unitarias y banco de lectura \\
+		Cobertura de pruebas & al menos 70~\% & Informe de cobertura \\
+		Persistencia del historial & 100~\% & Pruebas unitarias y protocolo en dispositivo \\
+		Reportes con carga completa & 100~\% & Pruebas unitarias \\
+		\tscan{} (percentil 90) & 5~s o menos & Banco de lectura y prueba en dispositivo \\
+		Tasa de detección de códigos (TDR) & al menos 95~\% & Banco de lectura y prueba en dispositivo \\
+		\tfuno{} (percentil 90) & 5~s o menos & Código real sobre muestras públicas \\
+		\ttotal{} & 35~s o menos & Código real contra el servidor \\
+		Detección de maliciosos (TDM) & al menos 90~\% & Muestra verificada; depende del servidor \\
+		Falsos positivos (TFP) & 5~\% o menos & Muestra de Tranco; depende del servidor \\
+		Geocodificación legible & al menos 85~\% & Protocolo en dispositivo \\
+		Story Card generada & al menos 90~\% & Protocolo en dispositivo \\
+		Comprensión del veredicto & al menos 90~\% & Prueba de usabilidad \\
+		Finalización del flujo & al menos 85~\% & Prueba de usabilidad \\
+		\tlearn & 60~s o menos & Prueba de usabilidad \\
+		\tstart & 3~s o menos & Medición en teléfono de gama media \\
+		Compatibilidad con Android 10 o superior & Sin errores críticos & Compilación y protocolo en dispositivo \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Consideraciones éticas y de privacidad}
+
+La minimización de datos se trató como una decisión de método, porque determina qué puede medirse y cómo. La regla de mayor jerarquía del producto es que la aplicación nunca visita la URL analizada. Por lo tanto, ninguna medición del trabajo implica que el teléfono tenga contacto con la infraestructura del atacante ni revela que un usuario concreto está por acceder a una URL concreta.
+
+De esa regla se derivan las demás. La geocodificación se resuelve en el dispositivo y las coordenadas no se envían al servidor del proyecto. Los reportes son anónimos y no incluyen identificador de usuario ni coordenadas. El historial reside solo en el teléfono. Las contraseñas de redes Wi-Fi codificadas en un QR se enmascaran en pantalla. Y el código que aparece en la Story Card se cubre con una capa opaca, porque compartir un código legible propagaría el ataque.
+
+Para las pruebas de usabilidad se solicita el consentimiento informado de cada participante, se explica el propósito del estudio y el carácter voluntario de la participación, y los datos se tratan de forma anónima. Los participantes escanean únicamente códigos preparados para la prueba. Las URLs maliciosas de las muestras públicas se consultaron solo como texto contra los servicios de análisis, sin abrirlas en ningún navegador.
+
+\section{Limitaciones del método}
+
+La cobertura automatizada alcanza la lógica de negocio pero no las pantallas, cuyo comportamiento se verifica con protocolos manuales que dependen de quien los ejecuta. Las pruebas en hardware se realizan sobre un solo modelo de teléfono Android. La muestra de usabilidad es pequeña y sirve para encontrar problemas, no para estimar proporciones. Las mediciones contra el servidor corresponden a un ambiente de desarrollo en la capa gratuita de AWS, por lo que incluyen arranques en frío y límites que un despliegue de producción podría no presentar. Por último, las cuotas de los servicios gratuitos, en especial las de VirusTotal y PhishTank, limitan el tamaño de las muestras que pueden consultarse en un mismo día.
+
+% ================================================================================
+% CAPÍTULO: DESARROLLO DEL PROTOTIPO
+% ================================================================================
+\chapter{Desarrollo del prototipo}
+\label{chap:desarrollo}
+
+Continuando con la metodología, este capítulo describe cómo se construyó el módulo móvil de QRisk y por qué se tomó cada decisión técnica. Empieza por la visión general del flujo y la arquitectura, sigue con cada etapa del recorrido del usuario y termina con las diferencias entre lo planificado en el protocolo y lo implementado.
+
+\section{Visión general del flujo}
+
+La figura~\ref{fig:flujo} resume el recorrido de un código desde la cámara hasta el veredicto. La aplicación lee el código y clasifica su contenido. Si no es un enlace, muestra una pantalla informativa y no inicia ningún análisis. Si es un enlace, resuelve el filtro F1 en el propio teléfono y envía la URL junto con esa conclusión al servidor. El servidor corta la cascada si F1 ya concluyó; si no, ejecuta los filtros heurístico y de comportamiento. Con la respuesta, la aplicación determina el veredicto, lo guarda en el historial y lo presenta al usuario.
+
+\begin{figure}[H]
+	\centering
+	\begin{tikzpicture}[
+		node distance=0.55cm,
+		paso/.style={rectangle, rounded corners, draw, fill=uvg-green!8, align=center, minimum width=4.6cm, minimum height=0.85cm, font=\small},
+		decision/.style={diamond, draw, aspect=2.2, align=center, inner sep=1pt, font=\small},
+		flecha/.style={-{Stealth}, thick}
+	]
+		\node[paso] (scan) {Lectura del QR con la cámara};
+		\node[decision, below=of scan] (url) {¿Es una URL?};
+		\node[paso, right=1.2cm of url] (info) {Pantalla de contenido\\no navegable};
+		\node[paso, below=of url] (f1) {F1 en el teléfono: lista local,\\Safe Browsing y PhishTank};
+		\node[paso, below=of f1] (srv) {Servidor: corte por F1 o\\cascada F2.1, F2.2 y F2.3};
+		\node[paso, below=of srv] (ver) {Determinación del veredicto};
+		\node[paso, below=of ver] (res) {Resultado e historial};
+		\draw[flecha] (scan) to (url);
+		\draw[flecha] (url) to node[above, font=\small]{no} (info);
+		\draw[flecha] (url) to node[left, font=\small]{sí} (f1);
+		\draw[flecha] (f1) to (srv);
+		\draw[flecha] (srv) to (ver);
+		\draw[flecha] (ver) to (res);
+	\end{tikzpicture}
+	\caption{Recorrido de un código QR dentro de QRisk}
+	\label{fig:flujo}
+\end{figure}
+
+\section{Plataforma y versiones}
+
+El prototipo se construyó sobre las versiones del cuadro~\ref{tab:stack-real}. Se registran las versiones exactas porque varias decisiones se explican por restricciones de compatibilidad entre versiones concretas.
+
+\begin{table}[H]
+	\centering
+	\caption{Versiones del entorno de desarrollo}
+	\label{tab:stack-real}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.4cm}>{\raggedright\arraybackslash}p{6.8cm}@{}}
+		\toprule
+		\textbf{Componente} & \textbf{Versión} \\
+		\midrule
+		Expo SDK & 57.0.12 \\
+		React Native & 0.86.2, con la New Architecture \\
+		React & 19.2.3 \\
+		Enrutamiento & Expo Router 57 \\
+		Cámara y lectura de códigos & \texttt{expo-camera} 57 \\
+		Almacenamiento clave valor & \texttt{expo-sqlite} 57 \\
+		Ubicación & \texttt{expo-location} 57 \\
+		Lenguaje & TypeScript 6.0.3 en modo estricto \\
+		Pruebas & Jest 30 con el preset \texttt{jest-expo} \\
+		Compilación & EAS Build; Node 20.20.2, JDK 17, Gradle 9.3.1 \\
+		Android mínimo & API 24 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Durante la configuración apareció un conflicto entre dependencias nativas del propio SDK. El enrutador arrastraba la versión 0.12 de la librería de \emph{worklets}, mientras que el núcleo de módulos de Expo solo admitía hasta la 0.10, y la combinación rompía la compilación nativa de Android con un error de símbolo ausente. Se resolvió fijando explícitamente un par de versiones compatibles en el manifiesto de dependencias. Además, la compilación local con Gradle se detuvo repetidamente en el equipo de desarrollo sin producir el instalable, mientras que el paquete de JavaScript se exportaba sin errores; por eso la compilación se trasladó a EAS Build, que compila en la nube.
+
+\section{Arquitectura de la aplicación}
+
+La aplicación se organiza en cuatro capas con responsabilidades que no se solapan, según el cuadro~\ref{tab:capas}. Esta separación es la que permite probar la lógica de negocio sin cámara, sin red y sin dispositivo.
+
+\begin{table}[H]
+	\centering
+	\caption{Capas de la aplicación}
+	\label{tab:capas}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{9.8cm}@{}}
+		\toprule
+		\textbf{Capa} & \textbf{Responsabilidad} \\
+		\midrule
+		Rutas & Pantallas con enrutamiento por archivos: dos pasos de onboarding, escáner, carga, resultado, detalle, contenido no navegable, historial, reporte y Story Card, más una ruta inicial que decide a dónde dirigir al usuario \\
+		Sistema de diseño & Diecisiete componentes propios, sin librerías de interfaz externas, y los tokens de color, tipografía y espaciado del prototipo visual \\
+		Servicios & Lógica de negocio pura: análisis, cliente HTTP y errores, clasificación de QR, almacenamiento, ubicación, reporte y formato \\
+		Estado & Un único contexto de React con el resultado vigente, el historial y la preferencia de ubicación \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Las pantallas nunca ven la respuesta cruda del servidor. Consumen un resultado de análisis con forma propia de la aplicación, y la traducción ocurre en un único adaptador. Gracias a eso, los cambios en la respuesta del servidor se absorbieron en un solo archivo durante toda la integración.
+
+\section{Escaneo y clasificación del contenido}
+
+El escáner usa la vista de cámara de \texttt{expo-camera} restringida al formato QR, con control de linterna y gestión de permisos. Después de la primera lectura válida el escáner se bloquea, para evitar que un mismo código dispare varios análisis mientras sigue frente a la cámara. Los permisos de cámara y de ubicación se solicitan en el onboarding, con una explicación previa de para qué se usan, y no encima del escáner, donde el diálogo del sistema interrumpiría la primera lectura.
+
+La clasificación separa el contenido en tres tipos: enlace, red Wi-Fi y otro contenido. Se consideran enlaces las URLs con esquema \texttt{http} o \texttt{https} y los dominios escritos sin esquema, a los que se antepone \texttt{https}. Los demás contenidos (contactos, correos, teléfonos, coordenadas y texto) se muestran en una pantalla informativa con su etiqueta, y las contraseñas de Wi-Fi se enmascaran. Ningún contenido no navegable se envía al servidor.
+
+\section{El filtro F1 en el dispositivo}
+
+El contrato de interfaz espera que el cliente resuelva el filtro F1 y envíe su conclusión al servidor. Si F1 concluye seguro o malicioso, el servidor corta la cascada y responde en pocos segundos, en lugar de ejecutar todos los filtros. Por esa razón F1 se implementó en la aplicación, con tres fuentes.
+
+La primera es una lista local de seis dominios de reputación indiscutida, que solo puede concluir seguro. Dos reglas impiden que esa lista se convierta en una vía de evasión. La coincidencia se hace por dominio completo o subdominio separado por punto, nunca por fragmentos de texto: \texttt{google.com.phishing.top} contiene la cadena ``google.com'' y \texttt{no-github.com} termina en ``github.com'', y ninguno de los dos debe pasar. Además, solo se aceptan URLs con HTTPS, porque un dominio legítimo servido sin cifrado sigue siendo interceptable. No existe una lista negra local, a propósito, porque quedaría desactualizada el mismo día de la compilación.
+
+La segunda y la tercera fuentes son Google Safe Browsing y PhishTank, que solo pueden concluir malicioso. Se consultan en paralelo, cada una con un tiempo límite de 4~s, de modo que \tfuno{} queda acotado por la consulta más lenta y no por la suma de ambas. Safe Browsing se consulta sobre las categorías de malware e ingeniería social. Si alguna fuente no responde, el filtro sigue con las respuestas disponibles y la pantalla de detalle indica que esa fuente no pudo consultarse, en lugar de afirmar que la URL no estaba reportada.
+
+El orden de evaluación es la decisión más importante del filtro. La intuición diría que, si la lista local aprueba el dominio, se puede cortar ahí y ahorrar la consulta de red. Eso es exactamente lo que no se hace. Un dominio confiable puede alojar una página maliciosa concreta, como un repositorio con un ejecutable, y Safe Browsing opera sobre la URL completa, no solo sobre el dominio. Si la lista local cortara, a un atacante le bastaría alojar su página bajo uno de esos dominios. Por lo tanto, un seguro de la lista local es una hipótesis que cualquiera de las fuentes remotas puede vetar, y un malicioso siempre tiene prioridad.
+
+El protocolo incluía VirusTotal dentro de F1. En la implementación final, VirusTotal se consulta dentro del filtro F2.2 del servidor, por una razón de cuotas: su plan gratuito permite 4 consultas por minuto y 500 por día, y consultarlo también desde cada teléfono gastaría dos veces la cuota más estrecha del sistema. De esta forma, las tres fuentes del protocolo siguen participando, cada una en la capa donde es técnicamente viable.
+
+\section{Integración con la cascada del servidor}
+
+El análisis se solicita con una sola llamada que envía la URL y la conclusión de F1. Dentro del servidor, la cascada sigue este orden: si F1 concluyó, ese es el veredicto final; si no, se consulta la caché de análisis recientes; después se ejecuta F2.1, que calcula un puntaje heurístico de 0 a 100 y corta con sospechoso si supera 60; y por último F2.2, que consulta VirusTotal y URLScan.io y, cuando puede, obtiene la captura del sitio que corresponde a F2.3. La respuesta indica qué filtro decidió.
+
+La captura de F2.3 no se trató como una etapa independiente, porque es un subproducto de F2.2: si la cascada corta antes, no hay captura. Cuando existe, se muestra como imagen estática y nunca dentro de un navegador embebido, porque una página cargada en la aplicación podría ejecutar código o hacerse pasar por una pantalla de QRisk. La dirección de la imagen caduca en una hora, por lo que no se guarda en el historial.
+
+Al verificar el adaptador contra respuestas reales apareció un error de presentación: cuando F1 concluía seguro, la vista de detalle mostraba los filtros posteriores como ``sin completar'', lo que sugería que algo había fallado. No era cierto: la cascada no falló, concluyó antes, que es su objetivo. La vista se corrigió para explicar qué filtro decidió y por qué los demás no fueron necesarios.
+
+\section{Determinación del veredicto}
+
+El veredicto se resuelve con tres fuentes en orden de precedencia. La primera es el servidor: si concluyó seguro, sospechoso o malicioso, su palabra se respeta. La segunda es el puntaje heurístico, que solo se usa cuando el servidor responde ``pendiente''. La tercera es la evidencia de comportamiento de F2.2, que solo puede elevar un sospechoso a malicioso.
+
+La derivación por puntaje existe porque el servidor deja un tramo sin cubrir. Su umbral de F2.1 es estrictamente mayor que 60, por lo que una URL con puntaje de 55, que ya reúne varias señales simultáneas, regresa como pendiente. Sin la derivación, esa URL se vería como incierta con la evidencia a la vista. Los cortes, recogidos en el cuadro~\ref{tab:bandas}, se alinearon con los pesos que el propio servidor asigna a cada criterio: dominio de nivel superior de riesgo, 25 puntos; host que es una dirección IP, 30; ausencia de HTTPS, 15; y palabra clave sospechosa, 15.
+
+\begin{table}[H]
+	\centering
+	\caption{Bandas de puntaje y su fundamento}
+	\label{tab:bandas}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{9cm}@{}}
+		\toprule
+		\textbf{Puntaje} & \textbf{Veredicto} & \textbf{Fundamento} \\
+		\midrule
+		0 a 29 & Seguro & Un solo criterio menor no basta. Marcar como riesgoso todo sitio sin HTTPS produciría tantos falsos positivos que la aplicación perdería credibilidad \\
+		30 a 59 & Sospechoso & 30 es el peso de un host que es una IP y también la suma de dos criterios menores. Merece una advertencia, no una condena \\
+		60 a 100 & Malicioso & Tres o más señales simultáneas, como IP, ausencia de HTTPS y la palabra \emph{login}: el caso clásico de phishing \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+La elevación por evidencia responde a otra limitación del servidor: por comportamiento, su veredicto máximo es sospechoso, de modo que un sitio que 18 motores de VirusTotal marcan como malicioso recibe la misma etiqueta que un acortador marcado por dos. La aplicación eleva a malicioso cuando al menos tres motores coinciden, o cuando URLScan concluyó que el sitio es malicioso o eliminó su informe tras analizarlo. Se eligieron tres motores porque uno solo puede ser un falso positivo de un producto agresivo y dos pueden compartir firmas, mientras que tres fuentes independientes coincidiendo ya es evidencia difícil de discutir.
+
+Ninguna de las dos derivaciones inventa un veredicto. El puntaje, los criterios y el recuento de motores provienen del servidor y de los servicios que consulta; la aplicación solo aporta los cortes. Además, ambas se desmontan solas: el día que el servidor concluya por su cuenta, su veredicto tendrá precedencia y estas reglas dejarán de cambiar el resultado sin modificar el código.
+
+El puntaje se valida antes de usarse. Un valor ausente, no numérico o fuera del rango de 0 a 100 no produce ningún veredicto y el resultado se resuelve como incierto. La razón es que un $-20$ o un $150$ no significan ``muy seguro'' o ``muy malicioso'', sino que el servidor cambió de escala y los cortes ya no significan lo mismo. Antes de esta validación, un puntaje negativo producía un seguro con apariencia de correcto, que es el peor error posible del producto.
+
+\section{Política de tiempos y degradación}
+
+El tiempo límite del análisis cambió varias veces durante el proyecto, siempre a partir de mediciones contra el servidor real. El cuadro~\ref{tab:latencias} resume esa historia.
+
+\begin{table}[H]
+	\centering
+	\caption{Evolución de la latencia del servidor y del tiempo límite}
+	\label{tab:latencias}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{4.4cm}@{}}
+		\toprule
+		\textbf{Fecha} & \textbf{Latencia observada} & \textbf{Decisión} \\
+		\midrule
+		20/09/2026 & 5,5~s la primera llamada por arranque en frío; de 1,6 a 3,1~s las siguientes & Límite inicial \\
+		30/09/2026 & De 14,2 a 14,5~s para una URL nueva, por la captura de F2.3 & Límite de 25~s y aviso de espera a los 8~s \\
+		11/10/2026 & Corte por F1 en 5,3 y 5,5~s; cascada completa entre 24 y 35~s; algunas respuestas HTTP 504 a los 35~s & Límite de 40~s y aviso a los 20~s \\
+		12/10/2026 & Casi toda URL nueva llega al corte de 35~s; un segundo intento puede completar en 26,7 a 30,9~s & Presupuesto de 90~s con un reintento \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+El límite que importa no lo pone la aplicación. API Gateway corta cada petición a los 35~s y responde HTTP 504 mientras la función sigue trabajando, y la cascada completa tarda alrededor de ese mismo tiempo. Por eso, desde el 12 de octubre, la aplicación tiene un presupuesto total de 90~s con un único reintento tras un 504, que solo se lanza si quedan al menos 30~s para que pueda completarse. El reintento funciona porque los servicios externos ya analizaron la URL en el primer intento y responden más rápido; aun así, no resuelve el problema de fondo, que corresponde al servidor.
+
+Es importante distinguir el tiempo límite de la métrica. \ttotal{} mide cuánto tarda el servidor en responder; el tiempo límite define cuándo se rinde la aplicación. Recortar el límite no mejora el número medido, solo convierte análisis buenos en inciertos.
+
+La pantalla de carga muestra las etapas de la cascada con duraciones proporcionales a lo medido (3, 8 y 16~s) mediante una animación de esqueleto, y avisa a los 20~s que la espera se está prolongando. El aviso pasó de 8 a 20~s porque con la cascada completa aparecía en casi todos los análisis, y un aviso que aparece siempre deja de informar.
+
+El cliente HTTP traduce cualquier fallo a un vocabulario cerrado de once códigos, para que la interfaz decida según el código y nunca interpretando el texto del mensaje. Los códigos se agrupan en reintentables (tiempo agotado, filtro no disponible, límite de consultas, error interno y fallo de red), no reintentables (URL inválida, carga inválida y análisis no encontrado) y la cancelación, que se distingue del tiempo agotado porque salir de la pantalla no es un error.
+
+La política de degradación tiene una regla central: ningún fallo produce un veredicto seguro. Cualquier error degrada a un resultado incierto con un aviso visible de que no se completaron todas las verificaciones. Un incierto honesto es preferible a un seguro calculado con información incompleta.
+
+\section{Pantallas de resultado}
+
+El resultado simple muestra un emblema, el veredicto en palabras, el dominio y un resumen breve. Cada veredicto tiene un color y un texto propios, como se resume en el cuadro~\ref{tab:veredictos}. La jerarquía de los botones se invierte según el riesgo: en un sitio seguro, la acción principal es abrir el sitio; cuando hay señales de riesgo, la acción principal es ver los detalles.
+
+\begin{table}[H]
+	\centering
+	\caption{Veredictos y su significado para el usuario}
+	\label{tab:veredictos}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{10.4cm}@{}}
+		\toprule
+		\textbf{Veredicto} & \textbf{Mensaje al usuario} \\
+		\midrule
+		Seguro & Sin señales de riesgo \\
+		Sospechoso & Hay señales de riesgo; abrirlo solo si se confía en quien colocó el código \\
+		Malicioso & Peligroso; no abrirlo ni ingresar datos \\
+		Incierto & No se pudo completar el análisis; tratarlo con precaución \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+El resultado extendido aplica el principio de revelación progresiva: la advertencia principal debe entenderla cualquier persona, y el detalle técnico queda disponible para quien lo busque. Incluye un medidor de riesgo con el puntaje heurístico y una sección por filtro con los criterios reales que devolvió el servidor, como ``Host es una IP: 192.168.1.1'' o ``18 motores lo marcan como malicioso'', y no un texto genérico. Cuando el puntaje no existe porque la cascada cortó antes, el medidor no se dibuja vacío, sino que se explica qué filtro decidió.
+
+\section{Abrir el sitio analizado}
+
+En una primera versión, el botón de abrir mostraba un mensaje que decía que se abría el sitio, pero no abría nada. Se evaluaron tres alternativas: no abrir nunca, copiar la URL al portapapeles o abrirla con fricción proporcional al riesgo. No abrir nunca era coherente con la regla de seguridad, pero el usuario lo haría de todos modos copiando la URL a mano, sin ninguna advertencia de por medio. Copiar al portapapeles dejaba a la persona a un solo paso del sitio, con la misma exposición y menos información.
+
+Se eligió la tercera opción. En un sitio seguro, el enlace se abre directamente en el navegador del sistema. Con cualquier otro veredicto, incluido el incierto, aparece una hoja de confirmación que repite el dominio y cuántas señales de riesgo se encontraron, con ``Cancelar'' como botón principal. El sitio siempre se abre fuera de QRisk, en el navegador del sistema, donde la barra de direcciones es una defensa adicional. La aplicación informa y encarece la decisión riesgosa, pero no la prohíbe, porque quien sabe si confía en quien colocó el código es la persona.
+
+\section{Historial local}
+
+El historial guarda los últimos 20 escaneos y descarta el más antiguo al superar ese límite. Cada entrada conserva el análisis completo, de modo que al abrirla se recupera su veredicto sin conexión. Se almacena en el almacén clave valor de \texttt{expo-sqlite}, cuya lectura síncrona permite cargar el historial en el primer renderizado, sin que la lista aparezca vacía por un instante.
+
+El mismo almacén guarda si el usuario ya completó el onboarding y si concedió la ubicación. Al hacer que el onboarding se mostrara una sola vez, la preferencia de ubicación quedó viviendo solo en memoria y, tras el primer reinicio, el historial dejaba de registrar el lugar sin que nadie lo notara. La corrección fue persistir ambas preferencias juntas. Las tres lecturas fallan hacia el lado seguro: si el almacén no responde, el historial aparece vacío, el onboarding se repite y la ubicación queda desactivada, pero la aplicación no se cae.
+
+\section{Reporte de códigos maliciosos}
+
+El formulario de reporte permite enviar al servidor la URL, un motivo opcional y el identificador del análisis cuando existe. El envío es anónimo: no incluye identificador de usuario, coordenadas ni la hora local, y los campos opcionales solo se envían si tienen contenido. Si el envío falla, el texto escrito no se pierde. Durante las pruebas de integración, el servicio de reportes validaba correctamente las entradas, pero respondía con error interno al guardar; la aplicación distingue ese caso de un fallo de red, para no pedirle al usuario que revise una conexión que está bien.
+
+\section{Story Card}
+
+La Story Card es una imagen que el usuario puede compartir para advertir a otras personas sobre un código. Reúne cuatro elementos: una foto del entorno donde está el código, el código cubierto, el nombre del lugar y el veredicto. La foto se toma con la cámara o se elige de la galería, y la pantalla explica para qué sirve: mostrar dónde está el código para que otras personas lo reconozcan. La imagen se genera capturando la vista de la tarjeta y puede compartirse o guardarse en la galería.
+
+El protocolo hablaba de un QR difuminado. En la implementación el código se cubre con una capa opaca, porque, como se explicó en el marco teórico, la corrección de errores del estándar permite leer códigos parcialmente dañados, y un código borroso puede seguir siendo legible. Compartir una tarjeta con un código legible propagaría justamente el ataque que se quiere advertir.
+
+\section{Geocodificación inversa}
+
+El nombre del lugar se obtiene con \texttt{expo-location}, que resuelve la geocodificación con el servicio del sistema operativo. Las coordenadas no se envían al servidor del proyecto y en el historial se guarda solo el nombre legible del lugar. La ubicación se resuelve en paralelo con el análisis, para que nunca retrase el veredicto. Si falla o el usuario no concedió el permiso, el resultado es nulo y la interfaz simplemente oculta esa fila.
+
+\section{Diferencias entre el protocolo y lo implementado}
+
+El cuadro~\ref{tab:divergencias} resume las diferencias entre lo planificado en el protocolo y lo construido. Cada una responde a una razón técnica documentada a lo largo de este capítulo.
+
+\begin{table}[H]
+	\centering
+	\caption{Diferencias con el protocolo y su justificación}
+	\label{tab:divergencias}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{6.2cm}@{}}
+		\toprule
+		\textbf{Protocolo} & \textbf{Implementación} & \textbf{Justificación} \\
+		\midrule
+		\texttt{react-native-}\allowbreak\texttt{vision-camera} & \texttt{expo-camera} & Módulo alineado con las versiones del SDK; reduce conflictos nativos como el observado con los \emph{worklets}. La medición de lectura decide si se mantiene \\
+		\texttt{react-native-mmkv} con cifrado & Almacén de \texttt{expo-sqlite}, sin cifrado & Ofrece la lectura síncrona que necesita el primer renderizado. El historial no contiene credenciales ni coordenadas; el cifrado se deja como recomendación \\
+		F1 con Safe Browsing, PhishTank y VirusTotal & Safe Browsing y PhishTank en la app; VirusTotal en F2.2 & Evita gastar dos veces la cuota más estrecha del sistema \\
+		Tiempo de respuesta de F1 menor a 5~s & Tope de 4~s por fuente en paralelo & El tope de F1 cumple el criterio; la cascada completa tiene su propio criterio \\
+		QR difuminado & Capa opaca & Un código borroso puede seguir siendo legible \\
+		React Navigation & Expo Router & Enrutamiento por archivos del mismo ecosistema \\
+		iOS y Android & Solo Android & No se contó con hardware de Apple; la configuración de iOS se conserva \\
+		\bottomrule
+	\end{tabular}
+\end{table}

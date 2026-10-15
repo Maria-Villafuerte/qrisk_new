@@ -1,0 +1,323 @@
+\chapter{Marco te\'orico}
+
+\section{Amenazas de Seguridad en el entorno m\'ovil}
+
+Este bloque contextualiza el problema de seguridad que motiva el proyecto: el phishing y su variante por c\'odigos QR (quishing). Se revisan las t\'ecnicas de ingenier\'ia social que hacen vulnerable al usuario m\'ovil y los enfoques computacionales que existen para detectar URLs maliciosas, para justificar t\'ecnica y emp\'iricamente el sistema de filtrado propuesto.
+
+\subsection{Phishing: Definici\'on, Evoluci\'on y Estado del Arte}
+
+El phishing es una forma de ingenier\'ia social en la que un atacante suplanta la identidad de una entidad de confianza para inducir a la v\'ictima a revelar credenciales, datos financieros u otra informaci\'on sensible, o a dirigirla hacia contenido malicioso. El nombre viene de la analog\'ia con la pesca (fishing): el atacante lanza un 'anzuelo' (un mensaje o enlace falsificado) y espera a que la v\'ictima 'muerda'. El phishing existe desde los a\~nos noventa, pero su sofisticaci\'on y volumen no han dejado de crecer, adapt\'andose a cada canal de comunicaci\'on nuevo que adoptan los usuarios.
+
+El Anti-Phishing Working Group (APWG) registr\'o m\'as de un mill\'on de ataques de phishing \'unicos en el primer trimestre de 2024, con una tendencia al alza que se mantiene en 2025 \cite{apwg2024q1,apwg2025q1}. El Data Breach Investigations Report de Verizon de 2024 se\~nala al phishing como uno de los vectores de acceso inicial m\'as frecuentes en incidentes de seguridad a nivel global \cite{verizon2024dbir}. Estos datos confirman que el phishing es una amenaza real y activa, no un riesgo te\'orico.
+
+El prototipo de este trabajo ataca una variante espec\'ifica del phishing: la que se distribuye mediante c\'odigos QR. Entender el ecosistema del phishing, sus motivaciones, vectores, infraestructura y ciclo de vida, es necesario para dise\~nar bien los filtros de an\'alisis, interpretar los resultados de las APIs de reputaci\'on y comunicar el veredicto de forma clara para el usuario final.
+
+\subsection{Quishing: El Phishing Mediante C\'odigos QR}
+
+El quishing (de QR y phishing) es el phishing que usa c\'odigos QR para distribuir el enlace malicioso. A diferencia del phishing tradicional, donde la URL fraudulenta est\'a a la vista en el mensaje, el quishing la esconde dentro del patr\'on visual del QR, as\'i que el usuario no puede inspeccionarla directamente \cite{insikt2024qrcode,unit42_2023qr}.
+
+Un ataque de quishing t\'ipico sigue cuatro pasos: se genera un QR que codifica una URL bajo control del atacante; se distribuye en un canal de alta confianza (correo corporativo, cartel f\'isico, factura, men\'u de restaurante); la v\'ictima lo escanea con la c\'amara del tel\'efono; y el navegador abre la URL sin que nadie la haya evaluado \cite{vidas2013qrishing}.
+
+Recorded Future \cite{insikt2024qrcode} y Palo Alto Networks Unit 42 \cite{unit42_2023qr} documentan el crecimiento exponencial de las campa\~nas de quishing desde 2023, impulsado en parte por generadores de QR gratuitos y por la adopci\'on masiva del QR en contextos de confianza (pagos, men\'us, accesos, verificaci\'on de identidad). Vidas et al. \cite{vidas2013qrishing} demostraron adem\'as, con un estudio emp\'irico, que los usuarios de smartphones caen m\'as f\'acil en phishing por QR que en phishing por URL directa, precisamente porque el QR elimina la se\~nal visual de advertencia que da una URL sospechosa.
+
+El quishing es exactamente el problema que resuelve esta aplicaci\'on. Todo el flujo, desde el escaneo hasta la extracci\'on de la URL, el an\'alisis multicapa y la presentaci\'on del veredicto, responde a la anatom\'ia de este ataque. La soluci\'on mete un punto de inspecci\'on entre el momento en que el usuario escanea el QR y el momento en que el navegador abre la URL, cerrando la ventana de vulnerabilidad que hace posible el quishing.
+
+\subsection{Ingenier\'ia Social y Susceptibilidad del Usuario M\'ovil}
+
+La ingenier\'ia social son las t\'ecnicas psicol\'ogicas y comunicativas con las que un atacante manipula a alguien para que revele informaci\'on confidencial o haga algo que comprometa la seguridad de un sistema. A diferencia de un ataque puramente t\'ecnico, explota sesgos cognitivos humanos: urgencia, autoridad, reciprocidad, confianza. En el quishing, el c\'odigo QR aprovecha la confianza del entorno f\'isico donde aparece: un QR en el mostrador de un banco proyecta la misma autoridad que el banco mismo.
+
+Vidas et al. \cite{vidas2013qrishing} y Krombholz et al. \cite{krombholz2014qr} encontraron que el uso m\'ovil agrava esta susceptibilidad: escanear y abrir la URL es casi un reflejo, la pantalla peque\~na dificulta revisar la barra del navegador, y nadie verifica el destino antes de escanear un QR. Esto no es un simple descuido individual, sino un problema estructural que la soluci\'on t\'ecnica tiene que compensar.
+
+Entender estos mecanismos de ingenier\'ia social es lo que gu\'ia el dise\~no de la interfaz del prototipo: el momento, el tono y el formato del veredicto de seguridad tienen que contrarrestar las ganas de seguir navegando cuando el resultado indica riesgo. Este tema conecta directamente con el bloque de usable security m\'as adelante y sustenta las decisiones de dise\~no de las pantallas de advertencia.
+
+\subsection{An\'alisis de URLs Maliciosas: T\'ecnicas y Desaf\'ios}
+
+Analizar una URL maliciosa significa aplicar t\'ecnicas computacionales para determinar si representa un riesgo de seguridad. Sahoo, Liu y Hoi \cite{sahoo2017malicious} agrupan estas t\'ecnicas en tres categor\'ias: las basadas en listas negras, que consultan bases de datos de URLs ya conocidas como maliciosas; las heur\'isticas, que eval\'uan rasgos de la URL como longitud, entrop\'ia, presencia de una IP literal, TLD sospechoso o edad del dominio; y las de machine learning, que extraen features de la URL y del sitio para clasificarla con modelos estad\'isticos o de aprendizaje profundo.
+
+Cada categor\'ia tiene sus propios compromisos entre cobertura, velocidad, falsos positivos y capacidad de detectar amenazas de zero-day, es decir, URLs a\'un no registradas en ninguna lista. Las listas negras son precisas pero tardan en incorporar sitios nuevos; los enfoques heur\'isticos y de ML detectan amenazas nuevas, pero a costa de m\'as falsos positivos.
+
+Ma et al. \cite{ma2009beyond} y Le et al. \cite{le2011phishdef} mostraron que los modelos basados solo en features l\'exicas de la URL logran alta precisi\'on sin necesidad de visitar el sitio, algo particularmente \'util en un contexto m\'ovil donde la privacidad y la latencia son restricciones cr\'iticas. Sheng et al. \cite{sheng2009empirical} documentaron, por su parte, las limitaciones de depender solo de listas negras: la cobertura inicial es baja para URLs reci\'en creadas. Esa evidencia es la que justifica el dise\~no multicapa del sistema, donde el Filtro F1 (listas negras) es apenas el primero de varios mecanismos.
+
+La arquitectura de filtros del prototipo (F1 de listas de reputaci\'on, F2 de heur\'istica de URL, F3 de sandbox y F4 de browser isolation) es una aplicaci\'on directa de esta taxonom\'ia. En este trabajo solo se implementa completamente el F1, pero dise\~nar las pantallas de F2 a F4 tambi\'en requiere entender los principios t\'ecnicos de cada enfoque, para representar sus resultados de forma correcta.
+
+\section{Est\'andar QR y su explotaci\'on como vector de ataque}
+
+Este bloque revisa el est\'andar ISO/IEC 18004 que rige los c\'odigos QR, los tipos de contenido que pueden codificar y c\'omo los atacantes explotan esas capacidades para distribuir URLs de phishing. Entender la estructura del QR es un prerequisito para dise\~nar bien la l\'ogica de clasificaci\'on del contenido y el punto de intervenci\'on de la herramienta.
+
+\subsection{Fundamentos T\'ecnicos del C\'odigo QR (ISO/IEC 18004)}
+
+El c\'odigo QR es una simbolog\'ia de c\'odigo de barras bidimensional estandarizada por ISO/IEC 18004 \cite{iso18004_2015,iso18004_2024}. A diferencia de un c\'odigo de barras unidimensional, un QR puede codificar hasta 4.296 caracteres alfanum\'ericos o 7.089 d\'igitos num\'ericos en una cuadr\'icula de m\'odulos blancos y negros. La especificaci\'on define cuatro modos de codificaci\'on (num\'erico, alfanum\'erico, byte y kanji), cuatro niveles de correcci\'on de errores (L, M, Q, H, con redundancias del 7\,\% al 30\,\%) y cuarenta versiones de tama\~no que determinan cu\'anta informaci\'on cabe y qu\'e tan densa es la cuadr\'icula.
+
+La edici\'on vigente, ISO/IEC 18004:2024 \cite{iso18004_2024}, agrega mejoras de conformidad respecto a la de 2015 pero mantiene compatibilidad hacia atr\'as. Esa robustez, sumada a la capacidad de meter una URL completa en un patr\'on compacto que cualquier c\'amara lee, explica tanto la adopci\'on masiva del QR como su explotaci\'on por atacantes.
+
+Conocer bien el est\'andar QR importa por dos razones concretas: primero, para saber qu\'e tipos de dato puede llevar un QR y cu\'ales necesitan an\'alisis de seguridad (solo las URLs representan riesgo de phishing; texto, WiFi o vCard no); segundo, para dise\~nar la l\'ogica que bifurca el flujo de la app entre analizar una URL o mostrar una pantalla informativa cuando no lo es.
+
+La clasificaci\'on del contenido decodificado del QR, que es el Objetivo Espec\'ifico 1 de este trabajo, depende directamente de c\'omo ISO/IEC 18004 estructura los datos. El m\'odulo de escaneo tiene que distinguir entre los distintos tipos de contenido para decidir si procede el an\'alisis de seguridad o si basta con la pantalla informativa.
+
+\subsection{Tipos de Contenido Codificable y su Relevancia en la Detecci\'on}
+
+El est\'andar ISO/IEC 18004 define la codificaci\'on a nivel de bytes, pero en la pr\'actica los generadores de QR siguen convenciones ya establecidas para tipos de contenido concretos: URL (https://, http://), texto plano, contacto vCard, credenciales WiFi (WIFI:T:WPA;S:...;P:...;;), eventos de calendario (vCalendar) y datos de pago. Cada tipo tiene un prefijo reconocible en el contenido decodificado.
+
+No todos representan el mismo riesgo. Las URLs son el vector principal del quishing; los datos WiFi exponen credenciales de red; las vCards pueden traer contactos falsificados. Krombholz et al. \cite{krombholz2014qr} hicieron una taxonom\'ia de estos vectores de ataque v\'ia QR y confirmaron que la URL es, con diferencia, el de mayor impacto y prevalencia.
+
+La l\'ogica de clasificaci\'on del m\'odulo de escaneo determina el flujo de la app: si el contenido es una URL, se activa el an\'alisis hacia el backend; si no, se muestra la pantalla informativa. Esta bifurcaci\'on es uno de los componentes centrales del Objetivo Espec\'ifico 1.
+
+\subsection{QR como Vector de Ataque: Superficie, Motivaci\'on y Anatom\'ia}
+
+La superficie de ataque del quishing es amplia porque los c\'odigos QR aparecen en entornos de mucha confianza: facturas corporativas, se\~nal\'etica de comercios, materiales de marketing, correos institucionales, pantallas de autenticaci\'on en dos pasos. Un atacante puede reemplazar un QR leg\'itimo con una calcoman\'ia encima del original, o distribuir uno malicioso digitalmente en una campa\~na de spear phishing. La motivaci\'on principal es evadir los filtros de URL del correo y de los proxies corporativos, que revisan el texto del mensaje pero no lo que hay codificado dentro de una imagen.
+
+Palo Alto Networks Unit 42 \cite{unit42_2023qr} document\'o que plataformas como Microsoft 365 y Google Workspace no escanean autom\'aticamente el contenido de los QR embebidos en correos, lo que convierte al quishing en una t\'ecnica de evasi\'on efectiva. Recorded Future \cite{insikt2024qrcode} report\'o un aumento del 587\,\% en ataques de quishing entre el segundo semestre de 2023 y el primero de 2024.
+
+Entender la anatom\'ia del ataque y c\'omo se distribuye es clave para ubicar la propuesta de valor del prototipo: la aplicaci\'on interviene justo en el \'unico punto del ciclo de ataque que todav\'ia no tiene protecci\'on automatizada, el momento del escaneo desde el tel\'efono del usuario.
+
+El dise\~no del flujo, y en particular la decisi\'on de interceptar la navegaci\'on antes de que el sistema operativo abra el navegador, responde directamente a esta mec\'anica del ataque. Sin entenderla, no se podr\'ia justificar por qu\'e la herramienta se inserta ah\'i y no en otro punto del ciclo.
+
+\section{Sistemas de detecci\'on y clasificaci\'on de amenazas}
+
+Este bloque presenta las categor\'ias de t\'ecnicas para identificar URLs maliciosas (listas negras, an\'alisis heur\'istico y aprendizaje autom\'atico), las plataformas colaborativas de threat intelligence que las alimentan y las m\'etricas para evaluar qu\'e tan bien funcionan. Este marco t\'ecnico es la base de la arquitectura de filtros multicapa del prototipo.
+
+\subsection{Listas Negras y Sistemas de Reputaci\'on de URLs}
+
+Una lista negra de URLs es una base de datos con URLs, dominios o direcciones IP identificadas como maliciosas, fraudulentas o asociadas a phishing, malware o spam. Los sistemas de reputaci\'on van un paso m\'as all\'a: le asignan a cada URL o dominio una puntuaci\'on derivada de varias se\~nales, como el historial de actividad maliciosa, la asociaci\'on con infraestructura de amenazas conocida, las caracter\'isticas del registro del dominio y el an\'alisis de contenido.
+
+Sheng et al. \cite{sheng2009empirical} evaluaron la cobertura y latencia de varias blacklists en 2009 y encontraron que las m\'as grandes cubr\'ian apenas el 20\,\% de los sitios de phishing activos al momento en que la URL se cre\'o, con la cobertura mejorando conforme el sitio se manten\'ia activo y era denunciado. De ah\'i sale el concepto de zero-hour phishing como l\'imite estructural de este enfoque.
+
+Vale la pena aclarar que ese estudio es de 2009, cuando los sistemas de reputaci\'on eran mucho menos maduros. Hoy, plataformas como Google Safe Browsing actualizan sus bases cada pocos minutos con an\'alisis automatizado a escala masiva. Aun as\'i, los informes de APWG de 2024 y 2025 \cite{apwg2024q1,apwg2025q1} muestran que el zero-hour phishing, sitios maliciosos activos por menos de una hora antes de ser indexados, sigue siendo una fracci\'on importante de los ataques. Eso confirma que la limitaci\'on estructural de las listas negras persiste sin importar qu\'e tan r\'apido se actualicen, y refuerza el argumento a favor de un dise\~no multicapa.
+
+Las listas de reputaci\'on son el Filtro F1 del prototipo, el primero y m\'as r\'apido de los mecanismos de an\'alisis. Su eficiencia (responden en milisegundos para URLs ya conocidas), su cobertura acumulada y su bajo costo computacional las hacen el punto de decisi\'on inicial ideal en un sistema que necesita responder en tiempo real.
+
+El Objetivo Espec\'ifico 4 fija un tiempo de respuesta del Filtro F1 inferior a 5 segundos. Las tres APIs elegidas (Google Safe Browsing \cite{google_safebrowsing}, PhishTank \cite{phishtank_devinfo} y VirusTotal \cite{virustotal_apiv3}) representan el estado del arte en listas de reputaci\'on, y su integraci\'on en el backend es el componente funcional central de este trabajo de graduaci\'on.
+
+\subsection{Threat Intelligence: Plataformas Colaborativas y Enriquecimiento de Datos}
+
+La threat intelligence es la disciplina de recolectar, analizar y compartir informaci\'on sobre amenazas de seguridad, como actores, t\'acticas, t\'ecnicas e indicadores de compromiso (IOC), con el fin de anticipar o responder a ataques. Para detectar URLs maliciosas, los IOC relevantes son dominios, URLs, direcciones IP y hashes de archivos ligados a campa\~nas de phishing, malware o infraestructura de comando y control.
+
+Las plataformas colaborativas de threat intelligence parten de una idea simple: ninguna organizaci\'on ve sola el panorama completo de amenazas, as\'i que al compartir datos de incidentes la comunidad construye una inteligencia colectiva m\'as robusta. MISP \cite{misp_project} y URLhaus \cite{urlhaus_api} son ejemplos de plataformas abiertas para esto. VirusTotal \cite{virustotal_apiv3} hace algo parecido pero distinto: agrega los resultados de m\'as de 70 motores antivirus, funcionando m\'as como plataforma de enriquecimiento de datos.
+
+Que las fuentes que alimentan el Filtro F1 sean colaborativas es clave en el dise\~no: cada vez que un usuario reporta un QR malicioso desde la app (Feature 5.2), esa informaci\'on puede retroalimentar blacklists como PhishTank o URLhaus, convirtiendo a los usuarios del prototipo en participantes activos del ecosistema de threat intelligence.
+
+La funcionalidad de reporte de QR malicioso (Objetivo Espec\'ifico 3) implementa justamente este modelo colaborativo: el prototipo no solo consume inteligencia de amenazas, tambi\'en la genera y la aporta al enviar URLs reportadas a las blacklists correspondientes.
+
+\subsection{An\'alisis Heur\'istico de URLs}
+
+El an\'alisis heur\'istico eval\'ua la estructura l\'exica y sem\'antica de una URL para estimar si es maliciosa, sin consultar bases externas ni visitar el sitio. Las heur\'isticas m\'as usadas incluyen: longitud an\'omala, presencia de una IP literal en vez de un dominio, subdominios excesivos o enga\~nosos (typosquatting), TLDs poco convencionales, caracteres especiales y patrones de ofuscaci\'on, uso de acortadores, ausencia de HTTPS, y la edad del dominio, ya que uno reci\'en registrado es m\'as sospechoso.
+
+Le et al. \cite{le2011phishdef} desarrollaron PhishDef, un clasificador basado exclusivamente en caracter\'isticas l\'exicas de la URL con precisi\'on superior al 95\,\%. Ma et al. \cite{ma2009beyond} llegaron m\'as lejos: mostraron que usando solo el nombre del dominio se puede alcanzar 99\,\% de precisi\'on para phishing conocido, sin necesidad de acceder al contenido del sitio.
+
+El Filtro F2 del prototipo se basa en este tipo de an\'alisis. Su backend no se implementa en este trabajo de graduaci\'on, pero la pantalla de resultados, que muestra el desglose de criterios activados (edad del dominio, TLD sospechoso, estructura de la URL, HTTPS), s\'i necesita una comprensi\'on precisa de qu\'e eval\'ua cada heur\'istica, para que la representaci\'on visual sea t\'ecnicamente correcta.
+
+Esa pantalla, con su score de riesgo y desglose de criterios, es simplemente una interfaz para los resultados del an\'alisis heur\'istico. Los criterios que muestra corresponden directamente a las features documentadas en la literatura \cite{ma2009beyond,le2011phishdef}, as\'i que la interfaz refleja con fidelidad lo que produce el an\'alisis t\'ecnico.
+
+\subsection{Machine Learning Aplicado a la Detecci\'on de URLs Maliciosas}
+
+Los enfoques de machine learning tratan la detecci\'on de URLs maliciosas como clasificaci\'on binaria (benigna o maliciosa) o multiclase (phishing, malware, spam, benigna). Cada URL se representa con un vector de features que puede incluir rasgos l\'exicos, datos de WHOIS, contenido HTML de la p\'agina y registros DNS. Los algoritmos m\'as usados en la literatura van desde Random Forest y Gradient Boosting hasta Support Vector Machines y, m\'as recientemente, redes recurrentes y transformadores de texto \cite{sahoo2017malicious,ma2009beyond,le2011phishdef}.
+
+Este trabajo no entrena ni despliega modelos propios, pero el an\'alisis heur\'istico del F2 es, en su versi\'on m\'as avanzada, justamente un modelo de clasificaci\'on basado en features de la URL. Entender los principios de ML aplicados a este dominio permite dimensionar bien qu\'e puede y qu\'e no puede el F2, y justificar por qu\'e un sistema multicapa que combina listas negras, heur\'istica y sandbox cubre m\'as que cualquier t\'ecnica sola.
+
+En fases futuras, el F2 podr\'ia pasar de un conjunto de reglas heur\'isticas a un modelo de ML entrenado sobre datasets de URLs etiquetadas. Los m\'as usados en la literatura son el ISCX-URL-2016 del Canadian Institute for Cybersecurity, con m\'as de 30.000 URLs en cinco categor\'ias (benignas, spam, phishing, malware, defacement), y el PHIUSIIL Phishing URL Dataset del UCI Machine Learning Repository, con m\'as de 235.000 instancias etiquetadas. Conocer estos recursos orienta tanto la evaluaci\'on emp\'irica del Filtro F1 como el dise\~no futuro del F2.
+
+\subsection{M\'etricas de Evaluaci\'on de Clasificadores Binarios}
+
+Evaluar un clasificador binario, como el que decide si una URL es maliciosa o no, requiere m\'etricas m\'as finas que la simple exactitud, sobre todo cuando las clases est\'an desbalanceadas: las URLs maliciosas son una fracci\'on peque\~na del total. Las m\'etricas principales son precisi\'on, exhaustividad o recall, especificidad, F1-score y el \'area bajo la curva ROC. Sokolova y Lapalme \cite{sokolova2009systematic} hacen un an\'alisis sistem\'atico de estas m\'etricas y de cu\'ando conviene usar cada una.
+
+En seguridad, el costo de equivocarse no es sim\'etrico: un falso negativo, es decir no detectar una URL maliciosa, tiene consecuencias m\'as graves para el usuario que un falso positivo que bloquea una URL leg\'itima. Eso empuja las decisiones de umbral hacia maximizar el recall aunque se sacrifique algo de precisi\'on.
+
+Para evaluar el Filtro F1 de este trabajo, y para poder interpretar bien lo que reportan las APIs integradas, hace falta entender qu\'e significan sus tasas de detecci\'on y cu\'ales son sus limitaciones documentadas.
+
+Estas m\'etricas son el marco conceptual para juzgar si el Filtro F1 cumple los objetivos de calidad del prototipo. El veredicto que ve el usuario (SEGURO, SOSPECHOSO o MALICIOSO) implica un umbral de clasificaci\'on cuyas consecuencias, falso positivo o falso negativo, tienen que estar fundamentadas en este marco te\'orico.
+
+El protocolo de validaci\'on del Filtro F1 consiste en tomar un conjunto de URLs de prueba, sacadas de fuentes p\'ublicas como el feed de PhishTank, el dataset de OpenPhish \cite{openphish} o el ISCX-URL-2016, y pasarlas por las tres APIs integradas (Google Safe Browsing, PhishTank y VirusTotal), comparando lo que devuelven contra la etiqueta real de cada URL. Con eso se calculan precisi\'on, exhaustividad y F1-score del sistema completo, dando evidencia emp\'irica sobre qu\'e tan bien funciona y qu\'e tasas de error tiene en los escenarios cr\'iticos.
+
+\section{Escaneo y procesamiento nativo en dispositivos m\'oviles}
+
+Este bloque describe las APIs nativas de visi\'on por computadora que decodifican c\'odigos QR directamente en el dispositivo, sin depender de servicios externos; la biblioteca react-native-vision-camera que las envuelve para React Native; y las consideraciones de latencia que definen cu\'anto tiempo queda disponible para el an\'alisis de seguridad.
+
+\subsection{APIs Nativas de Detecci\'on de C\'odigos de Barras: Apple Vision y Google ML Kit}
+
+Los sistemas operativos modernos traen APIs de visi\'on por computadora a nivel de sistema para detectar y decodificar c\'odigos de barras y QR directamente en el hardware del dispositivo, sin nube de por medio. En iOS, el framework Vision expone VNDetectBarcodesRequest \cite{apple_vndetectbarcodes}, que usa el motor de visi\'on de Apple para detectar QR, Aztec, PDF417 y otros formatos, con aceleraci\'on por hardware v\'ia el Neural Engine.
+
+En Android, Google ML Kit Barcode Scanning \cite{google_mlkit_barcode} hace lo mismo mediante el paquete com.goo\-gle.mlkit:barcode-scanning, que opera completamente on-device, sin necesidad de conectividad, con soporte para m\'as de diez simbolog\'ias incluyendo QR, Data Matrix y EAN.
+
+Elegir estas APIs nativas para el m\'odulo de escaneo, en vez de una soluci\'on de terceros, garantiza el menor overhead de procesamiento, la mejor compatibilidad con el hardware de cada plataforma y el cumplimiento de las pol\'iticas de privacidad de iOS y Android, que restringen el acceso de terceros a los frames de la c\'amara. El Objetivo Espec\'ifico 1 pide una latencia de escaneo inferior a 5 segundos, algo que solo es alcanzable procesando en el dispositivo.
+
+react-native-vision-camera \cite{rousavy_visioncamera}, la biblioteca elegida para el m\'odulo de escaneo, usa exactamente estas APIs como backend: VNDetectBarcodesRequest en iOS y ML Kit en Android. Conocer las capacidades y l\'imites de estas APIs es la base de las decisiones de implementaci\'on del m\'odulo de c\'amara.
+
+\subsection{react-native-vision-camera y el M\'odulo CodeScanner}
+
+react-native-vision-camera \cite{rousavy_visioncamera} es una biblioteca de c\'odigo abierto de Marc Rousavy que da acceso completo a la c\'amara desde React Native, con soporte para procesar frames a alta velocidad mediante frame processors escritos en JavaScript o en c\'odigo nativo (Swift/Kotlin) v\'ia JSI (JavaScript Interface). Su m\'odulo CodeScanner es una capa sobre las APIs nativas de detecci\'on de c\'odigos de barras de iOS y Android, pensada para detectar en tiempo real sobre el stream de video de la c\'amara.
+
+El m\'odulo decodifica m\'ultiples simbolog\'ias en tiempo real a velocidades de hasta 60 fps y notifica al componente React Native mediante un callback cada vez que detecta y decodifica un c\'odigo, junto con metadatos sobre el tipo de simbolog\'ia y su posici\'on en el frame.
+
+Se eligi\'o esta biblioteca para el Objetivo Espec\'ifico 1 por ventajas concretas frente a alternativas como react-native-camera (ya deprecated) o expo-camera: mejor rendimiento al usar JSI en vez del bridge cl\'asico, acceso directo a las APIs nativas de escaneo, compatibilidad con la New Architecture de React Native \cite{meta_rn_newarch} y mantenimiento activo del proyecto.
+
+react-native-vision-camera con CodeScanner es, en el prototipo, el componente responsable de adquirir y decodificar el QR. Entender su funcionamiento (ciclo de vida, manejo de permisos, configuraci\'on del scanner, extracci\'on del payload) es prerequisito directo para implementar el Objetivo Espec\'ifico 1.
+
+\subsection{Decodificaci\'on de QR en Tiempo Real: Latencia y Rendimiento}
+
+La latencia de decodificaci\'on es el tiempo entre que el QR entra al campo de visi\'on de la c\'amara y el sistema extrae el payload. Depende de la velocidad del sensor, la resoluci\'on del frame, la versi\'on y densidad del QR, la iluminaci\'on, el c\'omputo disponible en el dispositivo y qu\'e tan eficiente es el decodificador.
+
+En una app de an\'alisis de seguridad en tiempo real, esta latencia es apenas el primer tramo del presupuesto total (decodificaci\'on, transmisi\'on al backend, consultas a APIs, retorno de resultados). El Objetivo Espec\'ifico 1 pide menos de 5 segundos para el ciclo completo, as\'i que la decodificaci\'on tiene que resolverse en fracciones de segundo.
+
+Usar las APIs nativas de visi\'on a trav\'es de react-native-vision-camera garantiza tiempos de decodificaci\'on por debajo de 100 ms en hardware moderno, dejando el resto del margen para el an\'alisis de red. Esto es lo que informa la duraci\'on de la pantalla de carga con animaci\'on skeleton o shimmer (Objetivo Espec\'ifico 2).
+
+Esa pantalla de carga asume, impl\'icitamente, un modelo de latencia: la animaci\'on tiene que durar lo suficiente para cubrir el an\'alisis real sin dar sensaci\'on de lentitud, pero sin tentar al usuario a cancelar antes de ver el resultado.
+
+\section{Desarrollo m\'ovil multiplataforma con React Native}
+
+Este bloque justifica la elecci\'on de React Native, describe c\'omo evolucion\'o su arquitectura interna, del bridge cl\'asico a la New Architecture con JSI y Fabric, y repasa las implicaciones t\'ecnicas y de seguridad de tener una sola base de c\'odigo para iOS y Android.
+
+\subsection{Arquitectura de React Native: Bridge, JSI y la New Architecture}
+
+React Native permite escribir componentes de interfaz en JavaScript o TypeScript que se renderizan como componentes nativos de iOS y Android. La arquitectura de React Native usaba serializaci\'on JSON para comunicar el hilo de JavaScript con los m\'odulos nativos, lo que a\~nad\'ia latencia y limitaba las operaciones de alta frecuencia.
+
+La New Architecture \cite{meta_rn_newarch}, estable desde la versi\'on 0.71 y activa por defecto desde la 0.76, cambia ese esquema por tres piezas: JSI, que permite llamadas s\'incronas entre JavaScript y c\'odigo nativo; Fabric, el motor de renderizado que permite componer la UI en varios hilos; y TurboModules, que reemplazan a los Native Modules con carga diferida y tipado fuerte. Esta arquitectura es requisito para usar react-native-vision-camera v4.
+
+El prototipo se construye sobre la New Architecture, lo que habilita los frame processors de react-native-vision-camera y da el rendimiento necesario para procesar en tiempo real el stream de la c\'amara. Entender esta arquitectura es indispensable para razonar sobre rendimiento, l\'imites del sistema y c\'omo depurar problemas.
+
+La pila tecnol\'ogica del prototipo (React Native con New Architecture, react-native-vision-camera v4, react-native-mmkv) solo tiene sentido completo en el contexto de lo que habilita la New Architecture, que es justo lo que da esta secci\'on.
+
+\subsection{Desarrollo Cross-Platform para iOS y Android desde una Sola Base de C\'odigo}
+
+El desarrollo cross-platform busca reutilizar la mayor cantidad de c\'odigo posible entre plataformas distintas (iOS, Android, web) mediante abstracciones sobre las APIs nativas. React Native lo hace compilando componentes JavaScript a vistas nativas de cada plataforma, a diferencia de Flutter, que dibuja en su propio canvas, o de una PWA.
+
+Las implicaciones de seguridad de este enfoque no son menores: las pol\'iticas de privacidad, los permisos, el almacenamiento y las restricciones de red de iOS y Android difieren bastante entre s\'i. El prototipo adopta las pol\'iticas de Apple como el est\'andar m\'as estricto, para que cumplir en iOS implique autom\'aticamente cumplir en Android.
+
+Elegir React Native en vez de desarrollo nativo independiente (Swift m\'as Kotlin) es una decisi\'on de arquitectura con consecuencias en rendimiento, mantenibilidad, acceso a APIs nativas y ciclos de publicaci\'on, y por eso vale la pena documentarla aqu\'i.
+
+Que el prototipo lo desarrolle una sola persona para dos plataformas depende directamente de la productividad que da este enfoque cross-platform. Los desaf\'ios que trae, diferencias de permisos, comportamiento de la c\'amara, pol\'iticas distintas entre App Store y Google Play, tambi\'en son parte del contexto t\'ecnico que hay que tener claro.
+
+\section{Seguridad en aplicaciones m\'oviles}
+
+Este bloque presenta el marco normativo y los mecanismos t\'ecnicos que hacen que el prototipo sea, en s\'i mismo, una app segura: el est\'andar MASVS de OWASP, las pol\'iticas de red de iOS y Android, y las opciones de almacenamiento local cifrado.
+
+\subsection{OWASP Mobile Application Security Verification Standard (MA\-SVS)}
+
+El MASVS \cite{owasp2024masvs} es el est\'andar de OWASP que define los requisitos de seguridad que debe cumplir una app m\'ovil. La versi\'on 2.1, de 2024, organiza los controles en cinco categor\'ias: MASVS-STORAGE (almacenamiento seguro), MASVS-CRYPTO (uso correcto de criptograf\'ia), MASVS-AUTH (autenticaci\'on y autorizaci\'on), MASVS-NETWORK (seguridad de las comunicaciones) y MASVS-PLATFORM (interacci\'on segura con el sistema operativo y otras apps). Cada categor\'ia tiene dos niveles de madurez: L1 para todas las apps y L2 para las que manejan datos sensibles.
+
+Una app de seguridad que promete proteger al usuario tiene que ser, ella misma, segura. Las categor\'ias m\'as relevantes para el prototipo son MASVS-NETWORK (comunicaciones TLS con las APIs de threat intelligence), MASVS-STORAGE (historial de escaneos guardado localmente) y MASVS-PLATFORM (permisos de c\'amara y geolocalizaci\'on).
+
+El MASVS es el marco normativo detr\'as de las decisiones de seguridad del prototipo: HTTPS en todas las comunicaciones, almacenamiento cifrado del historial local y m\'inimo privilegio al pedir permisos. Cada una de estas decisiones se justifica directamente contra un control del est\'andar.
+
+Proteger las credenciales de las APIs externas del Filtro F1, es decir las API keys de Google Safe Browsing y VirusTotal, es un requisito de MASVS-STORAGE-2, que proh\'ibe guardar credenciales en texto plano en el c\'odigo o en almacenamiento sin cifrar. En el prototipo, estas credenciales viven solo en el entorno de ejecuci\'on del backend serverless (variables de entorno de AWS Lambda), nunca en el cliente m\'ovil, eliminando el riesgo de que alguien las extraiga haciendo ingenier\'ia inversa a la app. MASVS-NETWORK-2, por su parte, exige validar el certificado TLS del servidor en cada conexi\'on. El certificate pinning, que fija en el c\'odigo de la app el certificado o la clave p\'ublica esperada del backend, impide ataques de intermediario incluso si el atacante presenta un certificado firmado por una autoridad de confianza del sistema, y conviene evaluarlo para las comunicaciones entre la app y el backend propio del prototipo.
+
+\subsection{Seguridad de Red en iOS: App Transport Security (ATS)}
+
+App Transport Security (ATS) \cite{apple_ats} es el mecanismo de Apple, desde iOS 9, que exige por defecto HTTPS con TLS 1.2 o superior, certificados v\'alidos y cifrado fuerte en toda conexi\'on de red. Cualquier excepci\'on se tiene que declarar expl\'icitamente en el Info.plist de la app, y Apple la revisa durante el proceso de aprobaci\'on en la App Store. Apple Platform Security \cite{apple2024platformsecurity} documenta en detalle el modelo de seguridad de iOS, incluyendo aislamiento de procesos, firma de c\'odigo y sandboxing.
+
+Las comunicaciones del prototipo con las APIs de threat intelligence (Google Safe Browsing, VirusTotal, PhishTank) y con el backend en AWS tienen que cumplir con ATS. Entender ATS es indispensable para dise\~nar bien la capa de red del prototipo en iOS.
+
+Todos los endpoints integrados en el Filtro F1 usan HTTPS, as\'i que cumplen con ATS sin necesidad de excepciones. El \'unico caso especial son las URLs de usuario que pueden venir en HTTP, el payload del QR: esa URL se env\'ia al backend para analizarla, nunca se abre directamente en la app, con lo que se evita tener que declarar exenciones de ATS.
+
+\subsection{Seguridad de Red en Android: Network Security Configuration}
+
+Android tiene su propio equivalente a ATS: Network Security Configuration \cite{android_netsecconfig}, un archivo XML donde se define qu\'e autoridades certificadoras se aceptan, si se permite tr\'afico en texto plano (HTTP) y c\'omo se tratan los certificados de depuraci\'on. Desde Android 9 (API 28), el tr\'afico en texto plano viene deshabilitado por defecto.
+
+Esta configuraci\'on complementa a ATS en el dise\~no de la capa de red del prototipo, para que las comunicaciones sean seguras en ambas plataformas por igual. Mantener esta consistencia es parte del enfoque de usar las pol\'iticas de Apple como est\'andar de cumplimiento en todo el proyecto.
+
+La configuraci\'on de red en Android tiene que ser coherente con la de iOS: todo hacia las APIs y el backend debe ir por HTTPS, sin exenciones innecesarias de texto plano. Esto se traduce directamente en c\'omo se arma el archivo res/xml/network\_security\_config.xml del proyecto.
+
+\subsection{Almacenamiento Local Seguro: MMKV}
+
+react-native-mmkv \cite{rousavy_mmkv} es una biblioteca de almacenamiento clave-valor para React Native, basada en el framework MMKV de WeChat, con lectura y escritura s\'incronas, cifrado AES integrado y un rendimiento muy superior al de AsyncStorage, el almacenamiento por defecto de React Native. Benchmarks del propio autor \cite{rousavy_storagebenchmark} muestran que MMKV puede ser hasta 30 veces m\'as r\'apido que AsyncStorage en lectura, con soporte para cifrado nativo en iOS (Keychain) y Android (KeyStore).
+
+El historial de escaneos del prototipo (Objetivo Espec\'ifico 3) se guarda localmente en el dispositivo, sin cuenta de usuario. Como ese historial incluye URLs escaneadas, algunas maliciosas, hay que guardarlo de forma segura y accesible sin conexi\'on. La combinaci\'on de velocidad y cifrado nativo hace de MMKV la opci\'on m\'as adecuada, en l\'inea con los controles de MASVS-STORAGE.
+
+MMKV es, entonces, la tecnolog\'ia elegida para el historial offline del prototipo. Su justificaci\'on t\'ecnica, rendimiento, cifrado y compatibilidad con la New Architecture, respalda las decisiones de implementaci\'on del Objetivo Espec\'ifico 3.
+
+\section{APIs de Threat Intelligence Integradas en el Filtro F1}
+
+Este bloque detalla cada fuente de datos de reputaci\'on y amenazas que compone el Filtro F1: Google Safe Browsing, VirusTotal, PhishTank, URLhaus y MISP. Se describen sus capacidades t\'ecnicas, sus limitaciones operacionales y el rol que cumple cada una dentro del an\'alisis multicapa.
+
+\subsection{Google Safe Browsing API}
+
+La Google Safe Browsing API \cite{google_safebrowsing} permite consultar si una URL aparece en las listas de amenazas de Google, que cubren phishing, malware, software no deseado e ingenier\'ia social. La versi\'on 5, la Safe Browsing Lookup API v5, resuelve consultas de URLs individuales en tiempo real, con una latencia t\'ipica por debajo de 200 ms. Google actualiza estas listas de forma continua con an\'alisis automatizado a escala masiva.
+
+Es, por volumen de URLs indexadas, la base de datos de URLs maliciosas m\'as grande del mundo, y la misma que usan Chrome, Safari y Firefox para mostrar advertencias de sitios peligrosos. Integrarla como primera consulta del Filtro F1 extiende al contexto m\'ovil del QR una cobertura que ya existe en el navegador de escritorio.
+
+Es una de las tres APIs del Filtro F1, y su configuraci\'on, autenticaci\'on mediante API key, formato de solicitud y estructura de respuesta son parte directa de la implementaci\'on del Objetivo Espec\'ifico 4.
+
+\subsection{VirusTotal API}
+
+VirusTotal \cite{virustotal_apiv3} analiza archivos, URLs y dominios agregando los resultados de m\'as de 70 motores antivirus y herramientas de an\'alisis. Su API v3 permite enviar una URL y recuperar el veredicto agregado de todos los motores, adem\'as de metadatos del dominio como WHOIS, DNS y certificados TLS. El plan gratuito permite hasta 4 consultas por minuto y 500 al d\'ia.
+
+Su fortaleza est\'a en la agregaci\'on: una URL que se le escapa a un motor puede ser detectada por otro, y el veredicto final combina m\'ultiples perspectivas independientes, lo que reduce la probabilidad de falsos negativos frente a depender de una sola fuente.
+
+Es la tercera API del Filtro F1. Sus resultados, incluyendo cu\'antos motores marcaron la URL como maliciosa y qu\'e tipo de amenaza identificaron, alimentan el detalle extendido que el prototipo puede mostrar en la pantalla de resultado avanzado.
+
+\subsection{PhishTank}
+
+PhishTank \cite{phishtank_devinfo}, operado por Cisco Talos, es una base de datos colaborativa de URLs de phishing construida a partir de reportes de usuarios verificados: cualquiera puede reportar una URL, la comunidad vota para confirmarla o rechazarla, y las confirmadas pasan a la base p\'ublica. Su API gratuita permite consultar si una URL est\'a en esa base, que se actualiza cada hora.
+
+PhishTank complementa a Google Safe Browsing con cobertura especializada en phishing, incluyendo campa\~nas recientes que a\'un no aparecen en los sistemas autom\'aticos de Google. Su modelo colaborativo encaja bien con el ecosistema de threat intelligence que el prototipo busca alimentar mediante el reporte de QR maliciosos.
+
+Es la segunda API del Filtro F1. Cuando un usuario reporta un QR malicioso desde el prototipo (Feature 5.2), el backend puede enviar esa URL a PhishTank para que la comunidad la verifique, cerrando el ciclo de retroalimentaci\'on de threat intelligence.
+
+Vale la pena una nota de estado operacional: desde finales de 2023, Cisco Talos redujo bastante su soporte activo a PhishTank, lo que ha causado interrupciones peri\'odicas del servicio y actualizaciones menos frecuentes. Por eso la implementaci\'on del Filtro F1 tiene que manejar expl\'icitamente errores y timeouts cuando esta API no responde. OpenPhish \cite{openphish} es una alternativa activa y mantenida que cataloga URLs de phishing con actualizaciones en tiempo real, y puede servir como fuente complementaria o de respaldo.
+
+\subsection{URLhaus (abuse.ch)}
+
+URLhaus \cite{urlhaus_api}, de abuse.ch, se especializa en rastrear URLs usadas para distribuir malware. A diferencia de PhishTank, enfocado en phishing, URLhaus cataloga URLs que sirven exploits, ransomware, botnets y otros tipos de malware. Su API p\'ublica permite consultar URLs y dominios contra esa base, actualizada en tiempo real a partir de reportes de la comunidad de investigaci\'on en seguridad.
+
+Los c\'odigos QR no solo distribuyen phishing: tambi\'en pueden llevar a p\'aginas que sirven malware directamente. URLhaus extiende la cobertura del Filtro F1 m\'as all\'a del phishing, hacia ese tipo de amenaza.
+
+URLhaus queda fuera del alcance de este trabajo, que se limita a las tres APIs ya descritas. Se incluye en el marco te\'orico porque el QR no distribuye solo phishing, y URLhaus es la fuente m\'as especializada para ese otro vector. Integrarla como cuarta fuente del Filtro F1 es una l\'inea natural de trabajo futuro, sobre todo pensando en quishing corporativo donde se distribuye ransomware mediante QR embebidos en documentos de empresa.
+
+\subsection{MISP: Plataforma de Intercambio de Indicadores de Compromiso}
+
+MISP \cite{misp_project} es una plataforma abierta para compartir, almacenar y correlacionar indicadores de compromiso (IOC) de incidentes de ciberseguridad. Permite a organizaciones y comunidades compartir informaci\'on estructurada sobre amenazas en un formato est\'andar, con soporte para taxonom\'ias, galer\'ias de malware, feeds de threat intelligence y correlaci\'on autom\'atica de IOC entre eventos. Su arquitectura federada deja que varias instancias de MISP compartan datos de forma controlada entre comunidades de confianza.
+
+MISP representa el estado del arte en infraestructura de threat intelligence colaborativa, y le importa a este proyecto por dos razones: primero, como contexto del ecosistema donde operan las APIs integradas, muchas de las cuales consumen feeds compatibles con MISP; segundo, como modelo posible para una futura evoluci\'on del backend hacia una plataforma propia de intercambio de IOC de quishing.
+
+MISP no se integra directamente en el prototipo, pero la funcionalidad de reporte de QR malicioso (Feature 5.2) implementa su principio central a escala reducida: los usuarios aportan IOC, es decir URLs maliciosas, que se redistribuyen al ecosistema de threat intelligence.
+
+Adem\'as, varias de las APIs integradas en el Filtro F1 consumen o generan datos en formatos compatibles con MISP: VirusTotal exporta sus resultados en MISP format, y PhishTank genera feeds que m\'ultiples instancias MISP importan autom\'aticamente. Por eso entender MISP como infraestructura subyacente es necesario para comprender del todo c\'omo operan las fuentes del F1 dentro del panorama m\'as amplio del intercambio de inteligencia sobre amenazas.
+
+\section{Geolocalizaci\'on y Servicios de Contexto}
+
+Este bloque cubre la localizaci\'on geogr\'afica del dispositivo y la geocodificaci\'on inversa, funcionalidades auxiliares que el prototipo usa para enriquecer el registro de escaneos con el nombre del lugar donde se captur\'o el QR, y las implicaciones de privacidad que eso trae.
+
+\subsection{Geolocalizaci\'on y Geocodificaci\'on Inversa en Plataformas M\'oviles}
+
+Los tel\'efonos modernos determinan la ubicaci\'on combinando se\~nales de GPS, Wi-Fi, Bluetooth y torres celulares, gestionadas por los frameworks de localizaci\'on del sistema operativo: Core Location en iOS \cite{apple_location_auth} y la API de localizaci\'on de Android \cite{android_location_permissions}. Ambas plataformas piden consentimiento expl\'icito del usuario para acceder a la ubicaci\'on, distinguiendo entre uso en primer y segundo plano, y entre precisi\'on aproximada y precisa.
+
+La geocodificaci\'on inversa convierte coordenadas (latitud, longitud) en una descripci\'on legible: nombre del establecimiento, direcci\'on, ciudad, pa\'is. En iOS, CLGeocoder \cite{apple_clgeocoder} hace esto consultando los servidores de Apple Maps; Mapbox \cite{mapbox_geocoding} ofrece una API REST alternativa con m\'as granularidad y soporte para nombres de lugares de inter\'es.
+
+La Story Card del prototipo (Feature 5.3, una funcionalidad auxiliar al objetivo central de detecci\'on) usa geocodificaci\'on inversa para mostrar el nombre del lugar donde se escane\'o el QR en la tarjeta compartible, por ejemplo 'Restaurante El Portal, Ciudad de Guatemala'. Esto requiere acceso a la ubicaci\'on en el momento del escaneo y una geocodificaci\'on lo bastante precisa para distinguir un establecimiento espec\'ifico dentro de una misma direcci\'on. Elegir entre CLGeocoder y Mapbox \cite{mapbox_geocoding} afecta la privacidad, ya que los datos de ubicaci\'on viajan a servidores de terceros, adem\'as de la precisi\'on del resultado y el costo del servicio.
+
+El Objetivo Espec\'ifico 3 incluye esta geocodificaci\'on inversa para la Story Card. Pedir permisos de localizaci\'on, acceder a las coordenadas GPS e invocar el servicio de geocodificaci\'on son componentes directos de esta funcionalidad, y su implementaci\'on correcta depende de conocer bien las APIs de localizaci\'on documentadas en \cite{apple_location_auth,android_location_permissions}.
+
+\section{Usabilidad y Seguridad Centrada en el Usuario}
+
+Este bloque trata los principios de dise\~no de sistemas de seguridad que los usuarios realmente puedan usar, con \'enfasis en qu\'e tan efectivas son las advertencias de seguridad en dispositivos m\'oviles. Estos fundamentos informan directamente el dise\~no de la interfaz de resultados del prototipo.
+
+\subsection{Usable Security: Fundamentos y Modelo de Razonamiento}
+
+Usable security es la subdisciplina de la interacci\'on persona-computadora que estudia c\'omo dise\~nar sistemas de seguridad que la gente pueda usar de forma efectiva, eficiente y satisfactoria. Cranor \cite{cranor2008framework} propuso un marco donde el comportamiento seguro depende de tres pasos encadenados: el usuario tiene que notar la se\~nal de seguridad, entender qu\'e significa y actuar en consecuencia. Si el sistema falla en cualquiera de los tres, es inefectivo sin importar qu\'e tan s\'olido sea t\'ecnicamente.
+
+En el quishing, esto es cr\'itico: si el prototipo presenta el veredicto de forma confusa, tarde o demasiado t\'ecnica, el usuario puede ignorarlo o malinterpretarlo, y ah\'i se pierde todo el beneficio de seguridad de la herramienta.
+
+Las decisiones de interfaz del prototipo, como la paleta de colores del veredicto (verde, amarillo, rojo), la vista en dos niveles de detalle (simple y extendida), el texto del veredicto ('SEGURO', 'SOSPECHOSO', 'MALICIOSO') o la posici\'on y tama\~no de los botones de acci\'on, buscan justamente facilitar ese comportamiento seguro seg\'un el marco de Cranor \cite{cranor2008framework}. Sin esta base te\'orica, ser\'ian decisiones puramente est\'eticas.
+
+El Objetivo Espec\'ifico 2, o sea el flujo entre el escaneo y la presentaci\'on del veredicto, es en el fondo un problema de usable security. La pantalla de resultado busca maximizar la probabilidad de que el usuario note, entienda y act\'ue bien ante el veredicto, aplicando los principios documentados en \cite{cranor2008framework,egelman2008warned,akhawe2013alice}.
+
+\subsection{Efectividad de Advertencias de Seguridad en Dispositivos M\'oviles}
+
+Una advertencia de seguridad es efectiva en la medida en que logra cambiar el comportamiento del usuario hacia algo m\'as seguro. Egelman, Cranor y Hong \cite{egelman2008warned} estudiaron emp\'iricamente qu\'e hace efectiva una advertencia de phishing en el navegador, y encontraron que funcionan mejor cuando interrumpen la tarea del usuario, son visualmente prominentes, usan lenguaje concreto en vez de t\'ecnico y aparecen en el momento justo. Akhawe y Felt \cite{akhawe2013alice} llevaron esto a datos reales de Chrome a gran escala: el 70\,\% de los usuarios avanza a pesar de las advertencias de SSL, pero solo el 25\,\% ignora las de malware, lo que muestra que el tipo y la severidad percibida de la amenaza cambian c\'omo reacciona la gente.
+
+El prototipo es, en el fondo, un sistema de advertencias de seguridad en tiempo real, y esta literatura da principios de dise\~no basados en evidencia para sus pantallas de resultado: cu\'ando interrumpir el flujo, c\'omo describir la amenaza, qu\'e opciones dar y c\'omo formular la llamada a la acci\'on.
+
+Los dos niveles de detalle de la pantalla de resultado (Objetivo Espec\'ifico 2), vista simple para el usuario casual y vista extendida para el t\'ecnico, aplican el principio de divulgaci\'on progresiva de la literatura de usable security: la advertencia principal tiene que entenderse sola, y los detalles t\'ecnicos quedan disponibles para quien los necesite, sin saturar al usuario promedio. La paleta de colores y el texto del veredicto reflejan directamente los hallazgos de \cite{egelman2008warned,akhawe2013alice} sobre prominencia visual y lenguaje concreto.
+
+\section{Arquitectura de Backend en la Nube}
+
+Este bloque describe el modelo serverless del backend del Filtro F1, con sus componentes de AWS Lambda y API Gateway, el efecto del cold start en el presupuesto de latencia y las capacidades de seguridad que aporta API Gateway al dise\~no.
+
+\subsection{Arquitectura Serverless para el Backend del Filtro F1}
+
+En una arquitectura serverless, el proveedor gestiona la infraestructura y asigna recursos de c\'omputo din\'amicamente seg\'un llega cada solicitud. El backend del Filtro F1 corre sobre AWS Lambda \cite{aws_lambda_dg}, que ejecuta funciones en respuesta a eventos HTTP gestionados por Amazon API Gateway. Las funciones Lambda se activan por solicitud, escalan solas ante cambios de carga y no cuestan nada cuando no se usan, algo ideal para un backend de an\'alisis de seguridad con tr\'afico variable.
+
+Un punto cr\'itico de rendimiento en serverless es el cold start: si una funci\'on Lambda lleva un rato sin recibir solicitudes, el proveedor libera sus recursos, y la siguiente solicitud tiene que reinicializar todo el entorno, agregando entre 200 y 1.000 ms de latencia seg\'un el runtime y el tama\~no del paquete. Para el Objetivo Espec\'ifico 4, que pide menos de 5 segundos de respuesta total, el cold start es el riesgo de latencia m\'as importante del lado del servidor, y conviene mitigarlo con provisioned concurrency, que mantiene instancias ya inicializadas, o con solicitudes peri\'odicas de calentamiento.
+
+API Gateway, como capa entre la app m\'ovil y las funciones Lambda, agrega capacidades \'utiles para la seguridad: throttling para prevenir abuso, autenticaci\'on mediante API keys o tokens JWT, y control de CORS para restringir qu\'e or\'igenes pueden llamar a la API. Todo esto complementa los controles del lado del cliente (MASVS-NETWORK) y forma la capa de defensa en profundidad del servidor.
+
+Esta arquitectura serverless define el presupuesto de latencia completo del sistema: a los menos de 100 ms de decodificaci\'on del QR se suman el tiempo de transmisi\'on al backend, el posible cold start de Lambda y las respuestas en paralelo de las APIs de threat intelligence. Entender cada uno de estos componentes es indispensable para justificar el objetivo de latencia del Objetivo Espec\'ifico 4 y para calibrar bien la duraci\'on de la pantalla de carga con skeleton o shimmer del Objetivo Espec\'ifico 2, de modo que cubra el tiempo real de an\'alisis sin dar sensaci\'on de lentitud.

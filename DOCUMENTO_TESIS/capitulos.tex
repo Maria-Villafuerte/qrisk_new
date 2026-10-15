@@ -1,0 +1,563 @@
+\chapter{Metodología}
+
+\section{Enfoque y tipo de investigación}
+
+El trabajo corresponde a una investigación aplicada de desarrollo tecnológico con
+validación experimental en dispositivo. No se busca generar conocimiento teórico
+nuevo sobre detección de URLs maliciosas, materia ya tratada en los antecedentes,
+sino construir un artefacto funcional que lleve capacidades de análisis existentes
+al único punto de la cadena del ataque donde todavía se pueden aplicar: el intervalo
+entre la lectura del código QR y la apertura del navegador. El método, por lo tanto,
+se organiza alrededor de dos preguntas verificables: si el artefacto cumple los
+tiempos y las tasas de acierto que lo vuelven usable, y si el veredicto que produce
+se entiende lo suficiente como para que el usuario decida bien.
+
+La unidad de análisis es exclusivamente la URL textual extraída del código, según el
+RFC~3986, tal como se delimitó en el capítulo de alcance. No se analiza el símbolo QR
+como imagen ni ningún otro contenido codificable.
+
+Conviene fijar desde el inicio una distinción que ordena todo el diseño de la
+evaluación. El presente trabajo mide el desempeño del módulo de frontend: la latencia
+del escaneo, la tasa de detección de códigos, la corrección de la clasificación de
+contenido, la integridad del flujo y la comprensión del veredicto por parte del
+usuario. No mide la capacidad de detección del motor de análisis, que depende de las
+fuentes de reputación y de los filtros implementados en el módulo de backend. Son
+dos conjuntos de criterios distintos y ninguno sustituye al otro: una pantalla muy
+clara que comunique un veredicto poco confiable no protege a nadie, y un veredicto
+acertado pero mal explicado tampoco. Cuando una métrica dependa del backend, se
+declara explícitamente en la sección correspondiente.
+
+\section{Arquitectura de la solución}
+
+El prototipo se organiza en cuatro capas, cada una con una responsabilidad que no se
+solapa con las demás. Esta separación no es ornamental: es la que permite que la
+lógica de negocio se pruebe sin cámara, sin red y sin dispositivo, lo que a su vez
+determina qué parte de la validación puede automatizarse y qué parte exige hardware.
+
+\begin{table}[H]
+    \centering
+    \caption{Capas de la aplicación y su responsabilidad}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{8.5cm}@{}}
+        \toprule
+        \textbf{Capa} & \textbf{Responsabilidad} \\
+        \midrule
+        Rutas & Doce pantallas con enrutamiento basado en archivos: escaneo, carga, resultado, detalle, contenido no navegable, historial, reporte, Story Card y dos pasos de onboarding \\
+        Sistema de diseño & Diecisiete componentes y los tokens de color, tipografía y espaciado, extraídos del prototipo visual de alta fidelidad \\
+        Servicios & Lógica de negocio pura y aislada: análisis, cliente HTTP, clasificación de QR, almacenamiento, ubicación, reporte y formato \\
+        Estado & Un único contexto de React que sostiene el resultado vigente, el historial y la preferencia de ubicación \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:capas}
+\end{table}
+
+La dirección de las dependencias merece una nota, porque es contraria a lo que suele
+esperarse. El tipo que enumera los cuatro veredictos posibles ---seguro, sospechoso,
+malicioso e incierto--- reside en el sistema de diseño, dado que cada veredicto lleva
+asociados color, etiqueta y tratamiento visual. En consecuencia, la capa de servicios
+depende del sistema de diseño y no al revés. La implicación práctica es que un quinto
+veredicto se agregaría en el sistema de diseño y desde ahí se propagaría al resto.
+
+\subsection{Plataforma y versiones}
+
+El prototipo se construye sobre el stack que recoge el cuadro~\ref{tab:stack-metodo}.
+Se consignan las versiones exactas porque varias decisiones del método, en particular
+la que se discute en la sección siguiente, se explican por restricciones de
+compatibilidad entre versiones concretas y no por preferencias generales.
+
+\begin{table}[H]
+    \centering
+    \caption{Versiones verificadas del entorno de desarrollo}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{4.0cm}@{}}
+        \toprule
+        \textbf{Componente} & \textbf{Versión} \\
+        \midrule
+        Expo SDK & 57.0.12 \\
+        React Native & 0.86.2 (New Architecture) \\
+        React & 19.2.3 \\
+        Enrutamiento por archivos & Expo Router 57.0.12 \\
+        Cámara y escaneo & expo-camera 57.0.4 \\
+        Almacenamiento clave-valor & expo-sqlite 57.0.2 \\
+        Lenguaje & TypeScript 6.0.3, modo \texttt{strict} \\
+        Pruebas & Jest 30.5.1 con preset \texttt{jest-expo} \\
+        Entorno de compilación & Node 20.20.2, JDK 17, Gradle 9.3.1, API mínima 24 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:stack-metodo}
+\end{table}
+
+\subsection{Decisión sobre las librerías de escaneo y almacenamiento}
+
+El anteproyecto especificaba \texttt{react-na\-ti\-ve-vision-camera} para el escaneo y
+MMKV para el almacenamiento local. La implementación emplea los módulos nativos del
+propio SDK: \texttt{expo-camera} y el almacén clave-valor de \texttt{expo-sqlite}. La
+desviación se documenta aquí con su justificación técnica y con el criterio que la
+revertiría, porque un cambio de esta naturaleza debe quedar declarado como decisión y
+no descubrirse al leer el código.
+
+El motivo es un conflicto de dependencias nativas verificado durante la fase de
+integración. El enrutador por archivos arrastra la versión 0.12.x de la librería de
+\emph{worklets}, mientras que el núcleo de módulos del SDK en su versión 57.0.10 solo
+admite versiones iguales o anteriores a la 0.10.x. La combinación rompe la
+compilación nativa de Android con un error de símbolo ausente en tiempo de enlace, lo
+que obligó a fijar versiones explícitas de resolución en el manifiesto de
+dependencias. Adoptar los módulos del propio SDK reduce esa superficie de fallo, pues
+sus versiones se publican alineadas con el SDK, sin sacrificar ninguna de las
+capacidades que el escaneo requiere: decodificación nativa en tiempo real restringida
+al formato QR, control de linterna y gestión de permisos de cámara.
+
+En el caso del almacenamiento, la razón es funcional además de práctica. El almacén
+clave-valor de \texttt{expo-sqlite} ofrece una interfaz \emph{síncrona} de lectura.
+Esto permite resolver dos decisiones durante el primer renderizado: a qué pantalla
+dirigir al usuario según si ya completó el onboarding, y con qué contenido pintar el
+historial. Con una interfaz asíncrona, ambas decisiones ocurrirían después del primer
+renderizado y producirían un parpadeo visible hacia la pantalla equivocada.
+
+El criterio de reversión está fijado de antemano y es el resultado de la prueba~1.4,
+descrita en la sección~\ref{sec:mediciones}. Si la tasa de detección resulta inferior
+al 95~\% o el percentil~90 del tiempo de escaneo supera los 5~s, se migra a
+\texttt{react-native-vision-camera} conforme al anteproyecto original, con un esfuerzo
+estimado de uno a dos días. Antes de concluir que la migración es necesaria se
+descartan tres hipótesis de menor costo: que el fallo se concentre en ángulos de
+45\textdegree, caso en que correspondería ampliar el área de escaneo; que se concentre
+en penumbra, caso en que la linterna podría resolverlo y la interfaz debería
+sugerirla; o que se concentre en códigos pequeños a distancia, que sería una
+limitación de enfoque y no de decodificación. Si el fallo se concentra en un solo eje
+se documenta como limitación conocida; si se reparte en los tres, la migración queda
+justificada.
+
+\section{Procedimiento de desarrollo}
+
+El desarrollo se organiza en ocho bloques ordenados por dependencia técnica y riesgo,
+no por la secuencia de fases del anteproyecto. El cambio de criterio responde a una
+situación concreta: al iniciar la integración existían tareas de fases avanzadas
+terminadas y tareas de fases iniciales todavía abiertas, de modo que el orden original
+había dejado de describir el estado real del proyecto. La reorganización se rige por
+tres reglas declaradas: primero lo que desbloquea el trabajo de otras personas,
+después lo que elimina la mayor cantidad de riesgo técnico y al final lo que depende
+únicamente de tiempo disponible.
+
+\begin{table}[H]
+    \centering
+    \caption{Bloques de desarrollo y criterio de cierre}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.1cm}>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{6.0cm}@{}}
+        \toprule
+        \textbf{N.\textsuperscript{o}} & \textbf{Objetivo} & \textbf{Criterio de cierre} \\
+        \midrule
+        0 & Desbloquear el módulo de backend & Contrato de interfaz entregado \\
+        1 & Escaneo real en dispositivo & Prueba 1.4 superada: punto de decisión sobre la librería \\
+        2 & Persistencia local & Historial y preferencias sobreviven al reinicio \\
+        3 & Integración con el backend & Filtro F1 funcional de extremo a extremo con degradación controlada \\
+        4 & Completar funcionalidades parciales & Reporte, Story Card e historial operativos \\
+        5 & Compatibilidad con iOS & Fuera de alcance por falta de hardware \\
+        6 & Pruebas y métricas & Cobertura, mediciones en hardware y pruebas de usabilidad \\
+        7 & Cierre y documentación & Informe y defensa \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:bloques}
+\end{table}
+
+El bloque~1 concentra el mayor riesgo técnico del módulo, razón por la cual se
+adelanta: si el escaneo no cumple los tiempos, todo lo construido encima queda
+condicionado. El bloque~5 se mantiene en el plan aunque esté fuera de alcance, para
+que la exclusión sea una decisión visible y no una omisión.
+
+\subsection{El contrato de interfaz como instrumento}
+
+La coordinación con el módulo de backend se formalizó mediante un contrato de interfaz
+escrito antes de que existiera el endpoint, y conviene señalar el procedimiento con
+que se redactó porque tiene valor metodológico. El contrato no se derivó de lo que el
+backend podría ofrecer, sino del consumo real del frontend hacia atrás: las doce
+pantallas ya implementadas sobre datos de prueba determinaban exactamente qué campos
+se necesitaban, con qué tipos y en qué momento, lo que convierte a las definiciones de
+tipos del frontend en una especificación ya validada contra una interfaz funcional, y
+no en una lista de deseos.
+
+El contrato declara formato JSON en UTF-8, marcas temporales en ISO~8601 e
+identificación anónima de dispositivo sin cuentas de usuario, y traslada la regla de
+seguridad fundamental del producto a una restricción sobre la API: ningún endpoint
+puede devolver HTML para que el cliente lo renderice, ni redirigir el dispositivo
+hacia el sitio analizado. A la fecha de corte de este informe permanecen ocho puntos
+del contrato sin acordar, lo que se consigna como dependencia externa y no como tarea
+pendiente del módulo.
+
+\section{Estrategia de validación}
+
+La validación se organiza en tres niveles, separados por el tipo de pregunta que cada
+uno puede responder. La separación es deliberada: asignar a un nivel una pregunta que
+no puede contestar es la forma más común de producir evidencia que parece sólida sin
+serlo.
+
+\subsection{Nivel 1: pruebas unitarias de la lógica de negocio}
+
+El primer nivel cubre la capa de servicios mediante pruebas unitarias automatizadas.
+A la fecha de corte el conjunto comprende 249 pruebas distribuidas en 19 suites, con
+un umbral de cobertura del 70~\% en sentencias, ramas, funciones y líneas que
+interrumpe la compilación si no se alcanza.
+
+La cobertura se mide únicamente sobre la capa de servicios. Las pantallas y el sistema
+de diseño quedan excluidos a propósito, no por descuido: lo que se verifica en ellos
+---que un color comunique riesgo, que una jerarquía de botones induzca a la decisión
+correcta--- no es una afirmación que una prueba unitaria pueda sostener, y se valida en
+dispositivo y en las pruebas de usabilidad.
+
+El aislamiento se consigue con cuatro dobles de prueba y ninguno más: sustitución
+global del almacén clave-valor por una implementación en memoria con la misma
+interfaz síncrona, reemplazo de la función de red del entorno por una simulada,
+sustitución del cliente HTTP en las pruebas de los servicios que lo consumen y
+sustitución del módulo de ubicación. En ningún momento se realizan peticiones de red
+reales, de modo que el conjunto es determinista y reproducible sin conectividad ni
+credenciales.
+
+Dos pruebas del conjunto merecen mención porque validan el método y no solo el código.
+La primera fija como aserción el valor del tiempo límite de la petición de análisis:
+sin ella, elevarlo a 60~s dejaría pasar todas las demás pruebas sin que nadie lo
+advirtiera, y un parámetro con consecuencias sobre la experiencia de uso quedaría sin
+vigilancia. La segunda recorre la tabla de códigos QR de ejemplo de la documentación y
+verifica que cada entrada produzca la clasificación que la tabla declara, con lo que la
+documentación deja de poder divergir silenciosamente del comportamiento real.
+
+\subsection{Nivel 2: pruebas en dispositivo físico}
+
+El segundo nivel cubre todo lo que resulta inverificable desde una computadora:
+diálogos del sistema operativo, cámara, GPS real, galería, compartición y el backend
+en producción. Se compone de dos protocolos numerados que se detallan en la
+sección~\ref{sec:mediciones}.
+
+\subsection{Nivel 3: pruebas de usabilidad}
+
+El tercer nivel evalúa lo que ningún test automatizado puede responder: si el veredicto
+se entiende. Se realizará con cinco participantes y medirá tres indicadores:
+comprensión del veredicto, con criterio de al menos el 90~\%; finalización del flujo
+completo sin asistencia, con criterio de al menos el 85~\%; y tiempo de aprendizaje,
+con criterio máximo de 60~s. El fundamento de medir la comprensión por separado del
+desempeño técnico proviene de la literatura de \emph{usable security}: el modelo del
+humano en el ciclo descompone el comportamiento seguro en notar la señal, entenderla y
+actuar en consecuencia \cite{cranor2008framework}, y la evidencia de campo a gran
+escala muestra que la tasa de continuación ante una advertencia varía según la
+severidad percibida y la claridad del mensaje \cite{akhawe2013alice}. Un veredicto
+correcto que no se entiende no modifica la conducta y, por lo tanto, no protege.
+
+\section{Diseño de las mediciones en hardware}
+\label{sec:mediciones}
+
+\subsection{Prueba 1.4: tiempo de escaneo y tasa de detección}
+
+La prueba~1.4 constituye el punto de decisión del bloque~1 y mide tres indicadores con
+definiciones operativas explícitas.
+
+La tasa de detección (TDR) se define como el número de códigos detectados dividido
+entre el número de códigos presentados, multiplicado por cien, con criterio de
+aceptación de al menos el 95~\%. El tiempo de escaneo (\(T_{scan}\)) se mide desde el
+instante en que la pantalla del escáner queda lista hasta que la cámara entrega un
+código, con criterio de aceptación de 5~s o menos en el percentil~90; excluye
+deliberadamente el análisis posterior, que constituye un indicador distinto
+(\(T_{F1}\)) medido contra el backend. La precisión de clasificación se define como la
+proporción de códigos que abren la pantalla correcta según su tipo de contenido, con
+criterio de al menos el 98~\%.
+
+La muestra consta de 30 códigos que varían las tres condiciones que el uso real impone,
+conforme al cuadro~\ref{tab:muestra}. La variación por ángulo es la que más interesa,
+pues es donde típicamente se degrada la detección; la condición de oscuridad con
+linterna encendida cumple además la función de verificar el control de linterna sobre
+hardware real.
+
+\begin{table}[H]
+    \centering
+    \caption{Composición de la muestra de la prueba 1.4}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{9.0cm}@{}}
+        \toprule
+        \textbf{Condición} & \textbf{Niveles} \\
+        \midrule
+        Tamaño & 3 pequeños ($\sim$2~cm, etiqueta o ticket); 4 medianos ($\sim$5~cm, volante o menú); 3 grandes ($\sim$15~cm o más, cartel a distancia) \\
+        Ángulo & 4 de frente; 3 inclinados $\sim$30\textdegree; 3 inclinados $\sim$45\textdegree \\
+        Iluminación & 4 con luz de día; 3 en penumbra; 3 en oscuridad con linterna encendida \\
+        Contenido & Al menos 20 con URL; 5 de credenciales Wi-Fi; 5 de texto plano o contacto \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:muestra}
+\end{table}
+
+Los últimos diez códigos, de contenido no navegable, son los que validan la métrica de
+clasificación: lo que se comprueba en ellos es la lectura por cámara, no el análisis
+sintáctico del contenido, que ya se verifica en el nivel~1.
+
+La prueba se ejecuta sobre un teléfono Android de gama media y no sobre el mejor
+dispositivo disponible, dado que el criterio de tiempo de arranque está definido para
+gama media y conviene medir sobre hardware representativo. La instrumentación reside en
+la propia aplicación: cada lectura registra su duración y el resumen calcula la mediana,
+el percentil~90, el máximo, la tasa de detección y el cumplimiento de ambos criterios.
+El percentil se obtiene por interpolación lineal. Si un código no se lee en 10~s se
+registra como fallo y se continúa con el siguiente; ese fallo cuenta contra la tasa de
+detección.
+
+Se eligió el percentil~90 y no el promedio ni el máximo por una razón que conviene
+dejar asentada: una única lectura lenta no debe descalificar la aplicación, pero
+tampoco debe poder esconderse en un promedio. Con nueve lecturas de 500~ms y una de
+20~s el percentil~90 sigue cumpliendo el criterio; hacen falta dos lecturas lentas para
+desplazarlo.
+
+Corresponde declarar una limitación del instrumento. Las lecturas exitosas se
+registran solas, pero los fallos deben anotarse manualmente, porque la aplicación no
+tiene forma de saber que hubo un código frente a la cámara que nunca llegó a
+decodificar. Si los fallos no se anotan, la tasa de detección resulta del 100~\% y el
+dato es falso. Es el único valor que el instrumento no puede deducir y por eso el
+protocolo lo advierte de forma destacada. Adicionalmente, las muestras residen en
+memoria y se pierden al recargar la aplicación, de modo que los tiempos se anotan
+conforme se producen.
+
+\subsection{Protocolo de verificación en dispositivo}
+
+El segundo protocolo es una lista de verificación de aproximadamente 50 minutos,
+pensada para ejecutarse en una sola sesión, organizada en cinco bloques con resultado
+esperado por paso. Cubre el arranque en frío y el onboarding completo; el análisis real
+contra el backend, incluyendo los tres veredictos, el comportamiento ante una URL no
+vista antes y el aviso de espera prolongada; la geocodificación inversa, con criterio
+de al menos el 85~\% de nombres de lugar legibles, que debe ejecutarse al aire libre;
+la generación de la Story Card, con criterio de al menos el 90~\%; el camino sin
+conexión; y el comportamiento del teclado y las áreas seguras de la pantalla.
+
+Dos pasos del protocolo están marcados como no omisibles. El primero es de seguridad:
+consiste en intentar escanear con un segundo teléfono el código QR que la Story Card
+muestra cubierto; si resulta legible, se trata de un fallo grave, y es la razón por la
+que el código se cubre con una capa opaca y no con un difuminado, pues un código
+borroso sigue siendo escaneable. El segundo verifica que la preferencia de ubicación
+sobreviva al reinicio, regresión que se detectó y corrigió durante el desarrollo.
+
+La instrucción transversal del protocolo es registrar qué paso falló y qué se observó,
+en lugar de marcar únicamente aprobado o reprobado: un paso fallido acompañado del dato
+de lo ocurrido vale más que diez marcados en verde.
+
+\section{Latencia del backend y política de degradación}
+
+El tiempo límite de la petición de análisis se fijó en 25~s a partir de mediciones
+sucesivas contra el backend real, que se consignan porque explican una decisión que de
+otro modo parecería contradecir el criterio de 5~s del indicador \(T_{F1}\). En la
+primera medición, la llamada inicial tomó 5,5~s por arranque en frío de la función sin
+servidor y entre 1,6 y 3,1~s en las siguientes. Diez días después, una URL no vista
+antes por el backend tomaba entre 14,2 y 14,5~s, frente a 0,3~s si ya estaba en caché;
+el salto coincide con la incorporación del filtro de vista previa visual, que abre un
+navegador sin interfaz y cuesta alrededor de 10~s. Una medición posterior confirmó
+15,3~s en una URL nueva.
+
+Con un límite de 12~s, todo escaneo de un sitio nuevo se interrumpía solo y degradaba
+a veredicto incierto, es decir, precisamente el caso normal, porque un código QR de
+interés apunta casi siempre a algo que el backend no ha visto antes. El límite de 25~s
+deja cerca de 11~s de margen sobre el peor caso medido, y la pantalla de carga avisa al
+usuario a los 8~s que la espera se está prolongando.
+
+El argumento metodológico que sostiene esta decisión conviene explicitarlo: el tiempo
+límite no es la métrica. El indicador \(T_{F1}\) mide lo que tarda el backend en
+responder, no el momento en que la aplicación se rinde. Recortar el límite no mejora el
+número medido; solo convierte análisis buenos en inciertos. Si la latencia del backend
+disminuye, el límite deberá medirse y reducirse de nuevo, pues 25~s de espera es mucho
+pedir a una persona que sostiene el teléfono en alto.
+
+\subsection{Taxonomía de errores y degradación}
+
+El cliente HTTP traduce toda condición de fallo a un vocabulario cerrado de once
+códigos, de modo que la interfaz decida siempre según el código y nunca interpretando
+el texto del mensaje. La traducción absorbe dos formas de cuerpo de respuesta
+incompatibles ---la acordada en el contrato y la que el endpoint devuelve en la
+práctica--- y normaliza los nombres alternativos que el backend emplea. El cuadro
+\ref{tab:errores} resume el criterio de reintento, que la interfaz usa para decidir si
+ofrece volver a intentar.
+
+\begin{table}[H]
+    \centering
+    \caption{Clasificación de errores según posibilidad de reintento}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}p{8.6cm}@{}}
+        \toprule
+        \textbf{Categoría} & \textbf{Códigos y tratamiento} \\
+        \midrule
+        Reintentable & Tiempo agotado del filtro, filtro no disponible, límite de tasa excedido, error interno, fallo de red y tiempo agotado de la petición \\
+        No reintentable & URL inválida, carga inválida y análisis no encontrado: el fallo está en la petición, de modo que repetirla produciría el mismo resultado \\
+        Cancelación & Se distingue del tiempo agotado aunque el mecanismo subyacente sea el mismo, pues abandonar la pantalla no es un error y no debe reportarse como tal \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:errores}
+\end{table}
+
+La política de degradación distingue dos casos. Una URL inválida se repropaga al
+llamador, porque no constituye un fallo de análisis sino contenido no analizable, y la
+pantalla lo trata como tal dirigiendo al usuario a la vista de contenido. Cualquier otro
+error degrada a un resultado honesto: veredicto incierto con aviso visible de que no se
+completaron todas las verificaciones. En ningún caso un fallo produce un veredicto
+seguro, criterio que se deriva de la regla de que la falta de información nunca se
+comunica en verde.
+
+\section{Determinación del veredicto}
+
+El veredicto se resuelve con una precedencia de dos fuentes. Si el backend concluyó, su
+veredicto manda; un valor pendiente no constituye conclusión, mientras que un incierto
+explícito sí se respeta. Solo si el backend no concluyó se deriva el veredicto del
+puntaje numérico.
+
+Esta derivación existe por una razón circunstancial que conviene documentar: el backend
+calcula correctamente el puntaje y sus criterios, pero su campo de veredicto final
+responde pendiente a toda consulta, incluidos dominios legítimos, porque el umbral que
+convierte puntaje en veredicto no está conectado de su lado. Sin la derivación, todo
+análisis terminaría en incierto y la aplicación no podría comunicar lo único que debe
+comunicar. No se trata de un veredicto inventado: el puntaje y los criterios que lo
+componen provienen del backend; lo único que aporta la aplicación son los cortes. El
+diseño se desmantela por sí solo, pues en cuanto el backend devuelva veredictos reales
+la primera fuente tiene precedencia y la derivación deja de ejecutarse sin cambiar una
+línea.
+
+Los cortes están alineados con los pesos que el propio backend asigna a cada criterio
+---dominio de nivel superior de riesgo, 25; host que es una dirección IP literal, 30;
+ausencia de HTTPS, 15; palabra clave sospechosa, 15--- según el cuadro
+\ref{tab:bandas}.
+
+\begin{table}[H]
+    \centering
+    \caption{Bandas de puntaje y su fundamento}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{7.6cm}@{}}
+        \toprule
+        \textbf{Puntaje} & \textbf{Veredicto} & \textbf{Fundamento} \\
+        \midrule
+        0--29 & Seguro & Un solo criterio menor no basta. Marcar de riesgo todo sitio sin HTTPS produciría tantos falsos positivos que la aplicación perdería credibilidad \\
+        30--59 & Sospechoso & 30 es exactamente el peso de un host que es una IP literal, y también la suma de dos criterios menores. Merece advertencia, no condena \\
+        60--100 & Malicioso & Tres o más señales simultáneas, por ejemplo IP más ausencia de HTTPS más la palabra \emph{login}: el caso clásico de phishing \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:bandas}
+\end{table}
+
+\subsection{Validación de rango}
+
+El puntaje se valida en dos puntos independientes del flujo, uno para la derivación del
+veredicto y otro para el medidor visual de riesgo. La duplicación es intencional y
+ambas validaciones fallan hacia el lado seguro.
+
+Un valor ausente o que no es un número finito no produce veredicto optimista, sino
+ninguno, y el llamador lo resuelve como incierto. Un valor fuera del rango de 0 a 100
+también se rechaza, y por la misma razón de fondo: un $-20$ o un $150$ no significan
+``muy seguro'' y ``muy malicioso'', sino que el backend cambió de escala y que los
+cortes ya no significan lo que se supone. Interpretarlos con la tabla anterior es
+exactamente el mecanismo por el cual se produce un veredicto equivocado con apariencia
+de correcto, dado que un $-20$ daría seguro, y un falso seguro es el peor resultado
+posible del producto. Ante una escala que no se comprende, la aplicación informa
+incierto, que es la afirmación verdadera.
+
+\section{Métricas e instrumentos de evaluación}
+
+El cuadro~\ref{tab:metricas} asocia cada métrica del anteproyecto con el instrumento
+que la medirá. La columna de instrumento es la aportación metodológica del cuadro: sin
+ella, una métrica puede enunciarse sin que exista procedimiento capaz de producirla.
+
+\begin{table}[H]
+    \centering
+    \caption{Métricas del proyecto y su instrumento de medición}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{5.0cm}@{}}
+        \toprule
+        \textbf{Métrica} & \textbf{Criterio} & \textbf{Instrumento} \\
+        \midrule
+        Clasificación URL / no-URL & $\geq$ 98~\% & Pruebas unitarias y prueba 1.4 \\
+        Cobertura de pruebas unitarias & $\geq$ 70~\% & Informe de cobertura automatizado \\
+        Persistencia offline del historial & 100~\% & Pruebas unitarias y protocolo en dispositivo \\
+        Reportes con carga completa & 100~\% & Pruebas unitarias \\
+        \(T_{scan}\) (percentil 90) & $\leq$ 5~s & Prueba 1.4 en dispositivo \\
+        Tasa de detección (TDR) & $\geq$ 95~\% & Prueba 1.4 en dispositivo \\
+        \(T_{F1}\) (percentil 90) & $\leq$ 5~s & Medición contra el backend \\
+        \(T_{total}\) & $\leq$ 35~s & Medición contra el backend \\
+        Detección de maliciosos & $\geq$ 90~\% & Muestra de URLs verificadas, requiere backend \\
+        Falsos positivos & $\leq$ 5~\% & Muestra de dominios legítimos, requiere backend \\
+        Geocodificación legible & $\geq$ 85~\% & Protocolo en dispositivo, bloque B \\
+        Story Card generada & $\geq$ 90~\% & Protocolo en dispositivo, bloque C \\
+        Comprensión del veredicto & $\geq$ 90~\% & Prueba de usabilidad \\
+        Finalización del flujo & $\geq$ 85~\% & Prueba de usabilidad \\
+        \(T_{learn}\) & $\leq$ 60~s & Prueba de usabilidad \\
+        \(T_{start}\) & $\leq$ 3~s & Medición en dispositivo de gama media \\
+        Compatibilidad Android $\geq$ 10 & Sin errores críticos & Compilación nativa y protocolo en dispositivo \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:metricas}
+\end{table}
+
+Cuatro de las diecisiete métricas quedan cubiertas por el nivel de pruebas
+automatizadas. Las trece restantes dependen de hardware, del avance del módulo de
+backend o de la disponibilidad de participantes, y así se declaran.
+
+Un caso exige precisión particular. La métrica de detección de maliciosos no es medible
+en el estado actual del sistema, y no por una limitación del instrumento: el backend no
+devuelve el veredicto malicioso en ninguna consulta, de modo que la medición arrojaría
+0~\% por construcción y no por desempeño. La métrica queda condicionada a que el
+módulo de backend conecte su umbral de decisión, y su valor no debe interpretarse
+hasta entonces. Las métricas de clasificación que sí dependen del frontend se evalúan
+con las definiciones estándar de precisión y exhaustividad para clasificadores
+\cite{sokolova2009systematic}.
+
+\section{Consideraciones éticas y de privacidad}
+
+La minimización de datos se trata aquí como decisión de método y no como añadido, pues
+determina qué puede medirse y cómo.
+
+La regla de mayor jerarquía del producto es que la aplicación nunca visita la URL
+analizada. Esta regla domina sobre cualquier otra decisión de producto y tiene
+consecuencia metodológica directa: el análisis opera sobre la cadena de texto, de modo
+que ninguna medición de este trabajo implica contacto con la infraestructura del
+atacante, ni expone la dirección IP del dispositivo, ni revela que un usuario concreto
+está por acceder a una URL concreta. La vista previa visual, cuando el backend la
+provee, se presenta como imagen estática y nunca como contenido navegable.
+
+De esa regla se derivan las demás decisiones. La geocodificación inversa se resuelve en
+el dispositivo y no en el servidor, de modo que las coordenadas no salen del teléfono.
+Los reportes de códigos maliciosos son anónimos: no incluyen identificador de usuario
+ni coordenadas, y los campos opcionales solo se transmiten cuando contienen datos. El
+historial reside exclusivamente en el teléfono, que es la fuente de verdad, lo que
+además es la condición que hace posible la métrica de recuperación sin conexión. Las
+contraseñas de redes Wi-Fi codificadas en un QR se enmascaran en pantalla. El código
+QR que aparece en la Story Card se cubre con una capa opaca y no con un difuminado,
+porque un código borroso sigue siendo escaneable y compartir la tarjeta propagaría el
+ataque.
+
+El marco de verificación de seguridad de la aplicación es el estándar de verificación
+de seguridad de aplicaciones móviles de OWASP en su versión 2.1
+\cite{owasp2024masvs}, del que aplican tres categorías al prototipo: almacenamiento,
+para el historial local; red, para la comunicación con el backend; y plataforma, para
+el manejo de permisos de cámara y ubicación. Se eligió por ofrecer criterios
+verificables en lugar de buenas prácticas generales.
+
+Para las pruebas de usabilidad se recabará consentimiento informado, se explicará el
+propósito del estudio y el carácter voluntario de la participación, y los datos se
+tratarán de forma anónima y agregada. Los participantes escanearán únicamente códigos
+preparados para la prueba, nunca códigos maliciosos reales en entornos de uso
+cotidiano.
+
+\section{Limitaciones del método}
+
+Corresponde declarar las limitaciones del diseño, con la misma precisión con que se
+declararon las de la revisión de antecedentes.
+
+La cobertura automatizada alcanza la lógica de negocio pero no las pantallas: no hay
+pruebas de componentes ni pruebas de extremo a extremo automatizadas, de modo que el
+comportamiento de la interfaz se verifica mediante protocolos manuales en dispositivo,
+cuya reproducibilidad depende de quien los ejecute. Tampoco hay analizador estático de
+estilo configurado: la puerta de calidad del proyecto son la verificación de tipos en
+modo estricto y el conjunto de pruebas.
+
+La plataforma iOS queda fuera de alcance por falta de hardware, conforme a lo
+declarado en el capítulo de alcance, de modo que las conclusiones sobre desempeño del
+escaneo se limitan a Android.
+
+La muestra de las pruebas de usabilidad es de cinco participantes, insuficiente para
+inferencia estadística. Sus resultados se interpretarán como indicios de problemas de
+comprensión y no como estimaciones poblacionales, y el estudio de usabilidad con
+muestra representativa ya figura entre las exclusiones explícitas del trabajo.
+
+Las mediciones de latencia del backend corresponden a un endpoint en ambiente de
+desarrollo con recursos del nivel gratuito, de modo que los tiempos observados incluyen
+arranques en frío que un despliegue en producción podría no presentar. El filtro de
+vista previa visual se comporta de forma intermitente, por lo que no se cuenta con él
+para las mediciones.
+
+Finalmente, a la fecha de corte de este informe la aplicación no se ha ejecutado en un
+teléfono físico: no hubo dispositivo ni emulador disponible en el entorno de
+desarrollo. Lo verificado hasta ahora es que la verificación de tipos está limpia, que
+las 249 pruebas pasan, que el paquete JavaScript de la aplicación completa se exporta
+sin errores para Android ---lo que garantiza ausencia de importaciones rotas, rutas mal
+declaradas y errores de sintaxis en las doce pantallas, pero nada de lo que solo se
+observa ejecutando--- y que los tres veredictos se producen correctamente al procesar
+respuestas en vivo del backend real. Todo lo que requiere hardware permanece pendiente
+de los protocolos descritos en la sección~\ref{sec:mediciones}, y así se consigna en
+lugar de presentarse como verificado.

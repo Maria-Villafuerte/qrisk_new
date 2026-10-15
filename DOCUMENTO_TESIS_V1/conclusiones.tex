@@ -1,0 +1,18 @@
+\begin{enumerate}
+	\item Se desarrolló un prototipo funcional de aplicación móvil para Android que se coloca entre la lectura de un código QR y la apertura del enlace, y que analiza la URL sin visitarla nunca desde el teléfono. El prototipo integra de extremo a extremo el escaneo, la clasificación del contenido, el filtro F1 de reputación, la cascada de análisis del servidor y la presentación del veredicto, con lo que cubre el flujo completo planteado en el objetivo general.
+
+	\item El módulo de escaneo lee códigos QR con la cámara del dispositivo mediante \texttt{expo-camera} y clasifica su contenido con una precisión del 100~\% en los 18 casos de prueba automatizada, separando los enlaces de las credenciales Wi-Fi, contactos, correos, teléfonos, coordenadas y texto. El cambio de librería respecto del protocolo redujo los conflictos entre dependencias nativas sin perder ninguna capacidad requerida.
+	\pendiente{Completar esta conclusión con el tiempo de lectura y la tasa de detección del banco de pruebas automatizado, e indicar si se cumplió el criterio de 5~s en el percentil 90.}
+
+	\item El flujo de interacción presenta el veredicto en cuatro categorías con dos niveles de detalle. La vista simple comunica la decisión en lenguaje llano y la vista extendida muestra los criterios reales que produjo el análisis. La regla de que ningún fallo produce un veredicto seguro, junto con la validación del puntaje, evita el error más grave del producto: un falso ``seguro'' con apariencia de correcto.
+	\pendiente{Agregar los resultados de comprensión del veredicto, finalización del flujo y \tlearn{} de la prueba de usabilidad.}
+
+	\item Las funcionalidades secundarias quedaron implementadas: el historial conserva los últimos 20 análisis completos y los recupera sin conexión, el reporte construye una carga anónima y no pierde lo escrito ante un fallo, y la Story Card reúne la foto del entorno, el código cubierto con una capa opaca, el lugar y el veredicto. Las métricas automatizadas de persistencia y de carga del reporte se cumplieron al 100~\%. El guardado del reporte depende de una corrección pendiente en el servidor.
+	\pendiente{Completar con la geocodificación legible y la generación de la Story Card verificadas en el teléfono.}
+
+	\item El filtro F1 se resolvió en el propio dispositivo con una lista local de dominios confiables y consultas en paralelo a Google Safe Browsing y PhishTank, y respondió con un percentil 90 de 488~ms sobre 400 URLs, muy por debajo del criterio de 5~s. Incorporar PhishTank multiplicó por siete la detección de phishing del filtro sin producir falsos positivos en la muestra. Cuando F1 concluye, el servidor responde en alrededor de 5~s en lugar de ejecutar la cascada completa.
+
+	\item Las pruebas sobre amenazas activas mostraron que ningún filtro por sí solo es suficiente: Safe Browsing no detectó ninguna de 22 URLs de distribución de malware, la heurística detectó la que usaba una IP literal y solo el análisis de comportamiento detectó una carga maliciosa en un dominio de aspecto normal. Este resultado respalda empíricamente la decisión de organizar el análisis como una cascada de filtros complementarios.
+
+	\item El principal obstáculo para el desempeño del sistema completo no está en la aplicación, sino en el límite de 35~s de API Gateway, que cortó el 45~\% de los análisis en la prueba de la cascada. La aplicación mitiga ese límite con un presupuesto de 90~s y un reintento, y degrada a incierto en lugar de inventar un veredicto, pero la solución de fondo corresponde al servidor.
+\end{enumerate}

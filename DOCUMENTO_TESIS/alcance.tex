@@ -1,0 +1,77 @@
+\section{Definición del alcance}
+
+El presente protocolo se enfoca en el diseño e implementación del frontend móvil del sistema de análisis automatizado de URLs para detección de quishing, integrado dentro de un sistema compuesto por una interfaz en React Native y un motor backend desplegado en AWS. El frontend cubre el flujo completo de la experiencia de usuario e integra el Filtro F1 como primer filtro de análisis funcional end-to-end:
+
+\begin{itemize}
+    \item \textbf{F1 --- Reputación:} consumo en tiempo real del veredicto consolidado de Google Safe Browsing, PhishTank y VirusTotal; primer filtro funcional integrado de extremo a extremo.
+    \item \textbf{Pantallas de resultado para F2.1} (análisis heurístico), \textbf{F2.2} (sandbox) y \textbf{F2.3} (vista previa visual segura): la interfaz presenta el desglose y los indicadores recibidos del backend; la implementación del motor de análisis de estos filtros forma parte del módulo backend.
+    \item \textbf{Funcionalidades secundarias:} historial local offline (últimos 20 escaneos), reporte de QR malicioso al backend y Story Card compartible con geocodificación inversa.
+\end{itemize}
+
+El producto final es demostrable en dispositivos físicos iOS y Android; no contempla publicación en tiendas de aplicaciones.
+
+\section{Delimitación Funcional y Técnica}
+
+\subsection{Funcionalidades incluidas}
+
+\begin{table}[H]
+    \centering
+    \caption{Delimitación Funcional y Técnica}
+    \begin{tabular}{@{}ll@{}}
+        \toprule
+        \textbf{Módulo} & \textbf{Componente} \\
+        \midrule
+        Frontend & Decodificación QR nativa en tiempo real (Apple Vision / ML Kit) \\
+        Frontend & Clasificación de contenido: URL vs. no-URL \\
+        Frontend & Pantalla de carga (skeleton/shimmer) y resultado simple/extendido \\
+        Frontend & Historial local cifrado (últimos 20 escaneos, consultable offline) \\
+        Frontend & Reporte de QR malicioso al backend \\
+        Frontend & Story Card compartible con ubicación geocodificada \\
+        Frontend & Integración del Filtro F1 (consumo del veredicto de reputación vía backend) \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:delimitacion}
+\end{table}
+
+El motor de análisis backend (filtros F2.1, F2.2 y F2.3) forma parte del sistema integral, pero su implementación queda fuera del alcance principal del presente protocolo; el frontend consume sus resultados mediante el contrato de interfaz acordado.
+
+\subsection{Stack tecnológico fijo}
+
+\begin{table}[H]
+    \centering
+    \caption{Stack tecnológico fijo}
+    \begin{tabular}{@{}ll@{}}
+        \toprule
+        \textbf{Capa} & \textbf{Tecnología} \\
+        \midrule
+        Framework móvil & React Native 0.76+ (New Architecture) \\
+        Cámara y escaneo & react-native-vision-camera v4 \\
+        Almacenamiento local & react-native-mmkv \\
+        Navegación & React Navigation \\
+        Geocodificación inversa & Nominatim / Google Maps API \\
+        Reputación (F1) & Google Safe Browsing v5, PhishTank, VirusTotal v3 \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:stack}
+\end{table}
+
+La unidad de análisis es exclusivamente la URL textual extraída del QR (RFC 3986). No se analiza el símbolo QR en sí ni ningún otro tipo de contenido codificado.
+
+\section{Restricciones}
+
+\begin{itemize}
+    \item \textbf{Temporal:} diecisiete semanas de desarrollo organizadas en seis fases, contemplando un margen adicional dentro del semestre académico para atender posibles ajustes o imprevistos.
+    \item \textbf{Equipo:} dos integrantes, cada una responsable de un módulo. Sin recursos adicionales.
+    \item \textbf{Económica:} el sistema opera dentro de los planes gratuitos de todas las APIs externas y del AWS Free Tier. No se contempla inversión en planes de pago.
+    \item \textbf{Hardware:} la compilación para iOS requiere acceso periódico al laboratorio de macOS de la universidad.
+    \item \textbf{Conectividad:} el análisis requiere conexión a internet. Sin conexión, el sistema no produce veredicto y lo comunica al usuario; no se implementa análisis offline.
+\end{itemize}
+
+\section{Exclusiones explícitas}
+
+\begin{itemize}
+    \item \textbf{Funcionales:} cuentas de usuario y autenticación; historial ilimitado; GIF animado del comportamiento del sitio (F2.3); notificaciones push; escaneo en segundo plano.
+    \item \textbf{De contenido:} análisis de seguridad sobre datos WiFi, vCard o esquemas de pago codificados en QR; URLs con esquemas distintos de \texttt{http://} y \texttt{https://}.
+    \item \textbf{Técnicas:} implementación del motor de análisis backend (filtros F2.1, F2.2 y F2.3); modelos de aprendizaje automático propios; análisis de HTML o JavaScript en el dispositivo; despliegue en tiendas de aplicaciones; pruebas de carga a escala.
+    \item \textbf{De investigación:} estudios de usabilidad con muestras estadísticamente representativas; estudios de campo en entornos reales; análisis comparativo con soluciones comerciales.
+\end{itemize}

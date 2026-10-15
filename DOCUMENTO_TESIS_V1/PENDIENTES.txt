@@ -1,0 +1,61 @@
+PENDIENTES DE LA TESIS (versión 1)
+==================================
+
+En el PDF cada pendiente aparece como un recuadro naranja con la palabra
+"Pendiente:". Las figuras por agregar aparecen como un recuadro vacío con el
+texto "Espacio reservado para la figura".
+
+Para encontrarlos en los .tex, buscar "\pendiente" y "\figurapendiente".
+
+
+1. Datos personales
+   - agradecimientos.tex: reemplazar [nombres de mi familia] y
+     [nombres de amigos o personas que participaron en las pruebas].
+   - datos_estudiante.tex: fecha de aprobación (quedó con líneas en blanco).
+
+2. Banco de pruebas automatizado de lectura (tu sistema de imágenes en carpeta)
+   - capitulos.tex, Metodología > Diseño de las mediciones > Banco de pruebas
+     automatizado de lectura: describir herramienta, imágenes, condiciones,
+     cómo se mide el tiempo y en qué equipo corre.
+   - resultados.tex, sección "Lectura de códigos QR":
+       * Cuadro de resultados globales (TDR, T_scan mediana, p90, máximo,
+         precisión de clasificación).
+       * Cuadro de resultados por condición (tamaño, ángulo, iluminación,
+         contenido).
+       * Figura: histograma de T_scan con la línea del criterio de 5 s.
+       * Figura: distribución de T_scan por condición.
+       * Decisión sobre la librería de cámara (expo-camera o vision-camera).
+
+3. Otras mediciones
+   - resultados.tex, "Verificación de la lógica de negocio": volver a correr
+     npm run test:coverage y actualizar cifras y fecha.
+   - resultados.tex, "Filtro F1": medir T_F1 desde el teléfono con red 4G.
+   - resultados.tex, "Cascada completa": figura de T_total y cortes por 504.
+   - resultados.tex, "Detección con una muestra verificada": TDM y TFP con
+     50 URLs de phishing recientes + 50 de Tranco.
+   - resultados.tex, "Verificación en el dispositivo": protocolo completo,
+     T_start y capturas de pantalla de los tres veredictos.
+   - resultados.tex, "Usabilidad": tabla de los 5 participantes y frases.
+   - resultados.tex, "Cumplimiento de las métricas": actualizar el cuadro.
+   - resultados.tex, "Limitaciones de los resultados": agregar las del banco
+     de pruebas y de la usabilidad.
+
+4. Textos que dependen de los resultados
+   - resumen.tex: último párrafo.
+   - conclusiones.tex: conclusiones 2, 3 y 4.
+   - recomendaciones.tex: revisar al final.
+   - anexos.tex: rutas de la evidencia nueva.
+
+
+CÓMO COMPILAR
+=============
+Desde esta carpeta:
+
+  pdflatex main
+  bibtex main
+  makeglossaries main
+  makeindex main.nlo -s nomencl.ist -o main.nls
+  pdflatex main
+  pdflatex main
+
+En Overleaf basta con subir la carpeta completa y compilar con pdfLaTeX.

@@ -1,0 +1,115 @@
+Los códigos QR se volvieron parte de la rutina diaria mucho más rápido de lo que
+avanzaron las medidas de seguridad que deberían acompañarlos. Cuando alguien escanea
+un código, no ve a dónde lo lleva el enlace antes de que su teléfono lo abra, y la
+mayoría de sistemas operativos móviles hacen esa redirección sin revisar nada. Ese
+desbalance es lo que vuelve tan efectivo al \emph{quishing}: el riesgo está ahí, pero
+es invisible justo en el momento en que el usuario tiene que decidir. Por eso tiene
+sentido atacar el problema donde ocurre, es decir, en la pantalla de escaneo.
+
+El tamaño del problema y su evolución ya se documentaron en la definición del
+problema, y el análisis de qué tan confiable es esa evidencia se desarrolla en los
+antecedentes. Lo que toca argumentar aquí es otra cosa: por qué vale la pena
+atenderlo ahora, por qué esta forma de resolverlo es la adecuada y a quién le sirve.
+Sobre lo primero bastan tres datos ya establecidos. El ataque se industrializó al
+integrarse a plataformas de \emph{phishing-as-a-service} \cite{insikt2024qrcode}. Los
+filtros de correo corporativo no leen los códigos QR incrustados como imagen, así que
+este vector simplemente los esquiva \cite{unit42_2023qr}. Y las apps de escaneo
+seguro que existen funcionan casi todas con listas negras, un enfoque que deja fuera
+a los dominios recién creados
+\cite{sheng2009empirical,ma2009beyond,apwg2024q1,apwg2025q1}. Juntas, estas tres
+condiciones dejan abierta una ventana de exposición que hoy nadie cubre.
+
+\subsection*{Por qué intervenir en el escaneo y no en otro punto}
+
+Hay una objeción obvia a esta propuesta: los navegadores móviles ya traen servicios
+de reputación de URLs, entonces el usuario estaría protegido sin importar con qué app
+escanee. Es una objeción válida y conviene responderla de frente, porque de ahí
+depende que este trabajo tenga sentido.
+
+El punto es que el navegador avisa tarde. Para cuando muestra la advertencia, la
+petición al servidor del atacante ya salió: su dirección IP, el modelo de navegador y
+todo lo que venía codificado en la URL ya se enviaron, y lo que el servidor haya
+respondido ya llegó al teléfono. En una campaña de \emph{quishing}, buena parte de lo
+que el atacante quiere lo consigue en ese primer contacto, sin que el usuario tenga
+que hacer nada más. Si el análisis se mete entre la lectura del código y la apertura
+del navegador, el control se adelanta un paso: ahí la URL ya se puede leer, pero
+todavía no hubo contacto con el atacante. Esa diferencia de un solo paso es la que
+separa una advertencia que llega tarde de una que llega a tiempo, y es la razón de
+que la solución viva en la app de escaneo y no más adelante en la cadena.
+
+De esa decisión se desprenden las demás. La lectura del código se resuelve en el
+propio teléfono con las APIs nativas de visión
+\cite{apple_vndetectbarcodes,google_mlkit_barcode,rousavy_visioncamera}, así no hay
+que mandar la imagen a ningún lado y el tiempo total de respuesta se mantiene dentro
+de lo aceptable. El análisis arranca consultando fuentes de reputación porque son las
+que dan mayor certeza sobre amenazas ya conocidas gastando muy poco tiempo y cómputo
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo}; son el primer filtro
+lógico. Que no alcancen para dominios nuevos es, justamente, la razón de que existan
+filtros después. Y se consultan varias fuentes en lugar de una sola porque sus
+coberturas son parciales y desparejas, sobre todo con campañas en español dirigidas a
+la región, donde se reporta bastante menos que en inglés.
+
+\subsection*{A quién le sirve este trabajo}
+
+En lo teórico, el trabajo aporta al estudio de ataques que aprovechan interfaces poco
+convencionales, donde la señal que el usuario normalmente usaría para desconfiar (ver
+la URL) desaparece por diseño del medio. Ya está documentado que la gente cae más
+fácil en phishing por QR que en phishing por enlace directo, precisamente por eso
+\cite{vidas2013qrishing,krombholz2014qr}, lo que coloca el problema entre la
+seguridad informática y el factor humano. Además es un terreno poco explorado en
+América Latina, donde la tecnología se adoptó más rápido que las prácticas de
+seguridad que deberían venir con ella.
+
+Para los usuarios, una interfaz que revise el enlace entre la lectura del código y la
+redirección atiende un riesgo que aparece en situaciones de todos los días:
+comercios, transporte público, oficinas de gobierno y pagos. Como el quishing le pega
+a cualquiera con un teléfono, sepa o no de tecnología \cite{vidas2013qrishing}, el
+valor de una herramienta así está en que no le exige al usuario saber nada especial
+para decidir bien.
+
+Vale la pena aclarar hasta dónde llega esa afirmación. Lo que este trabajo aporta en
+diseño es convertir un veredicto técnico en una decisión que el usuario pueda tomar,
+en el momento y en el aparato donde le toca tomarla. Eso se mide con sus propios
+criterios: si el veredicto se entiende, si el flujo funciona bien y si cumple el
+tiempo de respuesta. Son criterios distintos a los que miden qué tan bien detecta el
+motor de análisis. Las dos cosas hacen falta y ninguna reemplaza a la otra: una
+pantalla muy clara que muestre un veredicto poco confiable no protege a nadie, y un
+veredicto acertado pero mal explicado tampoco. Lo que se sostiene aquí es que a la
+parte de comunicar se le ha puesto mucha menos atención que a la de detectar, y que
+documentarla bien tiene valor propio. El desempeño real de las fuentes de reputación
+se mide como parte de la evaluación y se reporta con sus limitaciones.
+
+Para los negocios e instituciones que usan códigos QR para atender público, el
+trabajo ofrece una forma documentada de entender un riesgo que golpea directo la
+confianza en ese canal. Que alguien pegue una calcomanía encima de un QR legítimo
+\cite{krombholz2014qr} es un problema que el establecimiento no puede resolver por su
+cuenta; tener evidencia de cómo se puede verificar un enlace antes de abrirlo les da
+una base para pensar qué medidas tomar.
+
+Para la Universidad del Valle de Guatemala, este trabajo suma en un área,
+la ciberseguridad aplicada, donde todavía hay poca producción académica local, y deja
+un antecedente para futuros proyectos de seguridad móvil, análisis de amenazas y
+educación digital. La falta de formación especializada en ciberseguridad es uno de
+los factores que más limitan la capacidad de respuesta de los países en desarrollo
+frente a amenazas nuevas; proyectos como este ayudan a cerrar esa brecha desde la
+universidad, tanto por lo que documentan como por lo que enseñan a quienes los hacen.
+
+Para quienes integramos el equipo, el proyecto significa afianzar conocimientos en
+seguridad informática, desarrollo móvil multiplataforma e integración de servicios de
+\emph{threat intelligence}, además de trabajar sobre un problema con implicaciones
+éticas reales: qué se le advierte al usuario, con cuánto detalle y con cuánta certeza
+son decisiones que afectan directamente su seguridad.
+
+Para el público en general, el trabajo ayuda a dar visibilidad a una amenaza que ha
+crecido bastante pero que todavía suena poco. Al describir el problema y construir
+una solución que se puede evaluar con criterios claros, el proyecto deja material
+útil para que instituciones públicas, empresas y centros educativos decidan con mejor
+información en temas de seguridad digital.
+
+En resumen, este trabajo se justifica porque coinciden tres cosas: una amenaza que
+crece y que ya se volvió industria, un conjunto de soluciones existentes con
+limitaciones técnicas bien documentadas, y una población expuesta que no tiene ninguna
+protección en el momento que más importa. Atacar el problema desde la app móvil, el
+único punto donde la URL se puede leer antes de que haya contacto con el atacante,
+tiene sentido tanto por dónde está ubicado en la cadena del ataque como porque
+permite evaluar la propuesta con criterios concretos de desempeño y usabilidad.

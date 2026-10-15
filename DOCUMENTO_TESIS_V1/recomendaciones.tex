@@ -1,0 +1,25 @@
+\begin{enumerate}
+	\item \textbf{Eliminar el corte de 35~s del servidor.} Es la mejora con mayor impacto sobre todo el sistema. Puede lograrse devolviendo primero el veredicto y entregando la captura de F2.3 por separado, usando un punto de acceso sin el límite de API Gateway o adoptando un esquema de consulta asíncrona en el que la aplicación pregunte periódicamente por el resultado.
+
+	\item \textbf{Reparar la caché de análisis.} El contrato declara una caché con vigencia de 7 días para los resultados sospechosos y maliciosos y de 24 horas para los demás, pero en las pruebas cada consulta repetida volvió a pagar el costo completo. Una caché funcional reduciría la latencia y el consumo de las cuotas de los servicios externos.
+
+	\item \textbf{Permitir que la heurística y el comportamiento concluyan malicioso en el servidor.} Hoy esos filtros tienen como techo el veredicto sospechoso. Si el servidor aplicara el mismo umbral de tres motores que usa la aplicación, la elevación por evidencia podría retirarse del cliente.
+
+	\item \textbf{Excluir de la lista local los servicios con contenido de usuarios.} Las pruebas mostraron que dominios confiables como \texttt{google.com} y \texttt{gitlab.com} alojan servicios donde cualquier persona puede subir archivos. Se recomienda que la lista local no acepte esos subdominios o rutas, para que sus URLs pasen por toda la cascada.
+
+	\item \textbf{Agregar URLhaus como fuente de F1.} Safe Browsing no cubrió la infraestructura de distribución de malware, que es justamente la especialidad de URLhaus. Integrarlo como cuarta fuente mejoraría la detección temprana de ese tipo de amenaza.
+
+	\item \textbf{Obtener una clave de aplicación de PhishTank} o incorporar OpenPhish como respaldo, para reducir los cortes por límite de consultas observados en las pruebas.
+
+	\item \textbf{Cifrar el historial local.} Aunque no contiene credenciales ni coordenadas, cifrarlo cumpliría por completo con la categoría de almacenamiento de OWASP MASVS y con lo planteado en el protocolo.
+
+	\item \textbf{Distinguir entre falta de conexión y falla del servidor.} Hoy ambos casos se comunican como incierto con el mismo mensaje. Detectar el estado de la red permitiría dar al usuario una indicación más precisa.
+
+	\item \textbf{Retomar la versión para iOS.} La configuración que no requiere macOS se conservó en el proyecto. Completarla requiere una computadora con macOS y una cuenta de desarrollador de Apple.
+
+	\item \textbf{Evolucionar el filtro heurístico hacia un modelo de aprendizaje automático} entrenado con conjuntos de URLs etiquetadas recientes, y evaluarlo con muestras frescas y no con conjuntos históricos.
+
+	\item \textbf{Realizar un estudio de usabilidad con una muestra representativa} y en condiciones reales de uso, para validar en el entorno móvil los hallazgos sobre advertencias de seguridad que la literatura obtuvo en navegadores de escritorio.
+\end{enumerate}
+
+\pendiente{Revisar las recomendaciones cuando estén los resultados del banco de pruebas y de la prueba de usabilidad, por si surgen recomendaciones nuevas sobre la lectura o sobre la interfaz.}

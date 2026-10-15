@@ -1,0 +1,154 @@
+\label{chap:marco}
+Este capítulo reúne los conceptos que sustentan el prototipo. Empieza por la amenaza que lo motiva, continúa con el estándar QR y con las técnicas para detectar URLs maliciosas, y termina con las tecnologías móviles, las fuentes de reputación y los principios de usabilidad que guiaron las decisiones de diseño. En cada sección se explica, además del concepto, por qué es relevante para el trabajo.
+
+\section{Amenazas de seguridad en el entorno móvil}
+
+\subsection{Phishing}
+
+El phishing es una forma de ingeniería social en la que un atacante suplanta a una entidad de confianza para que la víctima revele credenciales, datos financieros u otra información sensible, o para dirigirla hacia contenido malicioso. El nombre viene de la analogía con la pesca: el atacante lanza un anzuelo, que suele ser un mensaje o un enlace falso, y espera a que la víctima muerda. Aunque existe desde los años noventa, su volumen y su sofisticación no han dejado de crecer, porque se adapta a cada canal de comunicación nuevo que adoptan las personas.
+
+El Anti-Phishing Working Group registró más de un millón de ataques de phishing únicos en el primer trimestre de 2024, con una tendencia que se mantuvo en 2025 \cite{apwg2024q1,apwg2025q1}. El informe de Verizon de 2024 señala al phishing como uno de los vectores de acceso inicial más frecuentes en los incidentes de seguridad a nivel mundial \cite{verizon2024dbir}. Estos datos confirman que se trata de una amenaza activa y no de un riesgo teórico.
+
+\subsection{Quishing: phishing mediante códigos QR}
+
+El quishing es el phishing que usa un código QR para distribuir el enlace malicioso. En el phishing tradicional la URL fraudulenta está a la vista en el cuerpo del mensaje; en el quishing queda escondida dentro del patrón visual del código, así que el usuario no puede inspeccionarla directamente \cite{insikt2024qrcode,unit42_2023qr}.
+
+Un ataque típico sigue cuatro pasos. Primero, el atacante genera un QR que codifica una URL bajo su control. Después lo coloca en un canal donde la gente confía de forma implícita: un correo corporativo, un cartel, una factura o el menú de un restaurante. La víctima lo escanea con la cámara del teléfono y, por último, el navegador abre la URL sin que nadie la haya evaluado \cite{vidas2013qrishing}.
+
+Vidas et al. mostraron en un estudio empírico que los usuarios de teléfonos inteligentes son más susceptibles al phishing por QR que al phishing por URL directa, precisamente porque el código elimina la señal visual que representa una dirección sospechosa \cite{vidas2013qrishing}. Todo el flujo de QRisk responde a esta anatomía: la aplicación introduce un punto de inspección entre el tercer y el cuarto paso.
+
+\subsection{Ingeniería social y susceptibilidad del usuario móvil}
+
+La ingeniería social agrupa las técnicas psicológicas con las que un atacante manipula a una persona para que revele información o haga algo que comprometa la seguridad de un sistema. A diferencia de un ataque puramente técnico, explota sesgos humanos como la urgencia, la autoridad y la confianza \cite{salahdine2019social}. En el quishing, el código aprovecha la confianza del lugar donde aparece: un QR en el mostrador de un banco proyecta la misma autoridad que el banco.
+
+El contexto móvil agrava esta susceptibilidad. Escanear y abrir la URL es casi un reflejo, la pantalla pequeña dificulta revisar la barra de direcciones y el comportamiento habitual frente a un QR no incluye verificar el destino \cite{vidas2013qrishing,krombholz2014qr}. Esto significa que la vulnerabilidad no es solo un descuido individual, sino una condición del medio que la solución técnica tiene que compensar. De aquí se derivan las decisiones sobre el momento, el tono y el formato en que se presenta el veredicto.
+
+\subsection{Análisis de URLs maliciosas}
+
+Sahoo, Liu y Hoi clasifican las técnicas de detección de URLs maliciosas en tres familias \cite{sahoo2017malicious}. Las basadas en listas negras consultan bases de datos de URLs ya identificadas como maliciosas. Las heurísticas evalúan características estructurales de la URL, como su longitud, la presencia de una dirección IP en lugar de un dominio, el dominio de nivel superior o la edad del registro. Las basadas en aprendizaje automático representan la URL como un vector de características y la clasifican con un modelo estadístico.
+
+Cada familia tiene compromisos distintos. Las listas negras son precisas pero tardan en incorporar amenazas nuevas; las heurísticas y los modelos de aprendizaje pueden detectar ataques que nadie ha reportado, a cambio de un mayor riesgo de falsos positivos. Esta diferencia justifica que el sistema completo esté organizado como una cascada: el filtro F1 consulta listas de reputación, F2.1 aplica heurísticas sobre la URL, F2.2 analiza el comportamiento del sitio en servicios externos y F2.3 obtiene una vista previa visual. En el alcance de este módulo se implementa F1 y se integran los resultados de los demás filtros, que desarrolla el módulo de servidor.
+
+\section{El estándar QR y su explotación como vector de ataque}
+
+\subsection{Fundamentos técnicos del código QR}
+
+El código QR es una simbología bidimensional estandarizada por la norma ISO/IEC~18004 \cite{iso18004_2015,iso18004_2024}. Puede codificar hasta 4\,296 caracteres alfanuméricos o 7\,089 dígitos en una cuadrícula de módulos claros y oscuros. La especificación define cuatro modos de codificación (numérico, alfanumérico, byte y kanji), cuatro niveles de corrección de errores con redundancias de entre el 7~\% y el 30~\%, y cuarenta versiones de tamaño. La edición de 2024 mantiene la compatibilidad con la de 2015.
+
+La corrección de errores explica parte de su éxito, porque permite leer un código aunque esté parcialmente dañado. También explica una decisión de este trabajo: un código difuminado puede seguir siendo legible, por lo que ocultar un QR en una imagen exige cubrirlo por completo, como se describe en el capítulo de desarrollo.
+
+\subsection{Tipos de contenido codificable}
+
+Aunque la norma define la codificación a nivel de bytes, en la práctica los generadores siguen convenciones para tipos de contenido específicos: URLs, texto plano, contactos en formato vCard, credenciales de redes Wi-Fi, correos (\texttt{mailto:}), teléfonos (\texttt{tel:}) y coordenadas (\texttt{geo:}). Cada tipo tiene un prefijo reconocible en el texto decodificado.
+
+No todos representan el mismo riesgo. Krombholz et al. identifican las URLs como el vector de mayor impacto y prevalencia \cite{krombholz2014qr}. Por esa razón, la unidad de análisis de este trabajo es exclusivamente la URL textual, según la sintaxis del RFC~3986 \cite{rfc3986}, y el módulo de escaneo necesita clasificar el contenido para decidir si corresponde el análisis de seguridad o una pantalla informativa.
+
+\subsection{El QR como vector de ataque}
+
+La superficie de ataque es amplia porque los códigos aparecen en entornos de alta confianza. Un atacante puede reemplazar un QR legítimo con una etiqueta adhesiva o distribuirlo en campañas de correo dirigidas. Palo Alto Networks Unit~42 documentó que las plataformas de correo no analizan automáticamente el contenido de los códigos incrustados en imágenes, lo que convierte al quishing en una técnica de evasión efectiva \cite{unit42_2023qr}. La aplicación interviene en el único punto del ciclo que todavía no tiene protección automatizada: el momento en que el usuario escanea con su teléfono.
+
+\section{Sistemas de detección y clasificación de amenazas}
+
+\subsection{Listas negras y sistemas de reputación}
+
+Una lista negra de URLs es una base de datos de direcciones, dominios o IPs identificadas como maliciosas. Los sistemas de reputación extienden la idea asignando una puntuación a partir de varias señales, como el historial de actividad, la asociación con infraestructura conocida y las características del registro del dominio.
+
+Sheng et al. encontraron en 2009 que las listas más grandes cubrían alrededor del 20~\% de los sitios de phishing en el momento en que aparecían, y que la cobertura crecía conforme los sitios eran reportados \cite{sheng2009empirical}. Las plataformas actuales se actualizan en intervalos mucho más cortos, pero los informes recientes del APWG muestran que el phishing de vida corta sigue siendo una fracción importante de los ataques \cite{apwg2024q1,apwg2025q1}. Por lo tanto, la limitación de fondo se mantiene: una lista solo conoce lo que alguien ya reportó. Aun así, las listas son el primer filtro ideal, porque responden en milisegundos y tienen muy pocos falsos positivos.
+
+\subsection{Threat intelligence colaborativa}
+
+La \emph{threat intelligence} es la disciplina que recolecta, analiza y comparte información sobre amenazas, incluidos los indicadores de compromiso (IOC) como dominios, URLs e IPs vinculados a campañas maliciosas. Las plataformas colaborativas parten de que ninguna organización ve el panorama completo por sí sola. MISP y URLhaus son ejemplos de código abierto \cite{misp_project,urlhaus_api}, y VirusTotal agrega los resultados de más de setenta motores de análisis \cite{virustotal_apiv3}. La función de reporte de QRisk sigue este principio a escala reducida: además de consumir inteligencia, el usuario puede aportar un caso nuevo.
+
+\subsection{Análisis heurístico de URLs}
+
+El análisis heurístico estima el riesgo de una URL a partir de su estructura, sin consultar bases externas ni visitar el sitio. Las señales más usadas son la longitud anómala, la IP literal como host, los subdominios engañosos, los dominios de nivel superior poco convencionales, los acortadores, la ausencia de HTTPS y las palabras clave asociadas a credenciales. Ma et al. y Le et al. mostraron que las características léxicas de la URL permiten clasificar con alta precisión sin acceder al contenido \cite{ma2009beyond,le2011phishdef}. El filtro F2.1 del backend aplica este enfoque y devuelve un puntaje de 0 a 100 con los criterios que lo componen; la aplicación los presenta tal cual en la vista de detalle.
+
+\subsection{Aprendizaje automático aplicado a URLs}
+
+Los enfoques de aprendizaje automático formulan la detección como una clasificación binaria o multiclase sobre características léxicas, de registro, de DNS o de contenido, con algoritmos como bosques aleatorios, \emph{gradient boosting} o redes neuronales \cite{sahoo2017malicious,ma2009beyond}. Este trabajo no entrena modelos propios, pero el concepto es relevante por dos razones: el filtro heurístico podría evolucionar hacia un modelo entrenado, y los conjuntos de datos etiquetados que se usan en esta literatura sirven también para evaluar sistemas de filtrado. Uno de ellos, el conjunto público de URLs maliciosas de Kaggle \cite{kaggle_maliciousurls}, se utilizó en las pruebas de este trabajo.
+
+\subsection{Métricas de evaluación de clasificadores}
+
+Evaluar un clasificador binario requiere más que la exactitud, sobre todo cuando las clases están desbalanceadas. Las métricas habituales son la precisión, la exhaustividad (\emph{recall}), la especificidad y la puntuación F1 \cite{sokolova2009systematic}. En seguridad los errores no cuestan lo mismo: un falso negativo deja pasar una amenaza y un falso positivo bloquea un sitio legítimo. En QRisk esa asimetría se traduce en una regla de diseño: un falso ``seguro'' es el peor resultado posible, por lo que, ante información incompleta, la aplicación prefiere comunicar ``incierto''.
+
+\section{Escaneo y procesamiento nativo en dispositivos móviles}
+
+\subsection{APIs nativas de detección de códigos}
+
+Los sistemas operativos móviles ofrecen APIs para detectar y decodificar códigos directamente en el dispositivo, sin servicios en la nube. En iOS, el framework Vision ofrece la solicitud \path{VNDetectBarcodesRequest} \cite{apple_vndetectbarcodes}, además de la detección de códigos legibles por máquina de AVFoundation \cite{apple_tn2325}. En Android, Google ML Kit ofrece el escaneo de códigos de barras con funcionamiento local y sin conexión \cite{google_mlkit_barcode}. Procesar en el dispositivo tiene dos ventajas para este trabajo: la imagen nunca sale del teléfono y la decodificación ocurre en fracciones de segundo, dejando el presupuesto de tiempo para el análisis de red.
+
+\subsection{Librerías de cámara para React Native}
+
+El protocolo especificaba \texttt{react-native-vision-camera}, una librería de código abierto que expone la cámara con procesamiento de cuadros mediante JSI y un módulo de lectura de códigos construido sobre las APIs nativas \cite{rousavy_visioncamera}. Su principal ventaja es el rendimiento en el procesamiento de video en tiempo real.
+
+La alternativa es \texttt{expo-camera}, el módulo de cámara mantenido por el propio ecosistema de Expo \cite{expo_camera}. Ofrece vista previa de cámara, control de linterna, gestión de permisos y lectura de códigos de barras restringible a formatos específicos, como QR. Su ventaja es que se publica alineado con cada versión del SDK de Expo, lo que reduce los conflictos entre dependencias nativas. Como se explica en el capítulo de desarrollo, esta fue la librería finalmente adoptada.
+
+\subsection{Latencia de decodificación}
+
+La latencia de decodificación es el intervalo entre el momento en que el código entra en el campo de visión de la cámara y el momento en que la aplicación recibe su contenido. Depende de la resolución del cuadro analizado, la densidad del código, la iluminación, el ángulo, la capacidad del dispositivo y la eficiencia del decodificador. Es el primer componente del tiempo total que percibe el usuario, al que luego se suman la consulta de reputación y la cascada del servidor. Por eso el protocolo fija un criterio de 5~s en el percentil~90 solo para la lectura.
+
+\section{Desarrollo móvil multiplataforma con React Native}
+
+\subsection{Arquitectura de React Native}
+
+React Native permite escribir la interfaz en JavaScript o TypeScript y renderizarla con componentes nativos de cada plataforma. Su arquitectura histórica usaba un puente asíncrono basado en la serialización de mensajes, lo que introducía latencia en operaciones frecuentes. La llamada \emph{New Architecture} reemplaza ese puente por tres componentes: JSI, que permite llamadas síncronas entre JavaScript y código nativo; Fabric, el nuevo motor de renderizado; y TurboModules, que cargan los módulos nativos bajo demanda \cite{meta_rn_newarch}. El prototipo se construyó sobre React Native~0.86 con esta arquitectura activa.
+
+\subsection{Expo y el desarrollo desde una sola base de código}
+
+Expo es un conjunto de herramientas sobre React Native que agrega módulos nativos mantenidos, enrutamiento basado en archivos mediante Expo Router \cite{expo_router} y compilación en la nube mediante EAS Build \cite{expo_eas}. Con el enrutamiento por archivos, cada pantalla de la aplicación corresponde a un archivo dentro de una carpeta, lo que hace que la estructura de navegación se lea directamente en el árbol del proyecto.
+
+Desarrollar desde una sola base de código es lo que hizo viable que una sola persona construyera el módulo. Sin embargo, las políticas de permisos, almacenamiento y red difieren entre iOS y Android, y esas diferencias deben resolverse explícitamente en la configuración de cada plataforma.
+
+\section{Seguridad en aplicaciones móviles}
+
+\subsection{OWASP MASVS}
+
+El \emph{Mobile Application Security Verification Standard} de OWASP define los requisitos de seguridad para aplicaciones móviles. Su versión~2.1 organiza los controles en categorías como almacenamiento, criptografía, autenticación, red y plataforma \cite{owasp2024masvs}. Una aplicación que pretende proteger al usuario de amenazas externas debe ser segura en sí misma. Para el prototipo aplican tres categorías: almacenamiento, por el historial local; red, por la comunicación con los servicios de análisis; y plataforma, por el manejo de los permisos de cámara y ubicación.
+
+\subsection{Seguridad de red en iOS y Android}
+
+En iOS, \emph{App Transport Security} exige por defecto conexiones HTTPS con TLS~1.2 o superior, y cualquier excepción debe declararse en la configuración de la aplicación \cite{apple_ats,apple2024platformsecurity}. En Android, la \emph{Network Security Configuration} cumple una función equivalente, y desde Android~9 el tráfico sin cifrar está deshabilitado por defecto \cite{android_netsecconfig}. Todos los servicios que consume QRisk usan HTTPS. La URL escaneada, que puede ser HTTP, nunca se abre dentro de la aplicación: se envía como texto a los servicios de análisis, por lo que no hace falta declarar excepciones.
+
+\subsection{Almacenamiento local}
+
+El historial de escaneos debe estar disponible sin conexión y sin cuenta de usuario. El protocolo proponía \texttt{react-native-mmkv}, una librería clave valor de lectura síncrona y alto rendimiento \cite{rousavy_mmkv,rousavy_storagebenchmark}. El prototipo utiliza el almacén clave valor de \texttt{expo-sqlite} \cite{expo_sqlite}, que también ofrece una interfaz síncrona de lectura. Esa propiedad es la que importa para la experiencia de uso, porque permite que la aplicación decida qué mostrar desde el primer renderizado. La diferencia en materia de cifrado se discute en el capítulo de desarrollo.
+
+\section{Fuentes de reputación del filtro F1}
+
+\subsection{Google Safe Browsing}
+
+Google Safe Browsing es el servicio que permite consultar si una URL aparece en las listas de amenazas que mantiene Google, que cubren phishing, malware y software no deseado. Es la misma fuente que utilizan Chrome, Safari y Firefox para mostrar advertencias \cite{google_safebrowsing}. Su método de búsqueda de coincidencias recibe la URL completa y responde si existe alguna amenaza asociada, lo que lo hace adecuado para consultas puntuales desde un cliente. Al operar sobre la URL completa y no solo sobre el dominio, puede conocer una página maliciosa alojada en un dominio legítimo.
+
+\subsection{PhishTank}
+
+PhishTank es una base colaborativa de URLs de phishing construida a partir de reportes verificados por la comunidad y operada por Cisco Talos \cite{phishtank_devinfo}. Ofrece un servicio de consulta por URL que responde si la dirección está registrada y si fue verificada. Desde finales de 2023 su mantenimiento se ha reducido y el servicio presenta interrupciones y límites de consulta no documentados, por lo que cualquier integración debe tratar su indisponibilidad como un caso normal y no como una excepción. OpenPhish es una alternativa activa que puede funcionar como fuente complementaria \cite{openphish}.
+
+\subsection{VirusTotal}
+
+VirusTotal agrega los resultados de más de setenta motores antivirus y escáneres de URL, y su API permite recuperar el veredicto de cada uno \cite{virustotal_apiv3}. Su fortaleza es la agregación: una URL que evade un motor puede ser detectada por otros. Su limitación para este proyecto es la cuota del plan gratuito, de 4~consultas por minuto y 500 por día. En el sistema final, VirusTotal se consulta dentro del filtro F2.2 del servidor, y la aplicación presenta el recuento de motores que marcan la URL.
+
+\subsection{URLhaus y MISP}
+
+URLhaus, de abuse.ch, se especializa en URLs que distribuyen malware, a diferencia de PhishTank, que se centra en phishing \cite{urlhaus_api}. MISP es una plataforma de código abierto para intercambiar indicadores de compromiso entre comunidades \cite{misp_project}. Ninguna de las dos se integra en el prototipo, pero ambas son relevantes: URLhaus se usó como fuente de amenazas activas en las pruebas, y MISP representa el modelo hacia el que podría evolucionar la función de reporte.
+
+\section{Geolocalización y geocodificación inversa}
+
+Los dispositivos determinan su ubicación combinando GPS, redes Wi-Fi y torres celulares, gestionados por Core Location en iOS y por los servicios de ubicación de Android \cite{apple_location_auth,android_location_permissions}. Ambas plataformas exigen el consentimiento explícito del usuario y distinguen entre uso en primer plano y en segundo plano.
+
+La geocodificación inversa convierte coordenadas en una descripción legible, como el nombre de un lugar y la ciudad. Puede resolverse con los servicios del sistema operativo, como \texttt{CLGeocoder} en iOS \cite{apple_clgeocoder}, o con APIs de terceros como Mapbox \cite{mapbox_geocoding}. La elección tiene implicaciones de privacidad, porque en el segundo caso las coordenadas del usuario viajan a un servidor externo. QRisk resuelve la geocodificación con el servicio del sistema mediante \texttt{expo-location} y no envía las coordenadas a su propio backend.
+
+\section{Usabilidad y seguridad centrada en el usuario}
+
+\subsection{Usable security}
+
+La \emph{usable security} estudia cómo diseñar sistemas de seguridad que las personas puedan usar de forma efectiva. Cranor propuso un marco según el cual el comportamiento seguro requiere tres pasos: que el usuario note la señal, que entienda su significado y que actúe en consecuencia \cite{cranor2008framework}. Un sistema que falla en cualquiera de los tres es inefectivo, sin importar qué tan sólido sea técnicamente. Si QRisk presenta un veredicto confuso, tardío o demasiado técnico, el usuario puede ignorarlo, y el beneficio de la herramienta desaparece.
+
+\subsection{Efectividad de las advertencias}
+
+Egelman, Cranor y Hong encontraron que las advertencias de phishing más efectivas interrumpen la tarea, son visualmente prominentes, usan lenguaje concreto y aparecen en el momento de mayor relevancia \cite{egelman2008warned}. Akhawe y Felt analizaron millones de advertencias reales en Chrome y Firefox, y observaron que la proporción de usuarios que continúa a pesar de la advertencia varía mucho según el tipo: cerca del 70~\% en las advertencias de certificados de Chrome y mucho menos en las de malware y phishing \cite{akhawe2013alice}. Es decir, la severidad percibida y la claridad del mensaje cambian la conducta.
+
+Estos hallazgos guían las pantallas de resultado de QRisk: el veredicto en palabras simples y con color, la presentación en dos niveles de detalle para no saturar al usuario promedio, y una fricción que aumenta con el riesgo cuando la persona decide abrir el sitio.
+
+\section{Arquitectura de backend en la nube}
+
+El motor de análisis se despliega con un modelo sin servidor sobre AWS Lambda, con Amazon API Gateway como punto de entrada HTTP \cite{aws_lambda_dg}. En este modelo el proveedor asigna recursos por solicitud, escala de forma automática y no cobra cuando no hay ejecución. Tiene dos consecuencias que afectan directamente a la aplicación. La primera es el arranque en frío: cuando una función no ha recibido solicitudes durante un tiempo, la primera petición debe inicializar el entorno y tarda más. La segunda es que API Gateway impone un tiempo máximo por solicitud, de modo que un análisis que lo supera se corta con un error aunque la función siga trabajando. Ambos efectos se observaron en las mediciones y explican varias decisiones de la política de tiempos descrita en el capítulo de desarrollo.

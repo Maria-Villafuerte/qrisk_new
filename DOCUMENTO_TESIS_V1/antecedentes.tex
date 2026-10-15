@@ -1,0 +1,72 @@
+\label{chap:antecedentes}
+El problema de este trabajo cruza cuatro líneas de investigación que han avanzado bastante por separado: el estudio del código QR como vector de ataque, la detección automática de URLs maliciosas, los sistemas de reputación y las plataformas colaborativas de \emph{threat intelligence}, y la \emph{usable security}, que estudia cuándo una advertencia cambia realmente lo que hace la persona que la recibe. Al revisarlas juntas aparece un desbalance. Las tres primeras tienen resultados sólidos y medibles; la cuarta ha mostrado una y otra vez que detectar bien no es suficiente para proteger. Este capítulo revisa los trabajos de cada línea, compara sus enfoques y delimita el vacío que el prototipo busca cubrir.
+
+\section{Procedimiento de la revisión}
+
+La búsqueda se realizó en IEEE Xplore, ACM Digital Library, SpringerLink, arXiv y Google Scholar, además de la documentación oficial de los proveedores de reputación y de las plataformas móviles, y de informes públicos de la industria de seguridad. Se combinaron términos como \emph{QR code phishing}, \emph{quishing}, \emph{malicious URL detection}, \emph{phishing blacklist coverage}, \emph{security warning effectiveness} y \emph{URL reputation}, en inglés y en español, con un rango principal de 2008 a 2025. Se incluyeron trabajos fundacionales anteriores cuando siguen siendo referencia.
+
+Se dejaron fuera los trabajos sobre el procesamiento de imagen del símbolo QR sin componente de seguridad y las propuestas de firmar los códigos con esquemas criptográficos, porque obligan a cambiar el estándar o la infraestructura de quien emite el código. No se trata de una revisión sistemática formal: no hubo doble revisión independiente ni protocolo registrado. Por lo tanto, cuando este capítulo afirma que algo no se encontró, debe leerse como que no apareció con la búsqueda descrita, y no como que no existe.
+
+\section{Revisión de antecedentes}
+
+\subsection{El código QR como vector de ataque}
+
+El trabajo que abrió esta línea es el de Krombholz et al., la primera taxonomía ordenada de ataques sobre códigos QR desde la perspectiva de la usabilidad \cite{krombholz2014qr}. Su aporte principal fue separar los ataques que manipulan el código físico, como pegar una calcomanía encima, de los que aprovechan el contenido codificado. Identificaron las URLs como el contenido más peligroso y más común, y plantearon el problema como un asunto de usabilidad: el usuario no puede verificar lo que no puede leer.
+
+La evidencia empírica más citada viene de Vidas et al., quienes colocaron códigos QR en lugares públicos y midieron cuántas personas los escaneaban \cite{vidas2013qrishing}. Encontraron que la mayoría escaneaba por curiosidad, sin revisar el destino, y que la susceptibilidad era mayor que en el phishing por enlace directo. Su valor metodológico está en que midieron conducta real y no lo que la gente decía que haría.
+
+Ambos trabajos son de 2013 y 2014, antes de que el uso de códigos QR se masificara. En ese momento escanear requería instalar una aplicación aparte; hoy la cámara del teléfono lo hace sola, lo que elimina todavía más fricción. Sus conclusiones probablemente siguen vigentes, pero sus cifras deben leerse como un piso y no como una estimación actual. Para conocer el estado reciente del fenómeno hay que recurrir a los informes de la industria: Insikt Group documentó la integración del quishing a plataformas de phishing como servicio \cite{insikt2024qrcode}, y Unit~42 explicó el incentivo, que es la incapacidad de los filtros de correo para leer un QR incrustado como imagen \cite{unit42_2023qr}.
+
+\subsection{Detección de URLs maliciosas}
+
+Sahoo, Liu y Hoi organizan las técnicas en listas negras, heurísticas y aprendizaje automático, y explican qué gana y qué pierde cada una \cite{sahoo2017malicious}. Sheng et al. aportaron la evaluación más citada de los límites de las listas negras: alrededor del 20~\% de cobertura en el momento en que aparecía un sitio de phishing, con una mejora progresiva conforme el sitio era reportado \cite{sheng2009empirical}. Esa cifra es de 2009 y no puede trasladarse al presente, porque las plataformas actuales se actualizan mucho más rápido. Lo que sí sigue vigente es la limitación de fondo: ninguna lista puede contener algo que todavía no se ha visto, y los informes del APWG muestran que el phishing de vida corta sigue siendo una parte importante de los ataques \cite{apwg2024q1,apwg2025q1}.
+
+Frente a ese límite, los clasificadores basados en características de la URL son especialmente prometedores para un contexto móvil. Ma et al. mostraron que con información del dominio y de la estructura léxica se alcanzan precisiones cercanas al 99~\% sin visitar el sitio \cite{ma2009beyond}, y Le et al. llevaron la idea al extremo con PhishDef, que usa únicamente la URL \cite{le2011phishdef}. No tener que abrir el sitio tiene además una ventaja de privacidad que la literatura menciona poco: nadie se entera de que un usuario concreto está por visitar una URL concreta. Sus límites son que los resultados provienen de conjuntos históricos en condiciones de laboratorio y que las técnicas de evasión, como los acortadores o los dominios legítimos comprometidos, reducen su efectividad. Por eso, en el sistema propuesto, la heurística es un filtro posterior y no el único mecanismo.
+
+\subsection{Sistemas de reputación y threat intelligence}
+
+La infraestructura en la que se apoya el filtro F1 está documentada sobre todo en manuales técnicos oficiales y no en publicaciones arbitradas, lo cual ya dice algo sobre el estado del arte. Google Safe Browsing es el sistema con mayor alcance y el que alimenta las advertencias de los principales navegadores \cite{google_safebrowsing}; su desventaja es que no permite auditar por qué marca o no marca una URL. VirusTotal junta los veredictos de decenas de motores, lo que reduce los falsos negativos, pero su cuota gratuita limita mucho la validación empírica \cite{virustotal_apiv3}. PhishTank y URLhaus funcionan de forma colaborativa \cite{phishtank_devinfo,urlhaus_api}, y su cobertura depende de qué tan activa sea la comunidad, lo que probablemente la vuelve más débil para campañas en español dirigidas a la región.
+
+En la literatura revisada no se encontró un estudio independiente que compare qué tanto coinciden estas fuentes sobre un mismo conjunto de URLs, ni cómo se comporta un veredicto combinado frente a cada fuente por separado. Cada proveedor documenta lo que él hace, pero nadie documenta cómo funcionan juntos. Las pruebas de este trabajo aportan, de forma modesta, en esa dirección.
+
+\subsection{Soluciones comerciales de escaneo seguro}
+
+Aplicaciones como \emph{Safe QR Scan} y \emph{SafeQR Reader} revisan la URL antes de redirigir comparándola con bases de dominios maliciosos. Su mérito es haber mostrado que el punto de intervención funciona y que los usuarios aceptan ese paso intermedio. Sus limitaciones son tres: dependen casi exclusivamente de listas negras, no publican su arquitectura ni sus tasas de error, y no explican en qué basaron sus decisiones de interfaz. Este trabajo no incluye una comparación formal contra ellas, exclusión declarada en el capítulo de alcance; se mencionan para describir la práctica actual.
+
+\subsection{Usable security y efectividad de advertencias}
+
+Cranor propuso descomponer el comportamiento seguro en notar la señal, entenderla y actuar en consecuencia \cite{cranor2008framework}. Egelman, Cranor y Hong encontraron que las advertencias más efectivas interrumpen la tarea, son prominentes y usan lenguaje concreto \cite{egelman2008warned}. Akhawe y Felt mostraron con datos reales a gran escala que la proporción de usuarios que ignora una advertencia depende del tipo de amenaza y de cómo se presenta \cite{akhawe2013alice}. El problema común es el contexto: los tres trabajos estudian navegadores de escritorio, y no se encontró una validación de sus hallazgos en el entorno móvil, con pantalla pequeña, interacción táctil y uso apresurado. Este trabajo asume esa extrapolación de forma explícita.
+
+\section{Comparación de los trabajos revisados}
+
+El cuadro~\ref{tab:comparacion} ordena los antecedentes según el momento del ataque en que intervienen y el tipo de evidencia que aportan.
+
+\begin{table}[H]
+	\centering
+	\caption{Comparación de enfoques según su punto de intervención}
+	\label{tab:comparacion}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{3.3cm}@{}}
+		\toprule
+		\textbf{Enfoque} & \textbf{Dónde actúa} & \textbf{Fortaleza} & \textbf{Limitación} \\
+		\midrule
+		Listas de reputación \cite{google_safebrowsing,phishtank_devinfo,virustotal_apiv3} & Sobre URLs ya conocidas & Rápidas y precisas & No ven amenazas nuevas \\
+		Clasificadores léxicos \cite{ma2009beyond,le2011phishdef} & Sobre la estructura de la URL & Evalúan dominios nuevos sin visitarlos & Más falsos positivos; evaluados en laboratorio \\
+		Filtros de correo \cite{unit42_2023qr} & Antes de que llegue el mensaje & Protegen sin intervención del usuario & No leen el QR \\
+		Advertencias del navegador \cite{egelman2008warned,akhawe2013alice} & Después de abrir la URL & Evidencia sólida sobre comunicación & Llegan cuando ya hubo contacto con el atacante \\
+		Aplicaciones comerciales & Entre el escaneo y la apertura & Punto de intervención correcto & Detección limitada a listas; sin documentación \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+De esta comparación sale el hallazgo central del capítulo: el punto donde la intervención es posible coincide con el punto donde ningún trabajo revisado combina detección en varias capas con una comunicación fundamentada del veredicto. El intervalo entre leer el código y abrir el navegador es el único en que la URL ya es visible, el ataque todavía no se consuma y el usuario está en posición de decidir.
+
+\section{Limitaciones identificadas en la literatura}
+
+La evidencia empírica sobre la susceptibilidad frente a códigos QR es anterior a su masificación. La evidencia sobre advertencias proviene de navegadores de escritorio y no se ha validado en móviles. Los clasificadores reportan su desempeño en laboratorio y no en un teléfono, con sus restricciones de cómputo y de red. No hay evaluaciones independientes de las fuentes de reputación operando juntas. Las soluciones comerciales son opacas. Y, sobre todo, la detección y la comunicación se han estudiado como problemas separados, cuando para el usuario final son una sola experiencia.
+
+\section{Fundamentación del proyecto}
+
+Cada decisión del prototipo responde a una de estas limitaciones. El punto de intervención en la aplicación de escaneo responde a que es el único lugar donde la URL es legible antes del contacto con el atacante. La arquitectura en cascada responde a que ninguna técnica individual cubre todas las amenazas: las listas resuelven rápido lo conocido y los filtros posteriores evalúan lo nuevo. Las decisiones de interfaz, como el veredicto en lenguaje simple, los dos niveles de detalle y la fricción proporcional al riesgo, aplican la evidencia de usable security al contexto móvil. Y la regla de nunca visitar la URL desde el teléfono aprovecha la ventaja de privacidad del análisis sin contacto.
+
+Por lo tanto, el aporte del trabajo no está en inventar una técnica de detección nueva, sino en llevar capacidades existentes al momento y al dispositivo donde ocurre el ataque, documentando de forma abierta la arquitectura, las fuentes y las decisiones de comunicación, y evaluándolas con criterios medibles.

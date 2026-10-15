@@ -1,0 +1,10 @@
+El código QR se volvió parte de la vida cotidiana, pero su contenido no puede leerse a simple vista y los teléfonos lo abren sin revisarlo. Esa combinación es la que aprovecha el \emph{quishing}, una variante del phishing en la que un código manipulado lleva al usuario hacia un sitio fraudulento sin que este pueda ver el destino antes de llegar. El presente trabajo describe el diseño, desarrollo y validación del módulo de escaneo e interfaz de usuario de QRisk, un prototipo de aplicación móvil que se coloca entre el escaneo y la apertura del enlace para analizar la URL antes de que el usuario la visite.
+
+El módulo se construyó con React Native sobre Expo SDK~57 y se entregó para Android. Lee el código con la cámara del dispositivo, clasifica su contenido para separar los enlaces del resto, resuelve en el propio teléfono el primer filtro de reputación (una lista local de dominios confiables y consultas en paralelo a Google Safe Browsing y PhishTank) y envía el resultado al motor de análisis del servidor, desarrollado en paralelo, que completa una cascada de filtros heurísticos y de comportamiento. El veredicto se presenta en cuatro categorías (seguro, sospechoso, malicioso e incierto) con dos niveles de detalle. El módulo incluye además un historial local que funciona sin conexión, el reporte anónimo de códigos maliciosos y una tarjeta compartible que advierte a otras personas sobre un código peligroso.
+
+La lógica de negocio quedó cubierta por pruebas automatizadas muy por encima del criterio del 70~\% establecido en el protocolo. Las pruebas sobre una muestra pública de URLs mostraron que el primer filtro responde en fracciones de segundo y que cada filtro de la cascada detecta amenazas que los otros no ven. Las mediciones en dispositivo físico y las pruebas con usuarios completan la evaluación del prototipo.
+
+\vspace{1em}
+\noindent\textbf{Palabras clave:} quishing, códigos QR, phishing, seguridad móvil, React Native, threat intelligence, usable security.
+
+\pendiente{Ajustar el último párrafo del resumen cuando estén las mediciones del banco de pruebas automatizado, la verificación en dispositivo y la prueba de usabilidad.}

@@ -1,0 +1,136 @@
+\chapter{Evidencia de las mediciones}
+\label{anx:evidencia}
+
+Cada número del capítulo de resultados proviene de una corrida cuya salida se conserva en la carpeta \texttt{RESULTADOS} del repositorio del proyecto. El cuadro~\ref{tab:evidencia} indica dónde se encuentra la evidencia de cada medición.
+
+\begin{table}[H]
+	\centering
+	\caption{Ubicación de la evidencia en el repositorio}
+	\label{tab:evidencia}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5cm}>{\raggedright\arraybackslash}p{8cm}@{}}
+		\toprule
+		\textbf{Medición} & \textbf{Archivos} \\
+		\midrule
+		Cobertura y suite completa & \path{fase0/0.1_cobertura.txt}, \path{fase0/0.5_suite_completa.txt} \\
+		Clasificación de contenido & \path{fase0/0.2_clasificacion.txt}, \path{fase0/0.2_clasificacion_casos.txt} \\
+		Persistencia del historial & \path{fase0/0.3_persistencia.txt}, \path{fase0/0.3_persistencia_casos.txt} \\
+		Carga de los reportes & \path{fase0/0.4_reportes.txt}, \path{fase0/0.4_reportes_casos.txt} \\
+		Entorno y tipos & \path{fase0/0.5_entorno.txt}, \path{fase0/0.5_typecheck.txt} \\
+		Compilación en EAS & \path{fase1/1.2_build_apk.txt}, \path{fase1/1.2_historial_builds.txt} \\
+		Ficha del teléfono & \path{fase1/1.4_ficha_telefono.txt} \\
+		Integración con la cascada & \path{fase3/3.0_resumen_verificacion.txt}, \path{fase3/3.0_verificacion_contrato.json} \\
+		F1 en vivo & \path{fase4_5/f1_verificacion_en_vivo.txt}, \path{fase4_5/f1_resumen.txt} \\
+		Elevación por evidencia & \path{fase4_5/elevacion_en_vivo.txt} \\
+		Muestras de Kaggle & \path{muestras/kaggle/resumen.md} y archivos de resultados \\
+		Cobertura de filtros con URLhaus & \path{muestras/hallazgo_cobertura_f1.md} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\pendiente{Agregar las rutas de la evidencia del banco de pruebas automatizado, de la verificación en dispositivo, de la muestra verificada para TDM y TFP, y de la prueba de usabilidad.}
+
+\chapter{Resumen del contrato de interfaz}
+\label{anx:contrato}
+
+\section{Análisis de una URL}
+
+La aplicación solicita el análisis con una petición \texttt{POST /analyze} que envía la URL extraída del código y la conclusión del filtro F1:
+
+\begin{verbatim}
+{
+  "url": "https://ejemplo.com",
+  "resultadoF1": "INCIERTO"
+}
+\end{verbatim}
+
+El campo \texttt{resultadoF1} admite los valores \texttt{SEGURO}, \texttt{MALICIOSO} e \texttt{INCIERTO}. Con los dos primeros el servidor corta la cascada y devuelve ese veredicto. Con el tercero consulta la caché y, si no hay un resultado vigente, ejecuta F2.1 con trece criterios heurísticos, corta con \texttt{SOSPECHOSO} si el puntaje supera 60 y, en caso contrario, ejecuta F2.2 consultando URLScan.io y VirusTotal en paralelo. Si F2.2 obtiene una captura del sitio, F2.3 la guarda y devuelve una dirección firmada válida por una hora. Un ejemplo real de respuesta, verificado el 20 de septiembre de 2026, es el siguiente:
+
+\begin{verbatim}
+{
+  "url": "http://192.168.1.1/login.php",
+  "dominio": "192.168.1.1",
+  "veredicto_final": "PENDIENTE",
+  "score_heuristico": 60,
+  "criterios_f2_1": [
+    { "criterio": "ip_literal", "peso": 30,
+      "detalle": "Host es una IP: 192.168.1.1" },
+    { "criterio": "sin_https", "peso": 15,
+      "detalle": "La URL no usa HTTPS" },
+    { "criterio": "palabra_clave_sospechosa", "peso": 15,
+      "detalle": "Palabra detectada: \"login\"" }
+  ],
+  "indicadores_f2_2": []
+}
+\end{verbatim}
+
+El campo \texttt{veredicto\_final} puede ser \texttt{SEGURO}, \texttt{MALICIOSO}, \texttt{SOSPECHOSO} o \texttt{PENDIENTE}, y el campo \texttt{filtro\_decisivo} indica si decidió F1, F2.1, F2.2 o ninguno.
+
+\section{Reporte de un código}
+
+El reporte se envía con una petición \texttt{POST /report} que incluye la URL, un motivo opcional y, si existe, el identificador del análisis. El servidor guarda el reporte en su propia base de datos. Como PhishTank no ofrece una API pública para enviar URLs, el reporte no se reenvía automáticamente a listas colaborativas externas.
+
+\begin{verbatim}
+{
+  "url": "https://ejemplo-malicioso.xyz",
+  "motivo": "Formulario pidiendo credenciales bancarias"
+}
+\end{verbatim}
+
+\chapter{Códigos QR de prueba}
+\label{anx:qrs}
+
+El cuadro~\ref{tab:qrs-ejemplo} muestra los contenidos usados para verificar la clasificación y el cuadro~\ref{tab:qrs-demo} los usados para demostrar los veredictos. Los puntajes del segundo cuadro fueron verificados contra el servidor el 20 de septiembre de 2026 y pueden cambiar si se ajustan los pesos de la heurística.
+
+\begin{table}[H]
+	\centering
+	\caption{Contenidos de ejemplo y pantalla esperada}
+	\label{tab:qrs-ejemplo}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.4cm}>{\raggedright\arraybackslash}p{6.4cm}@{}}
+		\toprule
+		\textbf{Contenido del QR} & \textbf{Resultado esperado} \\
+		\midrule
+		\path{https://menu.cafeaurora.com/es} & Análisis \\
+		\path{cafeaurora.com/menu} & Análisis, se antepone \texttt{https} \\
+		\path{WIFI:T:WPA2;S:MiRed;P:clave123;;} & Contenido no navegable, red Wi-Fi \\
+		\path{mailto:hola@ejemplo.com} & Contenido no navegable, correo \\
+		\path{tel:+50255512346} & Contenido no navegable, teléfono \\
+		\path{geo:14.6349,-90.5069} & Contenido no navegable, ubicación \\
+		Contacto en formato vCard & Contenido no navegable, contacto \\
+		\texttt{Mesa 12} & Contenido no navegable, texto \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[H]
+	\centering
+	\caption{Códigos de demostración de los veredictos}
+	\label{tab:qrs-demo}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.6cm}>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{2cm}>{\raggedright\arraybackslash}p{3.8cm}@{}}
+		\toprule
+		\textbf{URL} & \textbf{Puntaje} & \textbf{Veredicto} & \textbf{Señales} \\
+		\midrule
+		\path{https://github.com} & 0 & Seguro & Ninguna \\
+		\path{http://banco-lndustrial-seguro.top/acceso} & 40 & Sospechoso & Dominio \texttt{.top} y sin HTTPS \\
+		\path{http://192.168.1.1/login.php} & 60 & Malicioso & IP literal, sin HTTPS y la palabra \emph{login} \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\chapter{Protocolo de verificación en dispositivo}
+\label{anx:protocolo}
+
+El protocolo se ejecuta en una sola sesión de aproximadamente cincuenta minutos, con la aplicación recién instalada después de desinstalar cualquier versión anterior.
+
+\begin{enumerate}
+	\item \textbf{Arranque en frío y onboarding.} Verificar que el onboarding aparece la primera vez, que solicita los permisos de cámara y ubicación con su explicación y que no vuelve a aparecer al reiniciar.
+	\item \textbf{Análisis real.} Escanear los tres códigos de demostración y verificar el veredicto, el medidor y los criterios del detalle. Escanear una URL nueva y verificar el aviso de espera prolongada.
+	\item \textbf{Geocodificación inversa.} Al aire libre y con el permiso concedido, escanear en diez ubicaciones distintas y anotar si el nombre del lugar y la ciudad son legibles. Reiniciar la aplicación y verificar que la preferencia de ubicación se conserva.
+	\item \textbf{Story Card.} Generar diez tarjetas con distintos veredictos, verificar los cuatro elementos y compartir o guardar cada una. Intentar escanear con un segundo teléfono el código cubierto de la tarjeta; si se lee, registrar un fallo grave.
+	\item \textbf{Camino sin conexión.} Activar el modo avión, escanear un código y verificar que el resultado es incierto con el aviso de degradación, sin que la aplicación se detenga. Verificar que el historial sigue disponible.
+	\item \textbf{Teclado y áreas seguras.} Abrir el formulario de reporte y verificar que el teclado no tapa los campos y que el contenido respeta los bordes de la pantalla.
+\end{enumerate}
+
+En cada paso se registra qué se observó, además de si se aprobó o no.

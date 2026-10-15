@@ -1,0 +1,321 @@
+\chapter{Resultados}
+\label{chap:resultados}
+
+Este capítulo presenta los resultados obtenidos al evaluar el prototipo según el diseño descrito en la metodología. Se sigue una regla única: cada número viene de una corrida real con fecha, y lo que todavía no se ha medido se declara como pendiente. La evidencia de cada medición se encuentra en el anexo~\ref{anx:evidencia}.
+
+Los resultados se ordenan de lo que no depende del hardware ni del servidor a lo que sí depende de ellos: primero la verificación de la lógica de negocio, después la compilación, el filtro F1, la cascada completa, la lectura de códigos, la verificación en el teléfono y la usabilidad. El capítulo cierra con un cuadro de cumplimiento de las diecisiete métricas y con las limitaciones de los resultados.
+
+\section{Verificación de la lógica de negocio}
+
+La corrida de referencia de esta sección se realizó el 11 de octubre de 2026, con Node~20.20.2 sobre Windows~11, Expo SDK~57.0.12 y React Native~0.86.2. En esa fecha, el conjunto completo sumaba 249 pruebas en 19 suites, todas aprobadas, y la verificación de tipos de TypeScript terminaba sin errores. El cuadro~\ref{tab:fase0} resume las cuatro métricas que se cubren en este nivel.
+
+\begin{table}[H]
+	\centering
+	\caption{Métricas verificadas con pruebas automatizadas (11 de octubre de 2026)}
+	\label{tab:fase0}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{1.4cm}@{}}
+		\toprule
+		\textbf{Métrica} & \textbf{Criterio} & \textbf{Obtenido} & \textbf{Cumple} \\
+		\midrule
+		Cobertura de pruebas & al menos 70~\% & 99,72~\% de sentencias y 100~\% de líneas & Sí \\
+		Clasificación URL o no URL & al menos 98~\% & 100~\% (18 de 18 casos) & Sí \\
+		Persistencia del historial & 100~\% & 100~\% (36 de 36 casos) & Sí \\
+		Reportes con carga completa & 100~\% & 100~\% (16 de 16 casos) & Sí \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+La cobertura se distribuyó de forma pareja entre los módulos de servicios: análisis, cliente HTTP, formato, ubicación, clasificación de QR, reporte y almacenamiento alcanzaron el 100~\% de líneas y de funciones. La pequeña diferencia en sentencias corresponde a dos guardas defensivas del módulo de errores y a archivos que solo contienen declaraciones de tipos.
+
+Los 18 casos de clasificación cubren URLs con esquema, dominios sin esquema, credenciales Wi-Fi, contactos, correos, teléfonos, coordenadas y texto suelto. Los casos de persistencia verifican guardar, leer, el límite de 20 entradas, el descarte del registro más antiguo y la recuperación ante datos corruptos. Los casos de reporte verifican que la carga se arme completa y anónima. Es importante precisar el alcance de esta última métrica: se valida la construcción de la carga, no su recepción en el servidor, cuyo servicio de guardado respondía con error interno en las pruebas de integración.
+
+El conjunto de pruebas creció con la integración de la cascada y del filtro F1. Tras la integración del 11 de octubre sumaba 307 pruebas en 20 suites, con 99,75~\% de cobertura de sentencias y 100~\% de líneas y funciones. Tras implementar Safe Browsing, ese mismo día, sumaba 338 pruebas en 22 suites, con 100~\% de cobertura en los tres archivos de F1.
+
+\pendiente{Volver a correr \texttt{npm run test:coverage} sobre la versión final del código y actualizar las cifras de esta sección y del cuadro~\ref{tab:fase0} con la fecha de esa corrida. Después del 11 de octubre se agregaron pruebas de PhishTank, de la elevación por evidencia y de las métricas de detección.}
+
+\section{Compilación reproducible}
+
+El instalable para Android se generó con EAS Build. En el historial del proyecto había ocho compilaciones del perfil de prueba, de las cuales siete terminaron correctamente y una fue cancelada. La compilación de referencia, del 11 de octubre de 2026, tardó 13~min y 25~s y corresponde exactamente al mismo commit sobre el que se midieron las pruebas automatizadas. Esto permite afirmar que las mediciones en hardware se realizan sobre la misma versión del código que la verificación automatizada. Además, que siete de ocho compilaciones terminaran en un entorno limpio indica que los bloqueos de Gradle observados en el equipo de desarrollo eran propios de ese equipo y no del proyecto.
+
+El teléfono de pruebas es un Samsung Galaxy A11 (SM-A115M) con Android~11 (API~30), procesador Qualcomm de ocho núcleos, cerca de 1,8~GB de memoria RAM, pantalla de 720 por 1560 píxeles y cámara con enfoque automático. Por su memoria y su procesador corresponde a la gama de entrada, por debajo de la gama media sobre la que el protocolo define el criterio de \tstart. Los tiempos medidos en este equipo deben leerse, por lo tanto, como una estimación conservadora.
+
+\section{Filtro F1 de reputación}
+
+\subsection{Verificación funcional en vivo}
+
+El 11 de octubre de 2026 se ejecutó la lógica del filtro F1 contra Google Safe Browsing en vivo, con ocho casos de control. Los ocho produjeron el resultado esperado, con tiempos de entre 72 y 324~ms. Las dos URLs de prueba oficiales de Google, de malware y de phishing, se clasificaron como maliciosas; los dominios de la lista local, como seguros; y tres casos de evasión dieron incierto, como se esperaba: un dominio desconocido, un dominio confiable servido sin HTTPS y un dominio que imita a uno confiable.
+
+\subsection{F1 sobre la muestra de Kaggle}
+
+El 12 de octubre de 2026 se ejecutó el código real de la aplicación sobre 2\,000 URLs del conjunto público de Kaggle \cite{kaggle_maliciousurls}, con 500 por clase y semilla fija. Ninguna consulta superó el tiempo límite. El cuadro~\ref{tab:tf1} resume los tiempos.
+
+\begin{table}[H]
+	\centering
+	\caption{Tiempo del filtro F1 sobre muestras de Kaggle (12 de octubre de 2026)}
+	\label{tab:tf1}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{5.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.6cm}@{}}
+		\toprule
+		\textbf{Configuración} & \textbf{URLs} & \textbf{Mediana} & \textbf{Perc. 90} & \textbf{Máximo} \\
+		\midrule
+		Lista local y Safe Browsing & 2\,000 & 137~ms & 214~ms & 699~ms \\
+		Lista local, Safe Browsing y PhishTank & 400 & 406~ms & 488~ms & 1\,106~ms \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+En ambas configuraciones el percentil~90 de \tfuno{} quedó muy por debajo del criterio de 5~s. Estas corridas se hicieron desde una computadora con red fija y no desde el teléfono con red móvil, como pide el protocolo, de modo que los tiempos en el dispositivo serán mayores.
+
+\pendiente{Medir \tfuno{} desde el teléfono de pruebas con red móvil 4G, como especifica el protocolo, y agregar la fila correspondiente al cuadro~\ref{tab:tf1}.}
+
+La incorporación de PhishTank multiplicó la detección de F1 en la clase de phishing. Sobre 100 URLs de esa clase, F1 marcó como maliciosas 2 sin PhishTank y 14 con PhishTank. Safe Browsing y PhishTank no coincidieron en ninguna URL, lo que indica que cubren casos distintos. PhishTank no produjo falsos positivos en las 70 URLs benignas que respondió, y no detectó ninguna de las clases de malware ni de desfiguración, lo que es consistente con que se trata de una base especializada en phishing.
+
+La medición mostró también la fragilidad operativa de PhishTank. Sin una clave de aplicación, su servicio cortaba las consultas con HTTP 429 después de unas 66 consultas seguidas, un límite que no aparece en su documentación. Aun espaciando las consultas, 104 de 400 (26~\%) quedaron sin respuesta. En la aplicación, cada uno de esos fallos se mostró como una fuente no consultada y el análisis continuó, lo que verificó la degradación con fallos reales y no simulados.
+
+La muestra reveló además un hallazgo sobre la lista local. Cuatro URLs de la clase de malware recibieron seguro porque eran descargas alojadas en servicios con contenido subido por usuarios, como Google Drive y archivos de repositorios de GitLab. La lista acepta los subdominios de sus dominios confiables, y esos servicios viven bajo dominios de la lista. Este caso se retoma en las recomendaciones.
+
+\subsection{Validez de la muestra de Kaggle}
+
+Al revisar a mano las URLs que contaron como error se encontró que el conjunto de Kaggle no es adecuado para medir la detección. Varias URLs etiquetadas como benignas eran phishing real mal etiquetado: Safe Browsing o varios motores de VirusTotal las marcaban como maliciosas. Varias etiquetadas como phishing eran sitios legítimos. Los sitios de la clase de desfiguración eran páginas atacadas hacia 2016 que probablemente ya fueron restauradas. Por otro lado, el formato de la URL delataba la etiqueta: el 92~\% de las benignas no tenía esquema y el 100~\% de las de desfiguración sí.
+
+Por lo tanto, la muestra de Kaggle se utilizó solo para medir propiedades que no dependen de la etiqueta, como \tfuno{} y la tasa de cortes del servidor, y no para la TDM ni la TFP. Esas dos métricas requieren una muestra fresca y etiquetada en la fecha de la prueba.
+
+\section{Cascada completa de filtros}
+
+\subsection{Tiempo total y cortes del servidor}
+
+El 12 de octubre de 2026 se ejecutó la cascada completa sobre 100 URLs de la muestra de Kaggle, 50 maliciosas y 50 legítimas, consultadas en serie. El hallazgo principal fue operativo: 45 de las 99 consultas con URL válida terminaron en HTTP 504 al llegar al límite de 35~s de API Gateway, y la aplicación las mostró como inciertas. Esta es la causa principal de la alta proporción de resultados inciertos, y no depende de la aplicación.
+
+En las 54 respuestas exitosas, \ttotal{} tuvo una mediana de 26,8~s, un percentil~90 de 31,3~s y un máximo de 34,9~s. El criterio de 35~s se cumple, pero solo porque lo que supera ese tiempo ya no llega a la aplicación. En esas mismas respuestas, el servidor decidió por F2.2 con sospechoso en 18 casos, por F1 con seguro en 3 y con malicioso en 1, y devolvió pendiente en 32.
+
+La política de tiempos de la aplicación recuperó parte de esos cortes. El 12 de octubre se observó que, tras un 504, una segunda consulta de la misma URL podía completar en 26,7 a 30,9~s, porque los servicios externos ya la habían analizado. El reintento implementado rescató una de cada tres URLs nuevas en esa prueba.
+
+\figurapendiente{Distribución de \ttotal{} en las respuestas exitosas y proporción de cortes por HTTP 504}{fig:ttotal}
+
+\subsection{Cobertura de cada filtro sobre amenazas activas}
+
+El 12 de octubre de 2026 se consultaron contra F1 22 URLs maliciosas activas del registro reciente de URLhaus \cite{urlhaus_api}, varias reportadas pocas horas antes. Safe Browsing no detectó ninguna, ni ampliando la consulta a los cuatro tipos de amenaza que ofrece la API. Para descartar un error de integración se consultaron en la misma sesión dos URLs de control de Google, y ambas fueron detectadas. El resultado, entonces, describe la cobertura de Safe Browsing y no un fallo de la consulta.
+
+La explicación está en el tipo de amenaza. Las 22 URLs eran infraestructura de distribución de malware: direcciones IP con puertos altos que sirven scripts, o archivos maliciosos subidos a dominios legítimos comprometidos. Safe Browsing está optimizado para proteger a una persona que navega, y estas URLs no se navegan, sino que las descarga software malicioso ya instalado.
+
+Al pasar algunas de estas URLs por el resto de la cascada se observó que cada filtro cubre algo que los otros no ven, según el cuadro~\ref{tab:cobertura}.
+
+\begin{table}[H]
+	\centering
+	\caption{Qué filtro detecta cada tipo de amenaza (12 de octubre de 2026)}
+	\label{tab:cobertura}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{3.2cm}@{}}
+		\toprule
+		\textbf{Tipo de URL} & \textbf{F1} & \textbf{F2.1} & \textbf{F2.2} \\
+		\midrule
+		IP literal con puerto alto que sirve un script & No & IP literal, 30 puntos & Corte por 504 \\
+		Script en un dominio legítimo comprometido & No & Puntaje 0 & Corte por 504 \\
+		Imagen con carga maliciosa en un dominio de aspecto normal & No & Puntaje 0 & Sospechoso \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+El tercer caso es el más ilustrativo. Su puntaje heurístico es cero y Safe Browsing no lo conoce, pero VirusTotal sí. Con un solo filtro, esa URL habría pasado como benigna. Además, ninguna de las tres URLs fue detectada por más de una vía. Este resultado es el argumento empírico de por qué el sistema se diseñó como una cascada y no como un filtro único.
+
+\subsection{Elevación por evidencia de comportamiento}
+
+El 12 de octubre se aplicó la regla de elevación sobre respuestas reales del servidor. Una imagen con carga maliciosa que 14 motores de VirusTotal marcaban como maliciosa, y que el servidor devolvía como sospechosa, se elevó a malicioso. Un acortador marcado por dos motores y otro marcado por uno se mantuvieron como sospechosos, porque no alcanzan el umbral de tres motores. Una URL de phishing con puntaje heurístico de 95 también se mantuvo como sospechosa, porque la regla solo considera la evidencia de comportamiento.
+
+\subsection{Detección sobre la muestra de Kaggle}
+
+Como referencia, y con las limitaciones de etiquetado ya descritas, el cuadro~\ref{tab:kaggleb} muestra las métricas de detección calculadas sobre las 100 URLs de la cascada, sin corregir las etiquetas del conjunto.
+
+\begin{table}[H]
+	\centering
+	\caption{Métricas de detección sobre la muestra de Kaggle, sin corregir etiquetas}
+	\label{tab:kaggleb}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{7.2cm}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{2.4cm}@{}}
+		\toprule
+		\textbf{Métrica} & \textbf{Valor} & \textbf{Criterio} \\
+		\midrule
+		Maliciosas con veredicto malicioso, sin PhishTank & 26~\% (13 de 50) & al menos 90~\% \\
+		Maliciosas con veredicto malicioso, con PhishTank & 28~\% (14 de 50) & al menos 90~\% \\
+		Maliciosas con malicioso o sospechoso & 36~\% & no definido \\
+		Legítimas con veredicto malicioso & 6~\% (3 de 50) & 5~\% o menos \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Estas cifras no miden la capacidad de detección del sistema. Las tres URLs ``legítimas'' que recibieron malicioso eran phishing real mal etiquetado, lo que lleva la tasa real de falsos positivos a cero en esta muestra. Por el lado de las maliciosas, gran parte de los inciertos se debe a los cortes por 504 y no a una falta de detección. Se reportan para dejar constancia de la corrida, no como resultado de las métricas del protocolo.
+
+\section{Detección con una muestra verificada}
+\label{sec:tdm}
+
+\pendiente{Ejecutar la medición de TDM y TFP con una muestra fresca, etiquetada en la fecha de la prueba: 50 URLs de phishing verificadas recientemente (PhishTank u OpenPhish) y 50 URLs legítimas de la lista Tranco. Registrar la fuente y la fecha de extracción, y reportar cuatro cifras: TDM estricta, tasa de advertencia (malicioso más sospechoso), TFP estricta y legítimas con sospechoso. Indicar cuántas consultas terminaron en 504.}
+
+\begin{table}[H]
+	\centering
+	\caption{Detección sobre la muestra verificada (por completar)}
+	\label{tab:tdm}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+		\toprule
+		\textbf{Métrica} & \textbf{Obtenido} & \textbf{Criterio} \\
+		\midrule
+		TDM estricta (malicioso) & & al menos 90~\% \\
+		Tasa de advertencia (malicioso o sospechoso) & & no definido \\
+		TFP estricta (legítimas con malicioso) & & 5~\% o menos \\
+		Legítimas con sospechoso & & no definido \\
+		Consultas cortadas por HTTP 504 & & no definido \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Lectura de códigos QR}
+\label{sec:lectura}
+
+Esta sección presenta los resultados del banco de pruebas automatizado de lectura descrito en la metodología, que mide \tscan{}, la tasa de detección de códigos y la precisión de clasificación sobre un conjunto de imágenes con distintas condiciones de tamaño, ángulo, iluminación y contenido.
+
+\pendiente{Completar con los resultados del banco de pruebas automatizado: cantidad de imágenes procesadas, equipo donde corrió, resultados globales, resultados por condición y gráficas. Discutir si el fallo, en caso de haberlo, se concentra en un solo eje (ángulo, iluminación o tamaño) y concluir la decisión sobre la librería de cámara.}
+
+\begin{table}[H]
+	\centering
+	\caption{Resultados globales de lectura (por completar)}
+	\label{tab:lectura-global}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.6cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{2.6cm}@{}}
+		\toprule
+		\textbf{Indicador} & \textbf{Obtenido} & \textbf{Criterio} \\
+		\midrule
+		Imágenes procesadas & & \\
+		Tasa de detección (TDR) & & al menos 95~\% \\
+		\tscan{}, mediana & & \\
+		\tscan{}, percentil 90 & & 5~s o menos \\
+		\tscan{}, máximo & & \\
+		Precisión de clasificación & & al menos 98~\% \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\begin{table}[H]
+	\centering
+	\caption{Resultados de lectura por condición (por completar)}
+	\label{tab:lectura-condicion}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{2.2cm}@{}}
+		\toprule
+		\textbf{Condición} & \textbf{Nivel} & \textbf{n} & \textbf{TDR} & \textbf{\tscan{} p90} \\
+		\midrule
+		Tamaño & Pequeño & & & \\
+		 & Mediano & & & \\
+		 & Grande & & & \\
+		\midrule
+		Ángulo & De frente & & & \\
+		 & 30\textdegree & & & \\
+		 & 45\textdegree & & & \\
+		\midrule
+		Iluminación & Luz de día & & & \\
+		 & Penumbra & & & \\
+		 & Oscuridad con linterna & & & \\
+		\midrule
+		Contenido & URL & & & \\
+		 & No URL & & & \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\figurapendiente{Histograma de \tscan{} con la línea del criterio de 5~s}{fig:hist-tscan}
+
+\figurapendiente{Distribución de \tscan{} por condición de tamaño, ángulo e iluminación}{fig:caja-tscan}
+
+\pendiente{Decisión sobre la librería de cámara: indicar si se mantiene \texttt{expo-camera} o si corresponde migrar a \texttt{react-native-vision-camera}, según el criterio de la sección~\ref{sec:mediciones}.}
+
+\section{Verificación en el dispositivo}
+
+\pendiente{Completar con los resultados del protocolo en el teléfono: onboarding una sola vez, análisis real con los tres veredictos, geocodificación en 10 ubicaciones, Story Card en 10 escaneos, prueba de legibilidad del QR cubierto con un segundo teléfono, preferencia de ubicación tras el reinicio, camino sin conexión, \tstart{} en cinco arranques en frío y compatibilidad con Android 11. Agregar capturas de pantalla de cada veredicto.}
+
+\begin{table}[H]
+	\centering
+	\caption{Resultados del protocolo en dispositivo (por completar)}
+	\label{tab:dispositivo}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{3cm}@{}}
+		\toprule
+		\textbf{Verificación} & \textbf{Obtenido} & \textbf{Criterio} \\
+		\midrule
+		Geocodificación legible (10 ubicaciones) & & al menos 85~\% \\
+		Story Card con los cuatro elementos (10 escaneos) & & al menos 90~\% \\
+		QR cubierto ilegible desde otro teléfono & & Ilegible \\
+		Preferencia de ubicación tras reinicio & & Se conserva \\
+		Camino sin conexión & & Incierto, sin fallo \\
+		\tstart{}, mediana de 5 arranques & & 3~s o menos \\
+		Errores críticos en Android 11 & & Ninguno \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\figurapendiente{Pantallas de resultado para los veredictos seguro, sospechoso y malicioso}{fig:pantallas}
+
+\section{Usabilidad}
+
+\pendiente{Completar con la prueba de usabilidad de cinco participantes: perfil general de cada uno (edad y familiaridad con la tecnología, sin nombres), resultados de las tres métricas y frases textuales relevantes de los participantes al ver cada veredicto.}
+
+\begin{table}[H]
+	\centering
+	\caption{Registro de la prueba de usabilidad (por completar)}
+	\label{tab:usabilidad}
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.8cm}>{\raggedright\arraybackslash}p{1.2cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{4.2cm}@{}}
+		\toprule
+		\textbf{P} & \textbf{Edad} & \textbf{\tlearn{} (s)} & \textbf{Comprendió} & \textbf{Finalizó} & \textbf{Observación} \\
+		\midrule
+		1 & & & & & \\
+		2 & & & & & \\
+		3 & & & & & \\
+		4 & & & & & \\
+		5 & & & & & \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\section{Cumplimiento de las métricas}
+
+El cuadro~\ref{tab:cumplimiento} reúne las diecisiete métricas del protocolo en el mismo orden del cuadro~\ref{tab:metricas}, para que puedan leerse en paralelo.
+
+\begin{table}[H]
+	\centering
+	\caption{Cumplimiento de las métricas del protocolo}
+	\label{tab:cumplimiento}
+	\small
+	\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{1.6cm}@{}}
+		\toprule
+		\textbf{Métrica} & \textbf{Criterio} & \textbf{Obtenido} & \textbf{Cumple} \\
+		\midrule
+		Clasificación URL o no URL & al menos 98~\% & 100~\% en pruebas automatizadas; lectura con cámara pendiente (sección~\ref{sec:lectura}) & Parcial \\
+		Cobertura de pruebas & al menos 70~\% & 99,72~\% de sentencias & Sí \\
+		Persistencia del historial & 100~\% & 100~\% & Sí \\
+		Reportes con carga completa & 100~\% & 100~\% & Sí \\
+		\tscan{} (percentil 90) & 5~s o menos & Pendiente (sección~\ref{sec:lectura}) & \\
+		Tasa de detección (TDR) & al menos 95~\% & Pendiente (sección~\ref{sec:lectura}) & \\
+		\tfuno{} (percentil 90) & 5~s o menos & 214~ms y 488~ms con PhishTank, en red fija & Sí, en red fija \\
+		\ttotal{} & 35~s o menos & 31,3~s en el percentil 90 de las respuestas exitosas; 45~\% de cortes & Parcial \\
+		Detección de maliciosos & al menos 90~\% & Pendiente (sección~\ref{sec:tdm}) & \\
+		Falsos positivos & 5~\% o menos & Pendiente (sección~\ref{sec:tdm}) & \\
+		Geocodificación legible & al menos 85~\% & Pendiente & \\
+		Story Card generada & al menos 90~\% & Pendiente & \\
+		Comprensión del veredicto & al menos 90~\% & Pendiente & \\
+		Finalización del flujo & al menos 85~\% & Pendiente & \\
+		\tlearn & 60~s o menos & Pendiente & \\
+		\tstart & 3~s o menos & Pendiente & \\
+		Compatibilidad con Android 10 o superior & Sin errores críticos & Compila y se instala; verificación en uso pendiente & \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\pendiente{Actualizar el cuadro~\ref{tab:cumplimiento} con cada medición pendiente. Donde una métrica no pueda medirse antes de la entrega, dejar la nota con la causa documentada en lugar de un guion.}
+
+\section{Limitaciones de los resultados}
+
+Los resultados obtenidos hasta ahora tienen cinco limitaciones que deben considerarse al interpretarlos.
+
+La primera es la disponibilidad del servidor. Durante el período de medición hubo días en que el servicio respondió con cortes generalizados: el 11 de octubre, tres llamadas consecutivas terminaron en HTTP 504 a los 35~s, incluida una URL que diez días antes respondía en 0,3~s desde caché. Además, la caché declarada en el contrato no funcionó en las pruebas, por lo que cada consulta pagó el costo completo de la cascada.
+
+La segunda es el límite de 35~s de API Gateway, que corta casi la mitad de los análisis de URLs nuevas. Ese corte no depende de la aplicación, pero condiciona \ttotal{} y la detección.
+
+La tercera es la muestra. El conjunto de Kaggle tiene etiquetas ruidosas y URLs antiguas, por lo que solo sirvió para medir tiempos y comportamiento operativo. Las cuotas de PhishTank y VirusTotal limitaron el tamaño de las corridas.
+
+La cuarta es el entorno. Los tiempos de F1 se midieron en una computadora con red fija, y las pruebas en hardware se realizan sobre un único teléfono de gama de entrada.
+
+La quinta es que el servidor solo concluye malicioso cuando F1 lo hace. La heurística y el comportamiento tienen como techo el veredicto sospechoso, y la aplicación compensa una parte de ese techo con la elevación por evidencia, de modo que la TDM depende en buena medida de qué amenazas conocen las listas de reputación en el momento de la prueba.
+
+\pendiente{Agregar las limitaciones que surjan del banco de pruebas automatizado (por ejemplo, la diferencia entre decodificar imágenes fijas y leer con la cámara en vivo) y de la prueba de usabilidad.}

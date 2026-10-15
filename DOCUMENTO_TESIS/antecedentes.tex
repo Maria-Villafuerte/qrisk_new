@@ -1,0 +1,679 @@
+
+\section{Introducción al estado del arte}
+
+El problema de este trabajo es que un usuario no puede saber a dónde lo lleva una URL
+antes de que su teléfono la abra al escanear un código QR. Ese problema cruza cuatro
+puntos de investigación que hasta ahora han avanzado bastante por separado: (i) el
+estudio del código QR como vector de ataque y qué tan susceptibles son los usuarios;
+(ii) la detección automática de URLs maliciosas, desde listas negras hasta
+clasificadores que analizan cómo está escrita la URL; (iii) los sistemas de
+reputación y las plataformas colaborativas de \emph{threat intelligence}; y (iv) el
+campo de \emph{usable security}, que estudia cuándo una advertencia de seguridad
+realmente cambia lo que hace la persona que la recibe.
+
+Al revisarlas juntas aparece un desbalance que explica por qué este proyecto tiene
+sentido. Los tres primeros puntos están bien desarrollados y con resultados medibles:
+hay taxonomías completas de ataques sobre QR \cite{krombholz2014qr}, estudios de
+campo sobre susceptibilidad \cite{vidas2013qrishing}, clasificadores que reportan
+precisiones arriba del 95~\% \cite{ma2009beyond,le2011phishdef} y una infraestructura
+de reputación de URLs funcionando a escala mundial
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo,urlhaus_api,misp_project}.
+El cuarto punto, en cambio, ha mostrado una y otra vez que detectar bien no basta para
+proteger: entre el 25~\% y el 70~\% de los usuarios ignora la advertencia y sigue
+adelante, según el tipo de amenaza \cite{akhawe2013alice}.
+
+Lo que esto implica es que hoy el \emph{quishing} no está limitado por la falta de
+capacidad para detectar, sino porque esa capacidad no se aplica en el momento y en el
+aparato donde ocurre el ataque, y porque el resultado no se comunica de forma que el
+usuario pueda hacer algo con él. Este capítulo revisa los trabajos de cada punto,
+compara sus enfoques y resultados, señala qué aporta y qué le falta a cada uno, y
+delimita el vacío que el prototipo busca llenar.
+
+\subsection*{Procedimiento de la revisión}
+
+Varias conclusiones de este capítulo dicen que algo no existe en la literatura. Para
+que esas afirmaciones se puedan verificar y quede claro hasta dónde llegan, conviene
+explicar cómo se hizo la búsqueda.
+
+Se buscó en IEEE~Xplore, ACM Digital Library, Scopus, SpringerLink, arXiv y Google
+Scholar, además de la documentación oficial de los proveedores de reputación y de las
+plataformas móviles, y de informes públicos de la industria de seguridad. Los términos
+de búsqueda combinaron 	exttt{"QR code" AND (phishing OR quishing)},
+	exttt{quishing}, 	exttt{"malicious URL detection" AND (mobile OR lexical)},
+	exttt{"phishing blacklist" AND (coverage OR "zero-hour")},
+	exttt{"security warning" AND (effectiveness OR usable security) AND mobile} y
+	exttt{"URL reputation" AND (aggregation OR "multi-source")}, en inglés y en español.
+El rango de años fue 2008--2025, ampliado hacia atrás solo para incluir trabajos
+fundacionales que siguen vigentes por la cantidad de veces que se citan.
+
+Se incluyeron trabajos publicados en conferencias o revistas indexadas, estándares
+internacionales y documentación oficial de las tecnologías que se usan en el
+prototipo. Se dejaron fuera los trabajos sobre generación o procesamiento de imagen
+del símbolo QR sin componente de seguridad, las propuestas de firmar códigos QR con
+esquemas criptográficos que obligan a cambiar el estándar o la infraestructura de
+quien emite el código, y las publicaciones sin acceso al texto completo. La selección
+se hizo leyendo título y resumen, y después el texto completo de los que quedaron.
+
+Esto no es una revisión sistemática formal: no hubo doble revisión independiente ni
+protocolo registrado de antemano. Por eso, cuando más adelante se diga que algo no se
+encontró, hay que leerlo con esa precisión: no se afirma que esa evidencia no exista,
+sino que no apareció con la búsqueda descrita aquí. Es una limitación de esta revisión
+y se declara como tal.
+
+Hay un segundo punto que conviene aclarar desde el inicio. Buena parte de lo que se
+sabe sobre \emph{quishing}, sobre todo en cuanto a volúmenes y crecimiento, viene de
+informes de empresas de seguridad \cite{verizon2024dbir,insikt2024qrcode,unit42_2023qr}
+y no de publicaciones arbitradas. Esas fuentes sirven porque tienen acceso a
+telemetría que nadie más tiene, pero no pasan por revisión de pares y casi nunca
+explican su metodología con suficiente detalle como para reproducirla. Por eso en este
+capítulo se usan para dimensionar el fenómeno, no para sostener decisiones técnicas;
+esas se apoyan en publicaciones indexadas, estándares y documentación oficial.
+
+\section{Revisión de antecedentes relevantes}
+
+\subsection{El código QR como vector de ataque: caracterización y evidencia empírica}
+
+El trabajo que abrió este punto es el de Krombholz et al. \cite{krombholz2014qr},
+la primera taxonomía ordenada de ataques sobre códigos QR vista desde
+\emph{usable security}. Su aporte principal fue separar dos cosas: los ataques que
+manipulan el código físico (pegarle una calcomanía encima, reimprimir un cartel) y los
+que aprovechan lo que está codificado adentro. Identificaron las URLs como el
+contenido más peligroso y más común y, lo más importante para este trabajo, plantearon
+el problema como un asunto de usabilidad y no solo de criptografía o de integridad del
+código: el usuario no puede verificar lo que no puede leer.
+
+La evidencia empírica clave viene de Vidas et al. \cite{vidas2013qrishing}. En su
+estudio \emph{QRishing} pegaron códigos QR en lugares públicos reales y midieron
+cuánta gente los escaneaba de verdad. Encontraron que los usuarios de teléfonos
+inteligentes caen bastante más en phishing por QR que en phishing por enlace directo,
+lo que confirmó con números lo que Krombholz et al. habían planteado a nivel
+conceptual. Metodológicamente destaca porque midieron conducta real en la calle en
+lugar de preguntarle a la gente qué haría, evitando así que las respuestas salieran
+sesgadas por querer quedar bien. También documentaron que la mayoría escaneó por pura
+curiosidad, sin fijarse antes en el destino.
+
+Los dos trabajos comparten un problema de fecha: son de 2013 y 2014, o sea antes de
+que la pandemia de COVID-19 disparara el uso de códigos QR a partir de 2020
+\cite{salahdine2019social}. En el escenario que ellos describen, escanear un QR
+requería bajar una app aparte; hoy la cámara del teléfono lo hace sola, lo que quita
+todavía más fricción y hace menos probable que alguien se detenga a pensar. Sus
+conclusiones sobre susceptibilidad no solo siguen siendo válidas, sino que
+probablemente el problema empeoró; pero las cifras concretas que reportan hay que
+tomarlas como piso, no como estimación actual.
+
+Para saber cómo está el fenómeno hoy hay que recurrir a informes de la industria.
+Insikt Group \cite{insikt2024qrcode} registró un aumento cercano al 248~\% en menciones
+a \emph{quishing} en fuentes de inteligencia entre el tercer y el cuarto trimestre de
+2023 y, más importante que la cifra, documentó que el ataque se integró a plataformas
+de \emph{phishing-as-a-service} como Tycoon 2FA y Greatness. Eso significa que ya no
+hace falta saber hacerlo: cualquiera puede comprar el servicio, lo que amplía muchísimo
+el número de atacantes posibles. Unit~42 de Palo Alto Networks \cite{unit42_2023qr}
+explicó el incentivo: plataformas como Microsoft 365 y Google Workspace revisan el
+texto de los correos pero no decodifican los códigos QR que vienen como imagen, así
+que el QR funciona como forma de esquivar esos filtros.
+
+Lo valioso de estos informes no son tanto sus cifras de crecimiento, cuya
+metodología no se puede reproducir y cuyas bases de comparación cambian de un reporte a
+otro, sino cómo describen el incentivo económico y la forma de evadir los filtros. Eso
+sí se puede verificar por otro lado, y es lo que sostiene la premisa central de este
+trabajo: si el filtro de correo no puede leer el QR, el único lugar donde la URL se
+vuelve legible es el teléfono del usuario al momento de escanear.
+
+\subsection{Detección de URLs maliciosas: listas negras, heurísticas y aprendizaje automático}
+
+La referencia obligada aquí es Sahoo, Liu y Hoi \cite{sahoo2017malicious}, que
+ordenan las técnicas de detección en tres grupos (listas negras, heurísticas y
+aprendizaje automático) y explican qué gana y qué pierde cada una en cobertura,
+latencia, falsos positivos y capacidad de detectar amenazas nuevas. Su aporte es sobre
+todo organizativo y sigue siendo el marco más usado; su límite es la fecha, anterior a
+que se generalizaran los transformadores para clasificar texto, así que lo que dicen
+sobre aprendizaje profundo quedó desactualizado.
+
+El trabajo de Sheng et al. \cite{sheng2009empirical} es la evaluación más citada
+sobre los límites de las listas negras. Midieron cuánto cubrían varias listas en
+operación y cuánto tardaban en incorporar sitios nuevos, y encontraron que las más
+grandes alcanzaban alrededor del 20~\% de los sitios de phishing en el momento en que
+la URL se creaba, con una cobertura que mejoraba conforme el sitio llevaba más tiempo
+circulando y siendo denunciado. De ahí salió el concepto de \emph{zero-hour phishing}
+como límite estructural de este enfoque.
+
+Ahora bien, aplicar ese hallazgo tal cual al día de hoy sería un error, y vale la
+pena señalarlo porque afecta directamente cómo se justifica el filtro F1 de este
+proyecto. El estudio es de 2009, cuando los sistemas de reputación eran mucho menos
+maduros; las plataformas actuales actualizan sus bases en cuestión de minutos con
+análisis automatizado a gran escala. El 20~\% no se puede trasladar al presente. Lo que
+sí sigue vigente, y es lo que sostiene el argumento, es la limitación de fondo: los
+informes de APWG de 2024 y 2025 \cite{apwg2024q1,apwg2025q1} muestran que los sitios
+maliciosos que duran menos de una hora antes de ser indexados siguen siendo una parte
+importante de los ataques, con más de un millón de ataques únicos solo en el primer
+trimestre de 2024. Ninguna lista puede contener algo que todavía no ha sido visto, por
+más rápido que se actualice. La conclusión correcta no es que las listas negras ya no
+sirvan, sino que son necesarias pero no suficientes: cubren muy bien y muy rápido lo
+que ya se conoce, y hay que complementarlas con algo que evalúe lo que no.
+
+El tamaño de esa brecha se puede estimar con los mismos informes de APWG
+\cite{apwg2024q1,apwg2025q1}, que documentan un flujo constante de dominios de
+phishing recién creados y una porción importante de sitios que duran menos de lo que
+toma indexarlos. Mientras más ataques usen dominios registrados especialmente para una
+campaña, menos alcanza a cubrir cualquier lista en el instante en que el usuario
+escanea.
+
+Es probable que en el \emph{quishing} esa proporción sea al menos parecida a la del
+phishing por enlace directo, porque repartir códigos QR físicamente favorece campañas
+cortas y localizadas, para las que registrar un dominio propio resulta cómodo. Hay que
+subrayar, eso sí, que esto es un supuesto derivado de cómo opera el ataque y no una
+medición: la revisión no encontró estudios que cuantifiquen específicamente cuántos
+dominios únicos se usan en campañas de \emph{quishing}. Se declara como supuesto y no
+se usa para sostener ninguna decisión de diseño; solo indica hacia dónde apunta el
+efecto esperado.
+
+Frente a este límite, el enfoque que clasifica URLs por sus características es el más
+prometedora para un contexto móvil. Ma et al. \cite{ma2009beyond}, en un trabajo de
+KDD~'09 que abrió el camino, mostraron que con datos sacados del nombre de dominio y
+de cómo está escrita la URL se puede llegar a precisiones cercanas al 99~\% detectando
+phishing conocido, sin necesidad de visitar el sitio. Le, Markopoulou y Faloutsos
+\cite{le2011phishdef} llevaron la idea al extremo con \emph{PhishDef}, que usa
+únicamente características de la URL y reporta precisiones arriba del 95~\%, con la
+ventaja de degradarse de forma controlada cuando los datos vienen con ruido, gracias al
+aprendizaje en línea.
+
+Lo que hace decisivos estos trabajos para una app móvil no es su precisión, sino algo
+que se desprende de no tener que abrir el sitio. De ahí salen tres ventajas. No hay que
+esperar una petición HTTP al destino, que además puede ser malicioso. No se expone la
+infraestructura del analizador ante ese destino. Y, sobre todo, no se le avisa a nadie
+más que un usuario específico está por entrar a una URL específica. Esto último es un
+tema de privacidad que la literatura revisada apenas menciona de pasada, pero que en un
+producto para usuarios finales pesa bastante más.
+
+Los límites de este enfoque también importan. Los resultados salieron de conjuntos de
+datos históricos y en condiciones de laboratorio; ninguno de los trabajos revisados
+reporta cómo se comporta en uso real sobre un teléfono, ni bajo las restricciones de
+cómputo y batería que eso implica. Además, las características de la URL pierden
+efectividad ante técnicas de evasión que trabajos posteriores ya documentaron: usar
+acortadores, aprovechar dominios legítimos comprometidos o generar nombres por
+algoritmo que estadísticamente se ven igual de inocentes que los normales. Por eso este
+trabajo pone el análisis heurístico en un filtro posterior (F2) y no como único
+mecanismo.
+
+\subsection{Sistemas de reputación y plataformas colaborativas de threat intelligence}
+
+La infraestructura en la que se apoya el filtro F1 está documentada sobre todo en
+manuales técnicos oficiales y no en publicaciones arbitradas, lo cual ya dice algo
+sobre el estado del arte en esta área.
+
+Google Safe Browsing \cite{google_safebrowsing} es el sistema de reputación con más
+URLs indexadas, y es el que alimenta las advertencias de Chrome, Safari y Firefox. Su
+Lookup API~v5 permite consultar URLs una por una en tiempo real, normalmente en menos
+de 200~ms. Lo que aporta al diseño propuesto es llevar al escaneo móvil una cobertura
+que ya existe en el navegador de escritorio; su desventaja es que no se sabe con qué
+criterio clasifica, así que no hay forma de auditar por qué marcó o no marcó una
+URL.
+
+VirusTotal \cite{virustotal_apiv3} hace algo distinto y complementario: en vez de
+mantener su propia lista, junta los veredictos de más de setenta motores antivirus y
+escáneres de URL. La ventaja es que se reducen los falsos negativos, porque una URL que
+se le escapa a un motor puede ser detectada por otro. La desventaja pesa mucho en un
+prototipo académico: el plan gratuito permite solo cuatro consultas por minuto y
+quinientas al día. Ese tope limita cuánta validación empírica se puede hacer y obliga a
+diseñar el filtro para que siga funcionando cuando esta fuente no esté
+disponible.
+
+PhishTank \cite{phishtank_devinfo}, de Cisco Talos, y URLhaus \cite{urlhaus_api}, de
+abuse.ch, funcionan de forma colaborativa: la comunidad reporta las URLs y estas se
+verifican por votación o curaduría. Lo que aportan es rapidez para incorporar campañas
+nuevas, más que los sistemas totalmente automatizados en ciertos nichos. Su límite es
+que dependen de qué tan activa esté la comunidad, lo que hace que la cobertura sea
+despareja según la región y el idioma. Eso pega directo en el contexto guatemalteco y
+latinoamericano de este trabajo, donde seguramente se reporta bastante menos que en
+inglés. MISP \cite{misp_project} completa el panorama como el estándar de hecho para
+intercambiar indicadores de compromiso. Su relevancia aquí es indirecta pero real:
+varias de las fuentes integradas exportan o consumen datos en formatos compatibles con
+MISP, y eso explica que el ecosistema funcione junto.
+
+Al mirar estas plataformas en conjunto aparece un vacío que ninguna documentación
+oficial cubre: en la literatura revisada no hay un estudio independiente que compare
+qué tanto coinciden estas fuentes sobre un mismo conjunto de URLs, ni que describa cómo
+se comporta un veredicto combinado frente a los veredictos por separado. Cada proveedor
+publica lo que él hace; nadie publica cómo funcionan juntos. La validación del filtro F1
+prevista en este trabajo, aunque sea de alcance modesto, aporta algo en esa
+dirección.
+
+\subsection{Soluciones comerciales de escaneo seguro de QR}
+
+En las tiendas de apps ya hay soluciones que atacan parte del problema. Herramientas
+como \emph{Safe QR Scan -- Secure QR Scanner} y \emph{SafeQR Reader $\cdot$ Block Scams},
+disponibles en la App Store, revisan la URL antes de redirigir, comparándola contra
+bases de datos de dominios maliciosos conocidos.
+
+Su mérito es haber demostrado en el mercado que el punto de intervención funciona:
+confirman que meterse entre el escaneo y la apertura del navegador es viable
+técnicamente y que a los usuarios no les molesta. Pero tienen tres limitaciones de
+fondo. Primero, como ya documentó la literatura revisada
+\cite{sheng2009empirical,vidas2013qrishing}, trabajan casi todas con listas negras, que
+no alcanzan contra dominios recién creados, justamente los que dominan en campañas de
+\emph{quishing}. Segundo, son productos cerrados: no publican su arquitectura, ni sus
+fuentes de datos, ni sus tasas de error, así que no hay manera de evaluarlas de forma
+independiente ni de compararlas científicamente. Tercero, ninguna explica en qué basó
+sus decisiones de interfaz, aun cuando la literatura de \emph{usable security} dice que
+ahí es donde fallan la mayoría de sistemas de advertencia.
+
+Conviene aclarar que este trabajo no incluye una comparación formal contra estas
+apps comerciales; esa exclusión está declarada en el capítulo de alcance. Se revisan
+aquí para mostrar cómo está la práctica actual y para dejar claro que lo que se propone
+--una arquitectura documentada, con fuentes declaradas y decisiones de interfaz
+fundamentadas-- juega en otro plano que el de competir en funciones con productos de
+mercado.
+
+\subsection{Usable security y efectividad de advertencias de seguridad}
+
+Este punto aporta el fundamento de las decisiones de interfaz. Puede sostenerse,
+además, que es la que explica por qué la sola disponibilidad de detección eficaz no ha
+resuelto el problema.
+
+Cranor \cite{cranor2008framework} propuso el marco del humano en el ciclo, que
+descompone el comportamiento seguro en tres condiciones encadenadas: la persona tiene
+que notar la señal, entender qué significa y actuar en consecuencia. Sirve como
+diagnóstico, porque permite ubicar en cuál de los tres eslabones está fallando un
+sistema concreto en lugar de echarle la culpa genéricamente al descuido del usuario. Su
+límite es que es un modelo conceptual y no un instrumento de medición, así que
+validarlo directamente es complicado.
+
+Egelman, Cranor y Hong \cite{egelman2008warned} aportaron evidencia experimental
+sobre qué hace efectiva una advertencia de phishing en el navegador: interrumpir lo que
+la persona está haciendo, destacar visualmente, usar lenguaje concreto en vez de
+técnico y aparecer en el momento en que más importa. Akhawe y Felt
+\cite{akhawe2013alice} llevaron el análisis a datos reales de Chrome, con un hallazgo
+muy relevante para este proyecto: la tasa de continuación, o sea cuánta gente ignora la
+advertencia y sigue de todos modos, fue de alrededor del 70~\% en advertencias de SSL
+frente a cerca del 25~\% en advertencias de malware. Esa diferencia muestra que la
+reacción depende de qué tan grave se percibe la amenaza y de qué tan bien se entiende,
+no de que la gente ignore los avisos por costumbre. La implicación de diseño es
+directa: distinguir claramente entre niveles de veredicto no es un detalle estético,
+es un requisito para que la advertencia funcione.
+
+El problema común de este punto es el contexto: los tres trabajos estudian
+advertencias en navegadores de escritorio. Nadie ha validado si sus hallazgos se
+trasladan al entorno móvil, que es distinto: pantalla chica, interacción táctil, uso
+frecuente en movimiento y con prisa, y sin barra de direcciones para verificar. Es,
+entonces, una extrapolación razonable pero no comprobada, y este trabajo la asume
+explícitamente como tal.
+
+\subsection{Estándares y documentación técnica de referencia}
+
+El estándar ISO/IEC~18004 \cite{iso18004_2015,iso18004_2024} define cómo funciona el
+código QR: modos de codificación, niveles de corrección de errores y versiones de
+tamaño. Importa como antecedente por dos razones. Por un lado, delimita técnicamente
+qué puede llevar adentro un QR y, por lo tanto, qué tiene que clasificar el módulo de
+escaneo antes de decidir si corresponde analizarlo. Por otro, y esto pesa más para el
+planteamiento del problema, el estándar no incluye ningún mecanismo para autenticar
+quién generó el código ni para verificar que el contenido no fue alterado. No es un
+defecto de la norma, porque se diseñó en 1994 para trazabilidad industrial
+\cite{iso18004_2015} y no como canal de confianza, pero ahí está la raíz técnica de la
+vulnerabilidad: dentro del estándar no hay forma de distinguir un QR legítimo de uno
+pegado encima. Cualquier solución tiene que ubicarse por encima de la capa del código,
+lo que respalda la decisión de este trabajo de analizar la URL en texto (RFC~3986) y no
+el símbolo QR.
+
+El OWASP MASVS~v2.1 \cite{owasp2024masvs} da el marco para verificar la seguridad de
+la app misma, con categorías que aplican directo al prototipo: MASVS-STORAGE para el
+historial local cifrado, MASVS-NETWORK para la comunicación con el backend y las APIs, y
+MASVS-PLATFORM para el manejo de permisos de cámara y ubicación. Lo útil es que ofrece
+criterios verificables en lugar de buenas prácticas sueltas; su límite reconocido es que
+es un estándar de requisitos y no una guía de implementación. La documentación oficial de
+cada plataforma (App Transport Security \cite{apple_ats} y Apple Platform Security
+\cite{apple2024platformsecurity} en iOS, Network Security Configuration
+\cite{android_netsecconfig} en Android) complementa el estándar con los mecanismos
+concretos.
+
+Por último, la documentación de las librerías y APIs nativas de escaneo
+(VNDetectBarcodesRequest del framework Vision \cite{apple_vndetectbarcodes}, ML~Kit
+Barcode Scanning \cite{google_mlkit_barcode} y react-native-vision-camera
+\cite{rousavy_visioncamera}) confirma que se puede procesar todo en el teléfono en menos
+de 100~ms. Este dato es el que hace posible el objetivo de mantener la latencia total
+por debajo de cinco segundos: si hubiera que mandar la imagen a un servidor para
+decodificarla, ni el tiempo ni la privacidad serían alcanzables.
+
+\section{Comparación de los trabajos revisados}
+
+Poniendo los antecedentes uno junto a otro, se pueden ordenar según en qué momento
+del ataque intervienen y qué tipo de evidencia aportan.
+
+	extbf{Por enfoque metodológico} se distinguen cuatro grupos con características
+distintas. Los estudios de campo que miden conducta real \cite{vidas2013qrishing} son
+los más cercanos a la realidad, pero con muestras pequeñas y difíciles de repetir. Las
+evaluaciones sobre conjuntos de datos
+\cite{sheng2009empirical,ma2009beyond,le2011phishdef} dan métricas precisas y
+comparables, aunque en condiciones de laboratorio que no reflejan el uso real. Los
+estudios a gran escala con datos de producción \cite{akhawe2013alice} combinan volumen y
+realismo, pero solo los puede hacer quien controla la plataforma. Y los informes de la
+industria \cite{insikt2024qrcode,unit42_2023qr} ofrecen la foto más actual del panorama
+de amenazas, a cambio de no pasar por revisión de pares ni ser reproducibles.
+
+	extbf{Por punto de intervención} la comparación dice más. Los sistemas de reputación
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo,urlhaus_api} actúan sobre la
+URL una vez que el ecosistema ya la conoce; cubren mucho y responden rápido, pero no ven
+lo nuevo. Los clasificadores léxicos \cite{ma2009beyond,le2011phishdef} actúan sin
+importar el historial de la URL, así que pueden evaluar dominios recién registrados, a
+cambio de más falsos positivos. Los filtros de correo actúan antes de que el mensaje
+llegue, pero como documenta Unit~42 \cite{unit42_2023qr} no leen el QR y quedan fuera de
+juego. Las advertencias del navegador \cite{egelman2008warned,akhawe2013alice} actúan
+después de navegar, cuando la petición al servidor del atacante ya salió. Y las apps
+comerciales de escaneo seguro actúan en el punto correcto, entre el escaneo y la
+apertura, pero con una detección insuficiente.
+
+De esta comparación sale el hallazgo central del capítulo: 	extbf{el punto donde la
+intervención es posible coincide con el punto donde ningún trabajo revisado aplica al
+mismo tiempo detección multicapa y una comunicación bien fundamentada del veredicto.} El
+momento entre leer el código y la redirección es el único en que la URL se puede ver, el
+ataque todavía no se consuma y el usuario está en posición de decidir. Los sistemas de
+reputación saben detectar pero no operan ahí; las apps comerciales operan ahí pero sin
+detección suficiente ni criterio para comunicar; y la literatura de \emph{usable
+security} sabe cómo comunicar pero no ha estudiado este contexto.
+
+	extbf{Por cómo tratan la comunicación del veredicto} el desbalance es todavía más
+marcado. De todos los antecedentes revisados, solo los de \emph{usable security}
+\cite{cranor2008framework,egelman2008warned,akhawe2013alice} se ocupan explícitamente de
+cómo presentar un resultado de seguridad, y ninguno lo hace en el contexto móvil de
+escaneo de QR. Los trabajos técnicos de detección
+\cite{sahoo2017malicious,sheng2009empirical,ma2009beyond,le2011phishdef} terminan en la
+métrica de clasificación y no entran en la interfaz. Los proveedores de reputación
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo,urlhaus_api} entregan un
+veredicto estructurado y dejan toda la presentación en manos de quien lo integre. Esa
+separación entre quien detecta y quien comunica es justamente donde se ubica el aporte de
+este trabajo.
+
+La siguiente tabla resume la comparación de los principales antecedentes según su
+enfoque, lo que aportan y lo que les falta para los fines de este proyecto.
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.6cm}
+                     >{\raggedright\arraybackslash}p{2.8cm}
+                     >{\raggedright\arraybackslash}p{4.2cm}
+                     >{\raggedright\arraybackslash}p{4.0cm}@{}}
+\caption{Comparación de los trabajos revisados según enfoque, aporte y limitación.}
+\label{tab:comparacion-antecedentes} \\
+\toprule
+\textbf{Trabajo / fuente} & \textbf{Enfoque metodológico} & \textbf{Aporte principal} & \textbf{Limitación relevante} \\
+\midrule
+\endfirsthead
+
+\multicolumn{4}{@{}l}{\small\itshape (continuación de la Tabla \ref{tab:comparacion-antecedentes})} \\
+\toprule
+\textbf{Trabajo / fuente} & \textbf{Enfoque metodológico} & \textbf{Aporte principal} & \textbf{Limitación relevante} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r@{}}{\small\itshape (continúa en la página siguiente)} \\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+Krombholz et al. \cite{krombholz2014qr} &
+Taxonomía conceptual &
+Formula el problema como cuestión de usabilidad; identifica la URL como vector dominante &
+Anterior al escaneo nativo y a la adopción masiva post-2020 \\
+\addlinespace
+
+Vidas et al. \cite{vidas2013qrishing} &
+Estudio de campo, conducta observada &
+Evidencia cuantitativa de mayor susceptibilidad al QR frente a URL directa &
+Muestra reducida; magnitudes no extrapolables al ecosistema actual \\
+\addlinespace
+
+Sahoo et al. \cite{sahoo2017malicious} &
+Revisión sistemática &
+Taxonomía de técnicas que fundamenta la arquitectura multicapa F1--F4 &
+Tratamiento desactualizado del aprendizaje profundo \\
+\addlinespace
+
+Sheng et al. \cite{sheng2009empirical} &
+Evaluación empírica de sistemas &
+Establece el \emph{zero-hour phishing} como límite estructural de las listas &
+Cifra del 20~\% no transferible a plataformas actuales \\
+\addlinespace
+
+Ma et al. \cite{ma2009beyond} &
+Clasificación sobre conjunto de datos &
+Precisión cercana al 99~\% sin visitar el sitio destino &
+Condiciones de laboratorio; sin despliegue móvil \\
+\addlinespace
+
+Le et al. \cite{le2011phishdef} &
+Clasificación léxica en línea &
+Precisión superior al 95~\% solo con características de la URL &
+Vulnerable a acortadores y a dominios comprometidos \\
+\addlinespace
+
+Google Safe Browsing \cite{google_safebrowsing} &
+Documentación técnica oficial &
+Mayor cobertura indexada; latencia inferior a 200~ms &
+Criterio de clasificación opaco, no auditable \\
+\addlinespace
+
+VirusTotal \cite{virustotal_apiv3} &
+Documentación técnica oficial &
+Agregación de más de 70 motores; reduce falsos negativos &
+Plan gratuito: 4 consultas/min y 500/día \\
+\addlinespace
+
+PhishTank \cite{phishtank_devinfo} / URLhaus \cite{urlhaus_api} &
+Plataforma colaborativa &
+Rapidez ante campañas emergentes &
+Cobertura desigual por región e idioma \\
+\addlinespace
+
+Cranor \cite{cranor2008framework} &
+Modelo conceptual &
+Marco diagnóstico de los tres eslabones del comportamiento seguro &
+No operacionalizado como instrumento de medición \\
+\addlinespace
+
+Egelman et al. \cite{egelman2008warned} &
+Experimento controlado &
+Criterios de diseño de advertencias basados en evidencia &
+Contexto exclusivamente de navegador de escritorio \\
+\addlinespace
+
+Akhawe y Felt \cite{akhawe2013alice} &
+Estudio de campo a gran escala &
+La severidad percibida modula la respuesta: tasa de continuación del 70~\% en SSL frente al 25~\% en malware &
+No validado en contexto móvil \\
+\addlinespace
+
+ISO/IEC 18004 \cite{iso18004_2015,iso18004_2024} &
+Estándar internacional &
+Delimita el contenido codificable y la lógica de clasificación &
+No define autenticación del emisor ni integridad del contenido \\
+\addlinespace
+
+OWASP MASVS \cite{owasp2024masvs} &
+Estándar de verificación &
+Criterios verificables de seguridad de la aplicación &
+Estándar de requisitos, no metodología de implementación \\
+\addlinespace
+
+\emph{Safe QR Scan}, \emph{SafeQR Reader} (App Store) &
+Producto de mercado; sin documentación técnica pública &
+Validan la viabilidad y la aceptación del punto de intervención &
+Cerradas e inauditables; detección basada en lista negra \\
+
+\end{longtable}
+
+\section{Aportes y limitaciones de los trabajos revisados}
+
+\subsection{Aportes principales}
+
+Los antecedentes revisados le dan a este proyecto cuatro bases distintas. Del bloque
+que caracteriza el vector \cite{krombholz2014qr,vidas2013qrishing} se toma la
+confirmación de que el problema es de usabilidad y no solo técnico, junto con la
+evidencia de que caer en \emph{quishing} es algo estructural y no un descuido
+individual. Del bloque de detección
+\cite{sahoo2017malicious,sheng2009empirical,ma2009beyond,le2011phishdef} se toma la
+clasificación de técnicas que sustenta la arquitectura multicapa F1--F4, y la evidencia
+de que ninguna técnica sola alcanza. Del bloque de infraestructura
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo,urlhaus_api,misp_project}
+se toma que existen fuentes de reputación consultables en tiempo real con latencias
+compatibles con el objetivo de cinco segundos, además del modelo colaborativo en que se
+apoya la función de reporte del prototipo. Del bloque de \emph{usable security}
+\cite{cranor2008framework,egelman2008warned,akhawe2013alice} se toman los criterios de
+diseño de advertencias que sustentan mostrar el veredicto en dos niveles de detalle. Y
+los estándares \cite{owasp2024masvs,iso18004_2015,iso18004_2024} junto con la
+documentación técnica
+\cite{apple_vndetectbarcodes,google_mlkit_barcode,rousavy_visioncamera,apple2024platformsecurity,apple_ats,android_netsecconfig}
+aportan los criterios verificables de cumplimiento y la confirmación de que procesar
+todo en el teléfono es viable.
+
+\subsection{Limitaciones identificadas}
+
+Mirando críticamente esos mismos trabajos aparecen seis limitaciones que, juntas,
+delimitan el vacío de investigación.
+
+\paragraph{Desactualización de la evidencia empírica sobre el vector.}
+Los estudios de referencia sobre susceptibilidad
+\cite{krombholz2014qr,vidas2013qrishing} son anteriores a que el escaneo de QR se
+integrara a la cámara del teléfono y a la adopción masiva posterior a 2020. Lo que
+concluyen sigue siendo válido en lo cualitativo, pero sus números ya no se pueden
+trasladar al escenario actual.
+
+\paragraph{Transferencia no validada de la evidencia sobre advertencias.}
+Los hallazgos sobre qué tan efectivas son las advertencias
+\cite{egelman2008warned,akhawe2013alice} vienen todos de navegadores de escritorio.
+Aplicarlos al escaneo móvil (pantalla chica, uso en movimiento, sin barra de
+direcciones) es una extrapolación razonable que ninguna publicación revisada ha
+comprobado.
+
+\paragraph{Brecha entre desempeño de laboratorio y despliegue real.}
+Los clasificadores léxicos reportan precisiones del 95~\% al 99~\%
+\cite{ma2009beyond,le2011phishdef} sobre conjuntos de datos históricos, sin evidencia de
+cómo se comportan bajo las restricciones de cómputo, batería y conectividad de un
+teléfono en uso real.
+
+\paragraph{Ausencia de evaluación independiente de las fuentes de reputación.}
+No se encontró literatura arbitrada que compare qué tanto coinciden Google Safe
+Browsing, PhishTank y VirusTotal sobre un mismo conjunto de URLs, ni que describa cómo se
+comporta un veredicto combinado. Lo único disponible es la documentación de cada
+proveedor.
+
+\paragraph{Opacidad de las soluciones comerciales.}
+Las apps existentes no publican su arquitectura, ni sus fuentes, ni sus tasas de
+error, así que no se pueden auditar. Eso impide compararlas científicamente y también
+aprender de las decisiones que tomaron.
+
+\paragraph{Fragmentación entre detección y comunicación.}
+Ningún trabajo revisado junta en una misma propuesta la detección multicapa y un
+diseño fundamentado de cómo comunicar el veredicto. La literatura técnica termina en la
+métrica; la de usabilidad arranca cuando la advertencia ya está formulada. El espacio de
+en medio, o sea convertir un veredicto técnico en una decisión que un usuario común pueda
+tomar, en el teléfono y en menos de cinco segundos, sigue sin abordarse de forma
+integrada.
+
+A estas se suma una limitación de contexto: 	extbf{no hay producción académica sobre
+el fenómeno en el entorno latinoamericano y guatemalteco}. Toda la literatura revisada
+viene de contextos anglosajones y europeos, mientras que las plataformas colaborativas de
+reporte seguramente cubren menos las campañas en español dirigidas a la región. Eso
+sugiere que el límite de las listas negras podría ser incluso más grave aquí que donde se
+midió.
+
+\section{Fundamentación del proyecto propuesto}
+
+Los antecedentes sustentan el proyecto en cuatro planos, y conviene dejar clara la
+correspondencia entre cada limitación identificada y la decisión de diseño que la
+responde.
+
+\paragraph{Fundamentación del punto de intervención.}
+Cuatro puntos de evidencia apuntan a lo mismo. Krombholz et al.
+\cite{krombholz2014qr} muestran que no se puede inspeccionar el contenido antes de
+escanear. Vidas et al. \cite{vidas2013qrishing} miden qué tan susceptible resulta la
+gente por eso. Unit~42 \cite{unit42_2023qr} documenta que los filtros de correo no ven el
+QR. Y la falta de mecanismos de autenticación en ISO/IEC~18004
+\cite{iso18004_2015,iso18004_2024} impide resolverlo en la capa del código. Todo junto
+indica que el único punto de la cadena del ataque que sigue sin protección automatizada
+es el teléfono del usuario en el instante del escaneo. El objetivo general del trabajo,
+meterse entre la lectura del código y la redirección, sale directamente de esa evidencia
+y no de una preferencia de diseño.
+
+\paragraph{Fundamentación de la arquitectura multicapa.}
+La clasificación de Sahoo et al. \cite{sahoo2017malicious} y la evidencia sobre los
+límites de cobertura de las listas \cite{sheng2009empirical}, puesta en contexto con los
+datos de APWG de 2024 y 2025 \cite{apwg2024q1,apwg2025q1}, sustentan que ninguna técnica
+sola resuelve el problema. De ahí la arquitectura F1--F4. Que F1 sea el primer filtro se
+apoya en lo que ya se sabe de las fuentes de reputación
+\cite{google_safebrowsing,virustotal_apiv3,phishtank_devinfo}: responden rápido, aciertan
+mucho sobre amenazas conocidas y cuestan poco en cómputo, lo que las vuelve el punto de
+decisión inicial más lógico bajo el límite de cinco segundos. Y saber que no alcanzan es,
+al mismo tiempo, la razón de que haya filtros después.
+
+\paragraph{Fundamentación de las decisiones de interfaz.}
+El marco de Cranor \cite{cranor2008framework} y los resultados de Egelman et al.
+\cite{egelman2008warned} y de Akhawe y Felt \cite{akhawe2013alice} sustentan mostrar el
+veredicto en dos niveles de detalle con divulgación progresiva, usar lenguaje concreto en
+vez de técnico, diferenciar visualmente los niveles de riesgo e interrumpir el flujo a
+propósito. Que la tasa de continuación varíe entre el 25~\% y el 70~\% según el tipo de
+amenaza \cite{akhawe2013alice} sustenta específicamente que los tres veredictos (seguro,
+sospechoso, malicioso) tengan que distinguirse sin ambigüedad y no ser matices de una
+misma escala.
+
+\paragraph{Fundamentación de las decisiones técnicas.}
+La documentación de las APIs nativas de visión
+\cite{apple_vndetectbarcodes,google_mlkit_barcode} y de react-native-vision-camera
+\cite{rousavy_visioncamera} confirma que procesar en el teléfono con menos de 100~ms es
+viable, condición necesaria para el presupuesto de tiempo total. El MASVS
+\cite{owasp2024masvs} sustenta los controles de almacenamiento cifrado, seguridad de red
+y permisos mínimos, bajo un criterio verificable: una app que existe para proteger al
+usuario tiene que ser ella misma auditablemente segura.
+
+\paragraph{Aporte diferencial.}
+Con todo esto sobre la mesa, el aporte de este trabajo se puede definir con precisión
+y sin inflarlo. No consiste en proponer una técnica nueva de detección, porque el
+proyecto integra fuentes que ya existen, ni en superar a las apps comerciales,
+comparación que quedó fuera del alcance. Consiste en tres cosas: (i)~integrar de forma
+documentada y auditable, en el punto correcto, la detección multicapa y una comunicación
+fundamentada del veredicto, lo que responde a la sexta limitación; (ii)~aportar evidencia
+empírica sobre cómo se comporta un veredicto combinado de tres fuentes de reputación, lo
+que responde a la cuarta; y (iii)~aplicar los principios de \emph{usable security} al
+escaneo móvil de QR, documentando la extrapolación que la segunda limitación deja
+pendiente. Las restricciones también son explícitas: solo F1 se implementa de extremo a
+extremo, la validación de usabilidad no alcanza representatividad estadística y no se
+compara con productos comerciales.
+
+\section{Conclusión: vacíos identificados y necesidad del proyecto}
+
+Revisar críticamente los antecedentes lleva a una conclusión: hoy el \emph{quishing}
+no está limitado por falta de capacidad técnica para detectar. Esa capacidad existe,
+funciona a escala mundial y se puede consultar por interfaces públicas en milisegundos.
+Lo que falta es aplicarla en el lugar y en el momento donde el ataque se concreta, y
+cerrar la distancia entre quienes desarrollan la detección y quienes estudian cómo
+explicarle el resultado a un usuario que no es experto.
+
+Los vacíos identificados son cuatro. Hay un 	extbf{vacío de aplicación}: la
+infraestructura de reputación está desplegada en navegadores de escritorio y en filtros
+de correo, pero no en el escaneo móvil, que es justamente el único punto donde la URL de
+un QR se vuelve legible antes de navegar. Hay un 	extbf{vacío de integración}: la
+literatura técnica de detección y la de \emph{usable security} avanzaron sin cruzarse, y
+por eso ninguna propuesta revisada aborda de forma unificada la detección multicapa junto
+con el diseño de cómo comunicar el veredicto. Hay un 	extbf{vacío de evaluación}: no hay
+evidencia arbitrada sobre qué tanto coinciden las principales fuentes de reputación ni
+sobre cómo se comporta un veredicto combinado, ni tampoco validación de los hallazgos
+sobre advertencias en contexto móvil. Y hay un 	extbf{vacío de transparencia}: las
+únicas soluciones que operan en el punto correcto son productos cerrados, imposibles de
+auditar y con un mecanismo insuficiente, lo que impide que el conocimiento sobre este
+problema se acumule.
+
+Estos vacíos justifican el proyecto. Desarrollar un prototipo de app móvil que se
+meta antes de la redirección al momento de escanear, que combine en tiempo real los
+veredictos de tres fuentes independientes de reputación con un límite de cinco segundos,
+y que muestre el resultado en una interfaz diseñada según los principios documentados de
+\emph{usable security}, responde directamente a cada uno de ellos. Documentar de forma
+abierta su arquitectura, sus fuentes y sus resultados de validación, incluidas las
+limitaciones, atiende además el vacío de transparencia y deja la puerta abierta para que
+otros trabajos extiendan la propuesta hacia los filtros heurístico, de \emph{sandbox} y de
+aislamiento de navegación que ya están previstos en el diseño.
+
+El contexto refuerza la pertinencia del esfuerzo. Toda la literatura revisada viene de
+contextos anglosajones y europeos, mientras que la evidencia disponible sugiere que en
+Latinoamérica los códigos QR se adoptaron más rápido de lo que crecieron las prácticas de
+seguridad, y que las plataformas colaborativas de reporte cubren menos las campañas
+dirigidas a la región. Un trabajo que documente el problema y proponga una solución
+evaluable desde Guatemala no solo llena un vacío técnico, sino que deja un antecedente en
+un área donde la producción académica local todavía es escasa.
