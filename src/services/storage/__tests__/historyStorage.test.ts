@@ -125,6 +125,19 @@ describe('datos corruptos', () => {
     expect(loaded).toHaveLength(2);
     expect(loaded.map((e) => e.record.id)).toEqual(['scn_1', 'scn_2']);
   });
+
+  it('descarta las entradas "incierto" que guardaron versiones anteriores', () => {
+    // La app ya no tiene ese veredicto: sin descartarlas, la pantalla buscaria
+    // un tema visual que no existe y se romperia.
+    const old = makeEntry(3);
+    const incierto = {
+      record: { ...old.record, verdict: 'incierto' },
+      analysis: { ...old.analysis, verdict: 'incierto' },
+    };
+    Storage.setItemSync(HISTORY_KEY, JSON.stringify([makeEntry(1), incierto, makeEntry(2)]));
+
+    expect(loadHistory().map((e) => e.record.id)).toEqual(['scn_1', 'scn_2']);
+  });
 });
 
 /**
@@ -228,5 +241,63 @@ describe('withScanAppended · es pura', () => {
     const next = appendScan([], makeEntry(1));
     expect(next).toHaveLength(1);
     expect(loadHistory()).toHaveLength(1);
+  });
+});
+
+/**
+ * El historial es por sitio, no por escaneo: volver a escanear un dominio no
+ * agrega otra fila, sube la que habia con el analisis nuevo.
+ */
+describe('historial agrupado por sitio', () => {
+  /** Mismo dominio que `makeEntry(n)`, pero otro escaneo con otro veredicto. */
+  const rescan = (n: number, domain = `dominio${n}.com`): HistoryEntry => {
+    const base = makeEntry(n);
+    return {
+      record: { ...base.record, id: `scn_${n}_again`, domain, verdict: 'sospechoso' },
+      analysis: { ...base.analysis, domain, verdict: 'sospechoso' },
+    };
+  };
+
+  it('el mismo dominio deja una sola fila, arriba y con el analisis nuevo', () => {
+    let history: HistoryEntry[] = [];
+    history = appendScan(history, makeEntry(1));
+    history = appendScan(history, makeEntry(2));
+    history = appendScan(history, rescan(1));
+
+    expect(history.map((e) => e.record.domain)).toEqual(['dominio1.com', 'dominio2.com']);
+    expect(history[0].record.id).toBe('scn_1_again');
+    expect(history[0].analysis.verdict).toBe('sospechoso');
+  });
+
+  it('www y mayusculas cuentan como el mismo sitio', () => {
+    let history: HistoryEntry[] = [];
+    history = appendScan(history, makeEntry(1));
+    history = appendScan(history, rescan(1, 'WWW.Dominio1.com'));
+
+    expect(history).toHaveLength(1);
+    expect(history[0].record.id).toBe('scn_1_again');
+  });
+
+  it('no fusiona analisis fallidos sin dominio que vienen de URLs distintas', () => {
+    const sinDominio = (n: number): HistoryEntry => {
+      const base = makeEntry(n);
+      return {
+        record: { ...base.record, domain: '' },
+        analysis: { ...base.analysis, domain: '', url: `https://roto${n}` },
+      };
+    };
+
+    const history = appendScan(appendScan([], sinDominio(1)), sinDominio(2));
+    expect(history).toHaveLength(2);
+  });
+
+  it('loadHistory limpia los duplicados que ya estaban guardados', () => {
+    Storage.setItemSync(
+      HISTORY_KEY,
+      JSON.stringify([rescan(1), makeEntry(2), makeEntry(1)]),
+    );
+
+    const loaded = loadHistory();
+    expect(loaded.map((e) => e.record.id)).toEqual(['scn_1_again', 'scn_2']);
   });
 });

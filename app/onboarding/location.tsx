@@ -9,7 +9,7 @@ import { useAppState } from '../../src/store/AppStateContext';
 
 /**
  * 02 · Permiso de ubicacion (opcional). La eleccion sí tiene efecto: decide
- * si el historial y la Story Card muestran el lugar del escaneo.
+ * si el historial y el afiche de advertencia muestran el lugar del escaneo.
  *
  * PIDE EL PERMISO AQUI, igual que la pantalla de camara. Antes solo guardaba
  * `locationEnabled = true` y navegaba al escaner: el dialogo del sistema
@@ -95,7 +95,7 @@ export default function LocationPermissionRoute() {
       badge="OPCIONAL"
       icon={<LocationIcon size={46} color={palette.brand} />}
       title="¿Recordar dónde escaneas?"
-      description="Con tu ubicación podemos mostrar el nombre del lugar en tu historial y en las Story Cards que compartas. La app funciona igual sin este permiso."
+      description="Con tu ubicación podemos mostrar el nombre del lugar en tu historial y en los afiches de advertencia que compartas. La app funciona igual sin este permiso."
       note={{
         icon: <LockIcon size={16} />,
         text: 'La ubicación se resuelve en tu teléfono, nunca en un servidor.',

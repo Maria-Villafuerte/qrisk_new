@@ -20,6 +20,7 @@ import {
   verdicts,
 } from '../../src/design-system';
 import { isFilterEnabled } from '../../src/services/analysis/enabledFilters';
+import { runExternal } from '../../src/services/navigation/resumePolicy';
 import { useAppState } from '../../src/store/AppStateContext';
 
 /**
@@ -100,7 +101,9 @@ export default function ResultRoute() {
   const openSite = async () => {
     setConfirmVisible(false);
     try {
-      await Linking.openURL(result.url);
+      // runExternal: al volver del navegador se queda en el resultado en vez
+      // de saltar al escaner (ver resumePolicy.ts).
+      await runExternal(() => Linking.openURL(result.url));
     } catch {
       // Un esquema que el telefono no sabe abrir, o sin navegador instalado.
       // Se avisa en vez de dejar el toque sin respuesta.
@@ -178,7 +181,7 @@ export default function ResultRoute() {
           />
           <SecondaryAction
             icon={<StoryCardIcon />}
-            label="Crear Story Card"
+            label="Crear afiche de advertencia"
             onPress={() => router.push('/story-card')}
           />
         </View>

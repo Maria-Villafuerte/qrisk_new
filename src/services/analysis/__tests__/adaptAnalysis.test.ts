@@ -1,6 +1,5 @@
 import {
   adaptAnalysisResponse,
-  degradedResult,
   domainFromUrl,
   fixEngineGrammar,
   mapVerdict,
@@ -26,27 +25,25 @@ function texts(result: AnalysisResult, key: AnalysisStageKey): string[] {
  * no contra el contrato en papel: hoy no coinciden.
  */
 describe('mapVerdict', () => {
-  it('traduce los cuatro veredictos conocidos', () => {
+  it('traduce los tres veredictos conocidos', () => {
     expect(mapVerdict('SEGURO')).toBe('seguro');
     expect(mapVerdict('SOSPECHOSO')).toBe('sospechoso');
     expect(mapVerdict('MALICIOSO')).toBe('malicioso');
-    expect(mapVerdict('INCIERTO')).toBe('incierto');
   });
 
-  it('traduce PENDIENTE a incierto', () => {
-    // El quinto valor que hoy manda el endpoint. Sin este mapeo la app
-    // reventaria al buscar el tema visual del veredicto.
-    expect(mapVerdict('PENDIENTE')).toBe('incierto');
+  it('INCIERTO y PENDIENTE no son un veredicto que mostrar', () => {
+    expect(mapVerdict('INCIERTO')).toBeNull();
+    expect(mapVerdict('PENDIENTE')).toBeNull();
   });
 
   it('no distingue mayusculas ni espacios', () => {
     expect(mapVerdict(' seguro ')).toBe('seguro');
   });
 
-  it('cae en incierto ante lo desconocido o lo ausente', () => {
-    expect(mapVerdict('ALGO_NUEVO')).toBe('incierto');
-    expect(mapVerdict(undefined)).toBe('incierto');
-    expect(mapVerdict('')).toBe('incierto');
+  it('da null ante lo desconocido o lo ausente', () => {
+    expect(mapVerdict('ALGO_NUEVO')).toBeNull();
+    expect(mapVerdict(undefined)).toBeNull();
+    expect(mapVerdict('')).toBeNull();
   });
 });
 
@@ -68,13 +65,15 @@ describe('domainFromUrl', () => {
 
 describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
   // Documentada en TAREAS_POR_HACER/endpoint.txt.
-  const real = {
+  const pending = {
     url: 'https://ejemplo.com/',
     dominio: 'ejemplo.com',
     veredicto_final: 'PENDIENTE',
     filtro_decisivo: null,
     mensaje: 'F1 fue INCIERTO. F2.1 aún no implementado (S7).',
   };
+  // Un veredicto sin nada de F2 que lo respalde: las secciones se rellenan.
+  const real = { ...pending, veredicto_final: 'SOSPECHOSO' };
 
   it('mapea dominio y url del espanol', () => {
     const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
@@ -82,17 +81,17 @@ describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
     expect(result.url).toBe('https://ejemplo.com/');
   });
 
-  it('convierte PENDIENTE en un incierto degradado', () => {
-    const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
+  it('PENDIENTE sin puntaje no da veredicto: lanza INCONCLUSIVE', () => {
+    expect(() => adaptAnalysisResponse(pending, 'https://ejemplo.com')).toThrow(
+      expect.objectContaining({ code: 'INCONCLUSIVE' }),
+    );
   });
 
   it('NO usa `mensaje` como copy: es texto de diagnostico', () => {
     const result = adaptAnalysisResponse(real, 'https://ejemplo.com');
     expect(result.summary).not.toContain('F2.1');
     expect(result.summary).not.toContain('S7');
-    expect(result.summary).toContain('No pudimos completar el análisis');
+    expect(result.summary).toContain('señales de riesgo');
   });
 
   it('nunca inventa un puntaje bajo: usa el neutro', () => {
@@ -129,7 +128,7 @@ describe('adaptAnalysisResponse · respuesta real del endpoint', () => {
   });
 
   it('usa la URL pedida si la respuesta no la trae', () => {
-    const result = adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'https://pedida.com/x');
+    const result = adaptAnalysisResponse({ veredicto_final: 'SOSPECHOSO' }, 'https://pedida.com/x');
     expect(result.url).toBe('https://pedida.com/x');
     expect(result.domain).toBe('pedida.com');
   });
@@ -178,7 +177,7 @@ describe('adaptAnalysisResponse · respuesta que ya cumple el contrato', () => {
   it('respeta degraded:true aunque vengan secciones', () => {
     const result = adaptAnalysisResponse(
       {
-        verdict: 'incierto',
+        verdict: 'sospechoso',
         degraded: true,
         sections: [
           { key: 'reputation', title: 'R', badgeText: 'X', badgeTone: 'warn', findings: [] },
@@ -187,29 +186,6 @@ describe('adaptAnalysisResponse · respuesta que ya cumple el contrato', () => {
       'https://x.com',
     );
     expect(result.degraded).toBe(true);
-  });
-});
-
-describe('degradedResult', () => {
-  it('devuelve un incierto honesto con el motivo', () => {
-    const result = degradedResult('https://ejemplo.com/x', 'No hubo conexión.');
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
-    expect(result.domain).toBe('ejemplo.com');
-    expect(result.riskScore).toBe(50);
-    expect(result.sections).toHaveLength(ENABLED_FILTERS.length);
-    expect(result.sections[0].findings[0].text).toBe('No hubo conexión.');
-  });
-
-  it('nunca produce un veredicto seguro', () => {
-    expect(degradedResult('https://x.com', 'y').verdict).not.toBe('seguro');
-  });
-
-  it('nunca se queda sin secciones que explicar', () => {
-    // Si `ENABLED_FILTERS` quedara vacia, la pantalla de detalle no pintaria
-    // ningun acordeon y el usuario no sabria por que fallo el analisis.
-    expect(degradedResult('https://x.com', 'motivo').sections.length).toBeGreaterThan(0);
   });
 });
 
@@ -272,7 +248,7 @@ describe('adaptAnalysisResponse · veredicto deducido del puntaje', () => {
     indicadores_f2_2: [],
   };
 
-  it('deduce "malicioso" de un puntaje alto en vez de rendirse en incierto', () => {
+  it('deduce "malicioso" de un puntaje alto en vez de rendirse', () => {
     const result = adaptAnalysisResponse(ipLiteral, 'http://192.168.1.1/login.php');
     expect(result.verdict).toBe('malicioso');
   });
@@ -301,10 +277,10 @@ describe('adaptAnalysisResponse · veredicto deducido del puntaje', () => {
     expect(adaptAnalysisResponse(ipLiteral, 'x').degraded).toBeUndefined();
   });
 
-  it('sin puntaje ni veredicto sigue siendo incierto y degradado', () => {
-    const result = adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'https://x.com');
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
+  it('sin puntaje ni veredicto lanza INCONCLUSIVE en vez de inventar uno', () => {
+    expect(() => adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'https://x.com')).toThrow(
+      expect.objectContaining({ code: 'INCONCLUSIVE' }),
+    );
   });
 });
 
@@ -319,13 +295,13 @@ describe('adaptAnalysisResponse · el backend manda sobre la deduccion', () => {
     expect(result.verdict).toBe('seguro');
   });
 
-  it('respeta un INCIERTO explicito en vez de deducir del puntaje', () => {
-    // "INCIERTO" es una conclusion del backend; "PENDIENTE" es que no concluyo.
+  it('ante un INCIERTO del backend deduce del puntaje, como con PENDIENTE', () => {
+    // La app no muestra "incierto": si hay puntaje, el veredicto sale de el.
     const result = adaptAnalysisResponse(
       { veredicto_final: 'INCIERTO', score_heuristico: 0 },
       'https://x.com',
     );
-    expect(result.verdict).toBe('incierto');
+    expect(result.verdict).toBe('seguro');
   });
 });
 
@@ -410,7 +386,7 @@ describe('adaptAnalysisResponse · captura de pantalla (F2.3)', () => {
 
   it('ignora una cadena vacia en vez de guardarla', () => {
     const result = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', screenshot_url: '' },
+      { veredicto_final: 'SOSPECHOSO', screenshot_url: '' },
       'https://ejemplo.com',
     );
     expect('screenshotUrl' in result).toBe(false);
@@ -552,25 +528,20 @@ describe('adaptAnalysisResponse · indicadores de comportamiento (F2.2)', () => 
  * "mas que seguro" o "mas que malicioso".
  */
 describe('adaptAnalysisResponse · puntaje fuera de la escala', () => {
-  it('un puntaje negativo no produce un falso "seguro"', () => {
-    const result = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', score_heuristico: -20 },
-      'https://x.com',
-    );
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.verdict).not.toBe('seguro');
-    expect(result.degraded).toBe(true);
+  it('un puntaje negativo no produce un falso "seguro": no hay veredicto', () => {
+    expect(() =>
+      adaptAnalysisResponse({ veredicto_final: 'PENDIENTE', score_heuristico: -20 }, 'https://x.com'),
+    ).toThrow(expect.objectContaining({ code: 'INCONCLUSIVE' }));
   });
 
   it('no deja el medidor fuera de 0-100', () => {
     // La barra se dibuja sobre 100: un 150 la pintaria desbordada.
     const alto = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', score_heuristico: 150 },
+      { veredicto_final: 'SOSPECHOSO', score_heuristico: 150 },
       'https://x.com',
     );
     const bajo = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', score_heuristico: -20 },
+      { veredicto_final: 'SOSPECHOSO', score_heuristico: -20 },
       'https://x.com',
     );
 
@@ -911,17 +882,12 @@ describe('corte anticipado por F1', () => {
     expect(adaptAnalysisResponse(f1Response('MALICIOSO'), 'https://x.com').degraded).toBeUndefined();
   });
 
-  it('un PENDIENTE sin criterios SI es analisis incompleto', () => {
-    // La otra cara: si el backend no concluyo Y no mando señales, entonces si
-    // corresponde decir que no se pudo revisar.
-    const result = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', filtro_decisivo: null },
-      'https://x.com',
-    );
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.sections[0].badgeText).toBe('SIN COMPLETAR');
-    expect(result.degraded).toBe(true);
+  it('un PENDIENTE sin criterios no da veredicto: lanza INCONCLUSIVE', () => {
+    // La otra cara: si el backend no concluyo Y no mando señales, no hay nada
+    // que mostrar y la pantalla avisa con un error.
+    expect(() =>
+      adaptAnalysisResponse({ veredicto_final: 'PENDIENTE', filtro_decisivo: null }, 'https://x.com'),
+    ).toThrow(expect.objectContaining({ code: 'INCONCLUSIVE' }));
   });
 });
 
@@ -1005,21 +971,21 @@ describe('elevacion por evidencia de comportamiento', () => {
     expect(result.verdict).toBe('malicioso');
   });
 
-  it('no eleva un incierto: sin veredicto no hay nada que elevar', () => {
-    const result = adaptAnalysisResponse(
-      {
-        veredicto_final: 'PENDIENTE',
-        filtro_decisivo: null,
-        indicadores_f2_2: [
-          { indicador: 'virustotal_motores_maliciosos', detalle: '9 motores lo marcan' },
-        ],
-      } as never,
-      'https://x.test/',
-    );
-
-    // Sin score no se puede derivar, asi que queda incierto y la elevacion no
+  it('no eleva sin veredicto: sin veredicto no hay nada que elevar', () => {
+    // Sin score no se puede derivar, asi que no hay veredicto y la elevacion no
     // aplica: elevar un "no sé" a "malicioso" seria inventar.
-    expect(result.verdict).toBe('incierto');
+    expect(() =>
+      adaptAnalysisResponse(
+        {
+          veredicto_final: 'PENDIENTE',
+          filtro_decisivo: null,
+          indicadores_f2_2: [
+            { indicador: 'virustotal_motores_maliciosos', detalle: '9 motores lo marcan' },
+          ],
+        } as never,
+        'https://x.test/',
+      ),
+    ).toThrow(expect.objectContaining({ code: 'INCONCLUSIVE' }));
   });
 
   it('eleva tambien cuando el veredicto sospechoso venia derivado del puntaje', () => {
@@ -1230,15 +1196,17 @@ describe('desglose · reputacion (F1) con lo que consulto la app', () => {
     expect(section(result, 'reputation').badgeText).toBe('SIN REPORTES');
   });
 
-  it('el resultado degradado conserva lo que F1 si alcanzo a consultar', () => {
-    const result = degradedResult('https://x.test', 'No hubo conexión.', f1());
+  it('sin datos de F2, las secciones rellenas conservan lo que F1 consulto', () => {
+    const result = adaptAnalysisResponse({ veredicto_final: 'SOSPECHOSO' }, 'https://x.test', f1());
 
     expect(texts(result, 'reputation')).toEqual([
       'Google Safe Browsing no la tiene reportada.',
       'PhishTank no la tiene confirmada como phishing.',
     ]);
-    expect(texts(result, 'heuristics')).toEqual(['No hubo conexión.']);
-    expect(result.verdict).toBe('incierto');
+    expect(texts(result, 'heuristics')).toEqual([
+      'El análisis no se completó, así que esta parte no pudo revisarse.',
+    ]);
+    expect(result.verdict).toBe('sospechoso');
   });
 });
 
@@ -1349,11 +1317,6 @@ describe('desglose · por que este veredicto', () => {
     expect(result.verdictReason).toContain('URLScan.io eliminó su informe');
   });
 
-  it('un incierto dice que no hay base para concluir', () => {
-    const result = adaptAnalysisResponse({ veredicto_final: 'PENDIENTE' }, 'http://x.test');
-    expect(result.verdictReason).toContain('Incierto: el análisis no se completó');
-  });
-
   it('avisa cuando el resultado viene de la cache del servidor', () => {
     const result = adaptAnalysisResponse(
       {
@@ -1393,14 +1356,10 @@ describe('medidor · solo cuando hay puntaje', () => {
 
   it('un puntaje fuera de escala cuenta como ausente', () => {
     const result = adaptAnalysisResponse(
-      { veredicto_final: 'PENDIENTE', score_heuristico: 150 },
+      { veredicto_final: 'SOSPECHOSO', score_heuristico: 150 },
       'http://x.test',
     );
     expect(result.riskScoreMissing).toBe(true);
-  });
-
-  it('el resultado degradado tampoco pinta el medidor', () => {
-    expect(degradedResult('https://x.test', 'motivo').riskScoreMissing).toBe(true);
   });
 });
 

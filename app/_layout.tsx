@@ -13,6 +13,7 @@ import {
 } from '@expo-google-fonts/figtree';
 import { palette, ToastProvider } from '../src/design-system';
 import { AppStateProvider } from '../src/store/AppStateContext';
+import { ReturnToScannerOnResume } from '../src/features/navigation/ReturnToScannerOnResume';
 
 // Mantiene el splash visible hasta que Figtree este lista, para que ninguna
 // pantalla llegue a pintarse con la fuente del sistema.
@@ -56,6 +57,7 @@ export default function RootLayout() {
               <Stack.Screen name="scanner" options={{ animation: 'fade' }} />
               <Stack.Screen name="analysis/loading" options={{ animation: 'fade' }} />
             </Stack>
+            <ReturnToScannerOnResume />
           </ToastProvider>
         </AppStateProvider>
       </View>

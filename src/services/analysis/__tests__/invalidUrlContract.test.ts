@@ -13,10 +13,11 @@ const { postJson } = require('../../api/httpClient') as { postJson: jest.Mock };
 /**
  * Contrato entre el servicio y la pantalla de carga.
  *
- * El servicio degrada casi todo a un veredicto "incierto", pero INVALID_URL lo
- * DEJA SUBIR a proposito: significa que el QR no llevaba un enlace analizable y
- * la decision es de la pantalla. Si la pantalla no lo atrapa, la espera se
- * queda girando para siempre. Estas pruebas fijan las dos mitades del contrato.
+ * El servicio deja subir todos los fallos como ApiError, y la pantalla decide:
+ * INVALID_URL significa que el QR no llevaba un enlace analizable (pantalla de
+ * contenido); el resto es un aviso de error. Si la pantalla no los atrapa, la
+ * espera se queda girando para siempre. Estas pruebas fijan las dos mitades
+ * del contrato.
  */
 beforeEach(() => {
   postJson.mockReset();
@@ -33,13 +34,13 @@ describe('INVALID_URL sube al llamador', () => {
     });
   });
 
-  it('el resto de los fallos NO sube: degrada a incierto', async () => {
+  it('el resto de los fallos tambien sube, con su codigo', async () => {
     for (const code of ['NETWORK', 'TIMEOUT', 'INTERNAL', 'RATE_LIMITED'] as const) {
       postJson.mockRejectedValue(new ApiError(code, 'x', true, null));
 
-      const result = await remoteAnalysisService.analyze('https://ejemplo.com');
-      expect(result.verdict).toBe('incierto');
-      expect(result.degraded).toBe(true);
+      await expect(remoteAnalysisService.analyze('https://ejemplo.com')).rejects.toMatchObject({
+        code,
+      });
     }
   });
 });

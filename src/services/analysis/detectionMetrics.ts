@@ -40,8 +40,6 @@ export interface DetectionMetrics {
   suspicious: number;
   /** Casos con veredicto 'seguro'. */
   safe: number;
-  /** Casos sin conclusion ('incierto'): analisis fallido o no concluyente. */
-  inconclusive: number;
   /**
    * TDM estricta: % que recibio 'malicioso'.
    * Es la definicion literal del anteproyecto. Criterio >= 90 %.
@@ -77,14 +75,12 @@ export function detectionMetrics(samples: DetectionSample[]): DetectionMetrics {
   const malicious = samples.filter((s) => s.verdict === 'malicioso').length;
   const suspicious = samples.filter((s) => s.verdict === 'sospechoso').length;
   const safe = samples.filter((s) => s.verdict === 'seguro').length;
-  const inconclusive = samples.filter((s) => s.verdict === 'incierto').length;
 
   return {
     total,
     malicious,
     suspicious,
     safe,
-    inconclusive,
     strictTdmPct: pct(malicious, total),
     warningRatePct: pct(malicious + suspicious, total),
     falseNegativePct: pct(safe, total),
@@ -99,7 +95,6 @@ export interface FalsePositiveMetrics {
   flaggedSuspicious: number;
   /** Legitimas con veredicto 'seguro': el resultado correcto. */
   safe: number;
-  inconclusive: number;
   /**
    * TFP del anteproyecto: % de legitimas con veredicto 'malicioso'.
    * Criterio <= 5 %.
@@ -126,14 +121,12 @@ export function falsePositiveMetrics(samples: DetectionSample[]): FalsePositiveM
   const flaggedMalicious = samples.filter((s) => s.verdict === 'malicioso').length;
   const flaggedSuspicious = samples.filter((s) => s.verdict === 'sospechoso').length;
   const safe = samples.filter((s) => s.verdict === 'seguro').length;
-  const inconclusive = samples.filter((s) => s.verdict === 'incierto').length;
 
   return {
     total,
     flaggedMalicious,
     flaggedSuspicious,
     safe,
-    inconclusive,
     strictFprPct: pct(flaggedMalicious, total),
     anyWarningPct: pct(flaggedMalicious + flaggedSuspicious, total),
   };

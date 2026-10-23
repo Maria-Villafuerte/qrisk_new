@@ -24,7 +24,7 @@ interface AppStateValue {
   setNonUrlContent: (content: NonUrlContent) => void;
   /**
    * Si el usuario concedio la ubicacion. Controla que el historial y la
-   * Story Card muestren el lugar del escaneo.
+   * afiche de advertencia muestren el lugar del escaneo.
    */
   locationEnabled: boolean;
   setLocationEnabled: (enabled: boolean) => void;
@@ -58,7 +58,8 @@ const AppStateContext = createContext<AppStateValue | null>(null);
  * siendo no-nullable y las pantallas no necesiten guardas por todos lados.
  */
 const EMPTY_RESULT: AnalysisResult = {
-  verdict: 'incierto',
+  // El cauteloso, nunca 'seguro'. No se llega a ver (ver arriba).
+  verdict: 'sospechoso',
   domain: '',
   url: '',
   summary: 'Todavía no se ha analizado ningún enlace.',

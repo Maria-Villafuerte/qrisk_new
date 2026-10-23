@@ -21,6 +21,8 @@ export type ApiErrorCode =
   | 'TIMEOUT'
   /** El llamador cancelo la peticion a proposito (salio de la pantalla). */
   | 'CANCELLED'
+  /** El servidor respondio, pero sin un veredicto que la app pueda mostrar. */
+  | 'INCONCLUSIVE'
   | 'UNKNOWN';
 
 export class ApiError extends Error {

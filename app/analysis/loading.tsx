@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import {
@@ -17,7 +17,10 @@ import {
   UrlChip,
 } from '../../src/design-system';
 import { analysisStages } from '../../src/services/analysis/analysisStages';
-import { remoteAnalysisService } from '../../src/services/analysis/remoteAnalysisService';
+import {
+  analysisErrorMessage,
+  remoteAnalysisService,
+} from '../../src/services/analysis/remoteAnalysisService';
 import { ApiError } from '../../src/services/api/errors';
 import { getCurrentPlaceName } from '../../src/services/location';
 import { classifyQr } from '../../src/services/qr';
@@ -129,20 +132,34 @@ export default function LoadingRoute() {
       .catch((cause: unknown) => {
         if (!active) return;
 
-        // El servicio degrada casi todo a un veredicto "incierto", pero deja
-        // subir INVALID_URL: el backend dice que el QR no llevaba un enlace
-        // analizable, asi que va a la pantalla de contenido. Sin este catch la
-        // pantalla de carga se quedaria girando para siempre.
-        if (cause instanceof ApiError && cause.code === 'INVALID_URL') {
+        const error =
+          cause instanceof ApiError
+            ? cause
+            : new ApiError('UNKNOWN', 'El análisis no pudo completarse.', true, null);
+
+        // La persona ya salio de la pantalla: no hay a quien avisarle.
+        if (error.code === 'CANCELLED') return;
+
+        // INVALID_URL: el backend dice que el QR no llevaba un enlace
+        // analizable, asi que va a la pantalla de contenido.
+        if (error.code === 'INVALID_URL') {
           const classified = classifyQr(analyzedUrl);
           if (classified.kind !== 'url') setNonUrlContent(classified.content);
           router.replace('/qr/non-url');
           return;
         }
 
-        // Cualquier otro fallo inesperado: se vuelve al escaner en vez de
-        // dejar al usuario atrapado en la espera.
-        router.replace('/scanner');
+        /*
+         * Cualquier otro fallo (sin internet, servidor caido o sin veredicto):
+         * un aviso y de vuelta al escaner. No hay resultado ni entrada en el
+         * historial: un veredicto que no se pudo calcular no se muestra.
+         */
+        Alert.alert(
+          error.code === 'NETWORK' ? 'Error: Sin conexión' : 'No pudimos analizar el enlace',
+          analysisErrorMessage(error),
+          [{ text: 'Entendido', onPress: () => router.replace('/scanner') }],
+          { cancelable: false },
+        );
       });
 
     return () => {

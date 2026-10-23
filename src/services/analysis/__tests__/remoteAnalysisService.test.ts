@@ -1,12 +1,10 @@
 import { timeouts } from '../../api/config';
 import { ApiError } from '../../api/errors';
-import { remoteAnalysisService } from '../remoteAnalysisService';
-import type { AnalysisResult } from '../types';
+import { analysisErrorMessage, remoteAnalysisService } from '../remoteAnalysisService';
 
 /**
- * Degradacion elegante: es lo que separa una demo de un producto. Ante
- * cualquier fallo el usuario recibe un veredicto honesto, no una pantalla
- * rota ni una espera infinita.
+ * Un analisis que falla no inventa un veredicto: el servicio lanza ApiError y
+ * la pantalla de carga avisa con un pop-up y vuelve al escaner.
  */
 jest.mock('../../api/httpClient', () => ({ postJson: jest.fn() }));
 // PhishTank no necesita clave y se consultaria de verdad: los tests no salen a
@@ -20,11 +18,6 @@ const { postJson } = require('../../api/httpClient') as { postJson: jest.Mock };
 
 const URL = 'https://pagos-multas-gt.info/pago';
 
-/** El texto de la seccion de estructura, donde se explica un fallo del servidor. */
-function heuristicsText(result: AnalysisResult): string {
-  return result.sections.find((s) => s.key === 'heuristics')?.findings[0]?.text ?? '';
-}
-
 beforeEach(() => {
   postJson.mockReset();
 });
@@ -34,16 +27,27 @@ describe('analyze · camino feliz', () => {
     postJson.mockResolvedValue({
       url: URL,
       dominio: 'pagos-multas-gt.info',
+      veredicto_final: 'SOSPECHOSO',
+      filtro_decisivo: 'F2.2',
+    });
+
+    const result = await remoteAnalysisService.analyze(URL);
+
+    expect(result.verdict).toBe('sospechoso');
+    expect(result.domain).toBe('pagos-multas-gt.info');
+  });
+
+  it('una respuesta sin veredicto ni puntaje sube como INCONCLUSIVE', async () => {
+    postJson.mockResolvedValue({
+      url: URL,
       veredicto_final: 'PENDIENTE',
       filtro_decisivo: null,
       mensaje: 'F1 fue INCIERTO. F2.1 aún no implementado (S7).',
     });
 
-    const result = await remoteAnalysisService.analyze(URL);
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.domain).toBe('pagos-multas-gt.info');
-    expect(result.degraded).toBe(true);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toMatchObject({
+      code: 'INCONCLUSIVE',
+    });
   });
 
   it('acota la espera con el presupuesto del analisis', async () => {
@@ -69,7 +73,7 @@ describe('analyze · camino feliz', () => {
    */
   describe('resultadoF1', () => {
     it('manda INCIERTO para un dominio cualquiera: la app no sabe nada de el', async () => {
-      postJson.mockResolvedValue({ veredicto_final: 'PENDIENTE' });
+      postJson.mockResolvedValue({ veredicto_final: 'SOSPECHOSO' });
 
       await remoteAnalysisService.analyze('https://sitio-cualquiera-9281.com/x');
 
@@ -93,7 +97,7 @@ describe('analyze · camino feliz', () => {
     });
 
     it('no marca seguro un dominio de la lista sin HTTPS', async () => {
-      postJson.mockResolvedValue({ veredicto_final: 'PENDIENTE' });
+      postJson.mockResolvedValue({ veredicto_final: 'SOSPECHOSO' });
 
       await remoteAnalysisService.analyze('http://github.com');
 
@@ -106,83 +110,58 @@ describe('analyze · camino feliz', () => {
   });
 });
 
-describe('analyze · degradacion', () => {
+describe('analyze · fallos', () => {
   const cases: [string, ApiError, string][] = [
     ['timeout', new ApiError('TIMEOUT', 'x', true, null), 'tardó demasiado'],
-    ['sin red', new ApiError('NETWORK', 'x', true, null), 'No hubo conexión'],
+    ['sin red', new ApiError('NETWORK', 'x', true, null), 'verifica tu conexión a internet'],
     ['500 del servidor', new ApiError('INTERNAL', 'x', true, 500), 'no respondió correctamente'],
     ['limite de consultas', new ApiError('RATE_LIMITED', 'x', true, 429), 'límite de consultas'],
     // Cancelado tiene motivo propio: decirle "tardo demasiado" a quien salio
     // de la pantalla a proposito es describir un error que no ocurrio.
     ['cancelado por el usuario', new ApiError('CANCELLED', 'x', false, null), 'se canceló'],
+    [
+      'sin veredicto',
+      new ApiError('INCONCLUSIVE', 'x', false, null),
+      'no pudo concluir un veredicto',
+    ],
   ];
 
-  it.each(cases)('ante %s devuelve un incierto honesto', async (_name, error, motivo) => {
+  it.each(cases)('ante %s lanza el error con un aviso en lenguaje llano', async (_name, error, motivo) => {
     postJson.mockRejectedValue(error);
 
-    const result = await remoteAnalysisService.analyze(URL);
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
-    expect(result.domain).toBe('pagos-multas-gt.info');
-    // El motivo se explica en las secciones del servidor, en lenguaje llano.
-    expect(heuristicsText(result)).toContain(motivo);
-  });
-
-  it('la seccion de reputacion cuenta lo que F1 consulto aunque el servidor falle', async () => {
-    postJson.mockRejectedValue(new ApiError('TIMEOUT', 'x', true, null));
-
-    const result = await remoteAnalysisService.analyze(URL);
-    const reputation = result.sections.find((s) => s.key === 'reputation');
-
-    // F1 corre en el telefono: su resultado no depende del servidor, asi que
-    // no se rellena con el motivo del fallo.
-    expect(reputation?.findings[0].text).toContain('Google Safe Browsing');
-    expect(reputation?.findings[0].text).not.toContain('tardó demasiado');
-  });
-
-  it('nunca devuelve "seguro" cuando el analisis fallo', async () => {
-    postJson.mockRejectedValue(new ApiError('INTERNAL', 'x', true, 500));
-    const result = await remoteAnalysisService.analyze(URL);
-    expect(result.verdict).not.toBe('seguro');
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toBe(error);
+    expect(analysisErrorMessage(error)).toContain(motivo);
   });
 
   it('un 504 del servidor dice que tardo demasiado, no que respondio mal', async () => {
     // Respuesta real de API Gateway a los 35 s, medida el 2026-10-12.
-    postJson.mockRejectedValue(new ApiError('FILTER_TIMEOUT', 'Endpoint request timed out', true, 504));
+    const error = new ApiError('FILTER_TIMEOUT', 'Endpoint request timed out', true, 504);
+    postJson.mockRejectedValue(error);
 
-    const result = await remoteAnalysisService.analyze(URL);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toBe(error);
 
     // Se reintento una vez y el segundo intento tambien dio 504.
     expect(postJson).toHaveBeenCalledTimes(2);
-    expect(result.verdict).toBe('incierto');
-    expect(heuristicsText(result)).toContain('tardó demasiado en analizar el enlace');
-    expect(heuristicsText(result)).not.toContain('no respondió correctamente');
+    expect(analysisErrorMessage(error)).toContain('tardó demasiado en analizar el enlace');
   });
 
   it.each([
     ['FILTER_UNAVAILABLE', 503],
     ['SCAN_NOT_FOUND', 404],
-  ] as const)('degrada honestamente ante %s, sin mensaje especifico', async (code, status) => {
-    // Estos codigos caen en la rama por defecto de `reasonFor`: el usuario ve
-    // un motivo generico. Es deliberado —no hay copy util que darle sobre un
-    // filtro interno que fallo— pero tiene que seguir degradando a "incierto"
-    // y nunca quedarse sin explicacion.
-    postJson.mockRejectedValue(new ApiError(code, 'x', true, status));
+  ] as const)('ante %s usa el aviso generico', async (code, status) => {
+    // Estos codigos caen en la rama por defecto: no hay copy util que dar
+    // sobre un filtro interno que fallo, pero nunca quedan sin explicacion.
+    const error = new ApiError(code, 'x', true, status);
+    postJson.mockRejectedValue(error);
 
-    const result = await remoteAnalysisService.analyze(URL);
-
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
-    expect(heuristicsText(result)).toContain('no respondió correctamente');
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toBe(error);
+    expect(analysisErrorMessage(error)).toContain('no respondió correctamente');
   });
 
-  it('degrada tambien ante un error inesperado que no es ApiError', async () => {
+  it('un error inesperado que no es ApiError sube como UNKNOWN', async () => {
     postJson.mockRejectedValue(new Error('algo raro'));
 
-    const result = await remoteAnalysisService.analyze(URL);
-    expect(result.verdict).toBe('incierto');
-    expect(result.degraded).toBe(true);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toMatchObject({ code: 'UNKNOWN' });
   });
 });
 
@@ -226,7 +205,7 @@ describe('analyze · reintento tras un 504', () => {
   it('reintenta una sola vez', async () => {
     postJson.mockRejectedValue(gateway504());
 
-    await remoteAnalysisService.analyze(URL);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toBeInstanceOf(ApiError);
 
     expect(postJson).toHaveBeenCalledTimes(2);
   });
@@ -239,7 +218,7 @@ describe('analyze · reintento tras un 504', () => {
   ])('no reintenta ante %s: insistir no lo arregla', async (_name, error) => {
     postJson.mockRejectedValue(error);
 
-    await remoteAnalysisService.analyze(URL);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toBe(error);
 
     expect(postJson).toHaveBeenCalledTimes(1);
   });
@@ -271,9 +250,10 @@ describe('analyze · reintento tras un 504', () => {
       throw gateway504();
     });
 
-    const result = await remoteAnalysisService.analyze(URL);
+    await expect(remoteAnalysisService.analyze(URL)).rejects.toMatchObject({
+      code: 'FILTER_TIMEOUT',
+    });
 
     expect(postJson).toHaveBeenCalledTimes(1);
-    expect(result.verdict).toBe('incierto');
   });
 });

@@ -56,7 +56,7 @@ describe('verdictFromScore · casos reales del backend', () => {
  * vieja es como se produce un veredicto equivocado con aspecto de correcto.
  */
 describe('verdictFromScore · puntaje fuera de la escala 0-100', () => {
-  it('un puntaje negativo NO es seguro: es incierto', () => {
+  it('un puntaje negativo NO es seguro: no da veredicto', () => {
     // Lo peligroso de verdad: con la tabla vieja, -20 daba "seguro".
     expect(verdictFromScore(-20)).toBeNull();
     expect(verdictFromScore(-1)).toBeNull();
@@ -82,7 +82,7 @@ describe('verdictFromScore · puntaje fuera de la escala 0-100', () => {
 
 describe('verdictFromScore · sin puntaje', () => {
   it('devuelve null si el backend no mando puntaje', () => {
-    // No se presume "seguro": quien llama lo deja en "incierto".
+    // No se presume "seguro": quien llama avisa que no hubo veredicto.
     expect(verdictFromScore(undefined)).toBeNull();
   });
 

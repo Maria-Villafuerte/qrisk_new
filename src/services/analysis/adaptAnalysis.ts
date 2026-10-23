@@ -1,3 +1,4 @@
+import { ApiError } from '../api/errors';
 import {
   behaviorEscalation,
   engineCount,
@@ -131,17 +132,15 @@ export interface RemoteAnalysisResponse {
 }
 
 /**
- * Veredictos que el backend puede mandar, mapeados a los cuatro que la app
- * sabe pintar. "PENDIENTE" es el quinto valor que hoy devuelve el endpoint:
- * se traduce a "incierto", que es el caso honesto y ya tiene pantalla, color
- * y copy definidos.
+ * Veredictos que el backend puede mandar, mapeados a los tres que la app sabe
+ * pintar. "INCIERTO" y "PENDIENTE" no estan a proposito: no son un veredicto
+ * que mostrar. Con ellos se intenta deducir del puntaje, y si tampoco hay
+ * puntaje el analisis falla y la persona ve un aviso de error.
  */
 const VERDICT_MAP: Record<string, VerdictKey> = {
   SEGURO: 'seguro',
   SOSPECHOSO: 'sospechoso',
   MALICIOSO: 'malicioso',
-  INCIERTO: 'incierto',
-  PENDIENTE: 'incierto',
 };
 
 /**
@@ -165,24 +164,10 @@ function usableScore(value: unknown): number | null {
   return value;
 }
 
-/** Traduce el veredicto; lo desconocido cae en "incierto". */
-export function mapVerdict(raw: string | undefined): VerdictKey {
-  if (!raw) return 'incierto';
-  return VERDICT_MAP[raw.trim().toUpperCase()] ?? 'incierto';
-}
-
-/**
- * Si el backend DE VERDAD concluyo un veredicto.
- *
- * Hace falta distinguirlo porque `mapVerdict` colapsa "PENDIENTE" y ausencia
- * en el mismo 'incierto' que un "INCIERTO" explicito, y no son lo mismo:
- * "INCIERTO" es una conclusion del backend y se respeta; "PENDIENTE" es que no
- * concluyo, y ahi la app puede deducirlo del puntaje.
- */
-function backendConcluded(raw: string | undefined): boolean {
-  if (!raw) return false;
-  const value = raw.trim().toUpperCase();
-  return value !== 'PENDIENTE' && value in VERDICT_MAP;
+/** Traduce el veredicto; lo desconocido (o ausente) da null. */
+export function mapVerdict(raw: string | undefined): VerdictKey | null {
+  if (!raw) return null;
+  return VERDICT_MAP[raw.trim().toUpperCase()] ?? null;
 }
 
 /**
@@ -553,7 +538,6 @@ const VERDICT_WORD: Record<VerdictKey, string> = {
   seguro: 'Seguro',
   sospechoso: 'Sospechoso',
   malicioso: 'Malicioso',
-  incierto: 'Incierto',
 };
 
 /**
@@ -567,12 +551,6 @@ const VERDICT_WORD: Record<VerdictKey, string> = {
 function verdictReason(ctx: ReasonContext): string {
   const { verdict, score, f1 } = ctx;
   const word = VERDICT_WORD[verdict];
-
-  if (verdict === 'incierto') {
-    return ctx.degraded
-      ? 'Incierto: el análisis no se completó, así que no hay base suficiente para un veredicto.'
-      : 'Incierto: el servidor no pudo concluir un veredicto.';
-  }
 
   if (ctx.escalation) {
     const { indicator, engines } = ctx.escalation;
@@ -709,10 +687,15 @@ function incompleteSection(key: AnalysisStageKey, title: string, reason: string)
  * analisis haya fallado: la consulta a Safe Browsing la hizo el telefono y su
  * resultado no depende de que el servidor haya respondido.
  */
-function placeholderSections(reason: string, f1?: F1Outcome, domain = ''): AnalysisSection[] {
+function placeholderSections(
+  reason: string,
+  verdict: VerdictKey,
+  f1?: F1Outcome,
+  domain = '',
+): AnalysisSection[] {
   return ENABLED_FILTERS.map((key) =>
     key === 'reputation' && f1
-      ? reputationSection(f1, 'incierto', false, domain)
+      ? reputationSection(f1, verdict, false, domain)
       : incompleteSection(key, SECTION_TITLES[key], reason),
   );
 }
@@ -724,13 +707,13 @@ const SUMMARY_BY_VERDICT: Record<VerdictKey, string> = {
     'Este enlace tiene señales de riesgo. Ábrelo solo si confías en quien puso el código.',
   malicioso:
     'Este enlace es peligroso. No lo abras ni ingreses datos personales en ese sitio.',
-  incierto: 'No pudimos completar el análisis. Trata este enlace con precaución.',
 };
 
 /**
  * Convierte la respuesta del backend en el resultado que consumen las
- * pantallas. Tolera que falten campos: lo que no venga se completa con el
- * caso honesto (incierto + puntaje neutro + secciones sin completar).
+ * pantallas. Tolera que falten campos: lo que no venga se completa con un
+ * puntaje neutro y secciones sin completar. Lo unico que no se rellena es el
+ * veredicto: sin el, lanza ApiError('INCONCLUSIVE') y la pantalla avisa.
  */
 export function adaptAnalysisResponse(
   response: RemoteAnalysisResponse,
@@ -757,10 +740,19 @@ export function adaptAnalysisResponse(
    * conecte su umbral y empiece a mandar SEGURO/SOSPECHOSO/MALICIOSO, la
    * rama 2 deja de ejecutarse sin que haya que tocar una linea.
    */
-  const derived = backendConcluded(rawVerdict)
-    ? null
-    : verdictFromScore(response.score_heuristico);
-  const baseVerdict = derived ?? mapVerdict(rawVerdict);
+  const concluded = mapVerdict(rawVerdict);
+  const derived = concluded ? null : verdictFromScore(response.score_heuristico);
+  const baseVerdict = derived ?? concluded;
+
+  // Ni el backend ni el puntaje dan un veredicto: no se inventa uno.
+  if (!baseVerdict) {
+    throw new ApiError(
+      'INCONCLUSIVE',
+      'El servidor no concluyó un veredicto para este enlace.',
+      false,
+      null,
+    );
+  }
 
   /*
    * TERCERA FUENTE: la evidencia de comportamiento puede ELEVAR el veredicto.
@@ -825,6 +817,7 @@ export function adaptAnalysisResponse(
   } else {
     sections = placeholderSections(
       'El análisis no se completó, así que esta parte no pudo revisarse.',
+      verdict,
       f1,
       domain,
     );
@@ -832,20 +825,18 @@ export function adaptAnalysisResponse(
 
   /*
    * `mensaje` trae diagnostico interno ("F2.1 aun no implementado (S11)"), no
-   * copy para el usuario, asi que nunca se muestra. Cuando el veredicto se
-   * pudo concluir se usa el texto que corresponde a ese veredicto; si no, el
-   * de "incierto", que ya explica que el analisis no se completo.
+   * copy para el usuario, asi que nunca se muestra: se usa el texto que
+   * corresponde al veredicto.
    */
   const summary = response.summary ?? SUMMARY_BY_VERDICT[verdict];
 
   /*
-   * Degradado = el analisis NO llego a una conclusion. Antes esto era
-   * `!hasSections`, que daba un falso positivo en cuanto se empezaron a armar
-   * las secciones desde los criterios: el banner de "no pudimos completar
-   * todas las verificaciones" salia en analisis que si se habian completado.
-   * Lo que de verdad lo define es si hay veredicto.
+   * Degradado solo si el backend lo declara. Un analisis sin veredicto ya no
+   * llega hasta aqui (lanza INCONCLUSIVE), y armar las secciones desde los
+   * criterios no es señal de nada: el banner de "no pudimos completar todas
+   * las verificaciones" saldria en analisis que si se completaron.
    */
-  const degraded = response.degraded ?? verdict === 'incierto';
+  const degraded = response.degraded ?? false;
 
   // El puntaje del medidor es el de la heuristica cuando viene y esta en la
   // escala 0-100; si no, el neutro, marcado como relleno para que la pantalla
@@ -884,29 +875,5 @@ export function adaptAnalysisResponse(
     ...(response.screenshot_url ? { screenshotUrl: response.screenshot_url } : {}),
     ...(degraded ? { degraded: true } : {}),
     ...(response.pending?.length ? { pending: response.pending } : {}),
-  };
-}
-
-/**
- * Resultado para cuando el analisis no se pudo hacer (sin red, timeout, 500).
- * Se prefiere un "incierto" honesto a no mostrar nada: el usuario escaneo un
- * QR y merece una respuesta, aunque sea que no se pudo verificar.
- *
- * Con `f1`, la seccion de reputacion cuenta lo que el telefono si alcanzo a
- * consultar antes de que fallara el servidor.
- */
-export function degradedResult(url: string, reason: string, f1?: F1Outcome): AnalysisResult {
-  const domain = domainFromUrl(url);
-  return {
-    verdict: 'incierto',
-    domain,
-    url,
-    summary: 'No pudimos completar el análisis. Trata este enlace con precaución.',
-    riskScore: NEUTRAL_RISK_SCORE,
-    riskScoreMissing: true,
-    verdictReason:
-      'Incierto: el análisis no se completó, así que no hay base suficiente para un veredicto.',
-    sections: placeholderSections(reason, f1, domain),
-    degraded: true,
   };
 }

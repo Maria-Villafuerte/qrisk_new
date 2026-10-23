@@ -16,7 +16,10 @@ export default function CameraPermissionRoute() {
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
 
-  const goNext = () => router.push('/onboarding/location');
+  // `replace`, no `push`: el permiso ya se respondio y esta pantalla no debe
+  // quedar debajo del escaner. Con `push`, el boton atras del telefono desde el
+  // escaner volvia a mostrar el permiso de camara.
+  const goNext = () => router.replace('/onboarding/location');
 
   // Android e iOS dejan de mostrar el dialogo tras la segunda negativa: a
   // partir de ahi canAskAgain es false y hay que mandar a los ajustes.

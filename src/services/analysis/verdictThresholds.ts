@@ -1,13 +1,13 @@
 import type { VerdictKey } from './types';
 
 /**
- * Traduce el `score_heuristico` del backend a uno de los cuatro veredictos.
+ * Traduce el `score_heuristico` del backend a uno de los tres veredictos.
  *
  * POR QUE EXISTE ESTO, Y POR QUE SIGUE EXISTIENDO DESPUES DEL 2026-10-11.
  *
  * Hasta esa fecha el backend respondia "PENDIENTE" a todo, incluso a
- * google.com, y sin esta traduccion cada analisis habria terminado en
- * "incierto". Eso cambio: con la cascada completa entregada, el backend ya
+ * google.com, y sin esta traduccion cada analisis habria terminado sin
+ * veredicto. Eso cambio: con la cascada completa entregada, el backend ya
  * concluye SEGURO, SOSPECHOSO y MALICIOSO de verdad (medido el 2026-10-11).
  *
  * Pero PENDIENTE no desaparecio, y por diseño: el contrato lo define como
@@ -16,13 +16,13 @@ import type { VerdictKey } from './types';
  *
  *   - Un score de 55 (TLD de riesgo + sin HTTPS + palabra clave) devuelve
  *     PENDIENTE: tres señales simultaneas que el backend no convierte en
- *     veredicto. Sin esta tabla, esa URL se veria como "incierto" teniendo
- *     evidencia clara en pantalla.
+ *     veredicto. Sin esta tabla, esa URL terminaria en un error de "no se
+ *     pudo analizar" teniendo evidencia clara.
  *   - Un score de 60 EXACTO tampoco concluye de su lado, por el `>`.
  *
  * Asi que esto ya no suple una ausencia total, sino el tramo que el umbral del
  * backend deja sin cubrir. Actua menos que antes, y solo cuando el veredicto
- * es PENDIENTE.
+ * es PENDIENTE (o INCIERTO, o no viene).
  *
  * NO ES UN VEREDICTO INVENTADO: el puntaje y los criterios que lo componen son
  * del backend. Lo unico que pone la app son los cortes.
@@ -61,7 +61,8 @@ export const SCORE_MAX = 100;
  * Veredicto que corresponde a un puntaje.
  *
  * Un puntaje ausente o que no es un numero devuelve `null`, no un veredicto
- * optimista: quien llama decide que hacer con eso (hoy, dejarlo en "incierto").
+ * optimista: quien llama decide que hacer con eso (hoy, avisar que el analisis
+ * no concluyo).
  * En una app de seguridad, la falta de informacion nunca se pinta de verde.
  *
  * FUERA DE 0-100 TAMBIEN ES `null`, y por la misma razon. Un -20 o un 150 no
@@ -70,7 +71,7 @@ export const SCORE_MAX = 100;
  * con la tabla vieja es justo como se produce un veredicto equivocado con
  * aspecto de correcto —un -20 daria "seguro"—, y un falso "seguro" es el peor
  * resultado posible del producto. Ante una escala que no entendemos, la app
- * dice "incierto", que es la verdad.
+ * no da veredicto y avisa que no pudo analizar el enlace, que es la verdad.
  */
 export function verdictFromScore(score: number | undefined): VerdictKey | null {
   if (typeof score !== 'number' || !Number.isFinite(score)) return null;

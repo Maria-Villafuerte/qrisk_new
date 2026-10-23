@@ -40,13 +40,13 @@ export const palette = {
   scanLine: 'rgba(122,166,255,0.95)',
   online: '#4ADE80',
 
-  // Story card
+  // Afiche de advertencia
   storyTop: '#465062',
   storyMid: '#2A3140',
   storyBottom: '#161B26',
 } as const;
 
-export type VerdictKey = 'seguro' | 'sospechoso' | 'malicioso' | 'incierto';
+export type VerdictKey = 'seguro' | 'sospechoso' | 'malicioso';
 
 export interface VerdictTheme {
   /** Color de texto/icono */
@@ -82,13 +82,6 @@ export const verdicts: Record<VerdictKey, VerdictTheme> = {
     ring: '#F0C6C6',
     label: 'MALICIOSO',
     shortLabel: 'Malicioso',
-  },
-  incierto: {
-    color: '#565D6B',
-    tint: '#EDEEF0',
-    ring: '#D5D8DE',
-    label: 'INCIERTO',
-    shortLabel: 'Incierto',
   },
 };
 

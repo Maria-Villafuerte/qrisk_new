@@ -24,7 +24,6 @@ export const verdictMarks: Record<VerdictKey, string[]> = {
   seguro: ['M11 16.8l3.2 3.2 6.8-7.2'],
   sospechoso: ['M16 10.2v6.4', 'M16 20.8v.01'],
   malicioso: ['M12.6 12.6l6.8 6.8', 'M19.4 12.6l-6.8 6.8'],
-  incierto: ['M10.6 16h.01', 'M16 16h.01', 'M21.4 16h.01'],
 };
 
 /** Escudo con la marca del veredicto. */
@@ -139,6 +138,19 @@ export function SearchIcon({
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx={11} cy={11} r={6.5} stroke={color} strokeWidth={strokeWidth} />
       <Path d="M16 16l4.5 4.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function CloseIcon({ size = 20, color = DEFAULT_COLOR, strokeWidth = 2 }: StrokeIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 6l12 12M18 6L6 18"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -458,7 +470,7 @@ export function ShieldCheckIcon({
   );
 }
 
-/** Patron de QR decorativo de la Story Card (se difumina por seguridad). */
+/** Patron de QR decorativo del afiche de advertencia (se difumina por seguridad). */
 export function QrPattern({ size = 86 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 29 29">

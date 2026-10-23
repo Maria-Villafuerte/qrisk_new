@@ -26,6 +26,7 @@ import {
   verdicts,
 } from '../src/design-system';
 import { formatScanTime } from '../src/services/format/relativeTime';
+import { runExternal } from '../src/services/navigation/resumePolicy';
 import { useAppState } from '../src/store/AppStateContext';
 
 const CARD_WIDTH = 238;
@@ -33,7 +34,7 @@ const CARD_WIDTH = 238;
 const CARD_HEIGHT = 423;
 
 /**
- * 10 · Story Card compartible. El QR se cubre con una capa opaca a proposito:
+ * 10 · Afiche de advertencia compartible. El QR se cubre con una capa opaca a proposito:
  * la tarjeta advierte del codigo sin volverlo escaneable para quien la vea.
  *
  * El anteproyecto decia "QR blureado"; se cubre en vez de difuminarse porque un
@@ -59,16 +60,20 @@ export default function StoryCardRoute() {
   /** Toma la foto con la camara. */
   const takePhoto = async () => {
     try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      // runExternal: al volver de la camara se queda en el afiche en vez
+      // de saltar al escaner (ver resumePolicy.ts).
+      const permission = await runExternal(() => ImagePicker.requestCameraPermissionsAsync());
       if (!permission.granted) {
         toast.show('Sin permiso de cámara no se puede tomar la foto');
         return;
       }
 
-      const picked = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        quality: 0.7,
-      });
+      const picked = await runExternal(() =>
+        ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          quality: 0.7,
+        }),
+      );
       if (!picked.canceled && picked.assets[0]) setPhotoUri(picked.assets[0].uri);
     } catch {
       // En Android el sistema puede matar la Activity mientras se toma la foto.
@@ -79,10 +84,12 @@ export default function StoryCardRoute() {
   /** Elige la foto de la galeria. */
   const pickPhoto = async () => {
     try {
-      const picked = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.7,
-      });
+      const picked = await runExternal(() =>
+        ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: 0.7,
+        }),
+      );
       if (!picked.canceled && picked.assets[0]) setPhotoUri(picked.assets[0].uri);
     } catch {
       toast.show('No se pudo abrir la galería');
@@ -103,9 +110,11 @@ export default function StoryCardRoute() {
         return;
       }
       const uri = await captureCard();
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir Story Card' });
+      await runExternal(() =>
+        Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir afiche de advertencia' }),
+      );
     } catch {
-      toast.show('No se pudo compartir la Story Card');
+      toast.show('No se pudo compartir el afiche');
     } finally {
       setBusy(false);
     }
@@ -117,7 +126,7 @@ export default function StoryCardRoute() {
     setBusy(true);
     try {
       // Solo hace falta permiso de escritura: la app no lee la galeria.
-      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      const permission = await runExternal(() => MediaLibrary.requestPermissionsAsync(true));
       if (!permission.granted) {
         toast.show('Sin permiso no se puede guardar en tu galería');
         return;
@@ -125,9 +134,9 @@ export default function StoryCardRoute() {
 
       const uri = await captureCard();
       await MediaLibrary.Asset.create(uri);
-      toast.show('Story Card guardada en tu galería');
+      toast.show('Afiche guardado en tu galería');
     } catch {
-      toast.show('No se pudo guardar la Story Card');
+      toast.show('No se pudo guardar el afiche');
     } finally {
       setBusy(false);
     }
@@ -135,7 +144,7 @@ export default function StoryCardRoute() {
 
   return (
     <Screen>
-      <ScreenHeader title="Story Card" onBack={() => router.back()} />
+      <ScreenHeader title="Afiche de advertencia" onBack={() => router.back()} />
 
       <View style={styles.body}>
         <View style={styles.card} ref={cardRef} collapsable={false}>

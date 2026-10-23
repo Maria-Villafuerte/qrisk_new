@@ -21,7 +21,11 @@ analiza en un entorno aislado y devuelve un veredicto en lenguaje llano:
 | **Seguro**     | Sin señales de riesgo.                                                |
 | **Sospechoso** | Señales de riesgo; ábrelo solo si confías en quien puso el código. |
 | **Malicioso**  | Peligroso. No abrirlo ni ingresar datos.                               |
-| **Incierto**   | No se pudo completar el análisis. Tratarlo con precaución.           |
+
+Si el análisis no llega a un veredicto (sin internet, servidor caído o sin
+conclusión), la app **no muestra resultado**: avisa con un pop-up —sin red,
+*"Error, verifica tu conexión a internet"*— y vuelve al escáner. Ese escaneo no
+se guarda en el historial.
 
 ### Regla de seguridad fundamental
 
@@ -38,7 +42,7 @@ el veredicto hay un botón para hacerlo, y la fricción escala con el riesgo:
 | Veredicto                         | Qué pasa al tocar "Abrir"                                                                                                   |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Seguro                            | Abre directo en el navegador del sistema                                                                                     |
-| Sospechoso / Malicioso / Incierto | Hoja de confirmación con el dominio y cuántas señales de riesgo se encontraron.**"Cancelar" es el botón primario** |
+| Sospechoso / Malicioso            | Hoja de confirmación con el dominio y cuántas señales de riesgo se encontraron.**"Cancelar" es el botón primario** |
 
 Dos cosas que esto **no** rompe: el análisis nunca dejó de ocurrir en el
 sandbox, y el sitio se abre **fuera** de QRisk, en el navegador del sistema —
@@ -49,8 +53,9 @@ quien sabe si confía en quien puso el código es la persona, no nosotros.
 De la regla se derivan tres más, que explican cosas que de otro modo parecen
 arbitrarias:
 
-- **Un "incierto" honesto es mejor que un "seguro" calculado con información
-  incompleta.** Un falso "seguro" es el peor resultado posible del producto.
+- **Un aviso de error honesto es mejor que un "seguro" calculado con
+  información incompleta.** Un falso "seguro" es el peor resultado posible del
+  producto: sin veredicto, la app no inventa uno.
 - **Nada de lo que el usuario aporta sale del teléfono.** La foto de contexto de
   la Story Card, su ubicación y su historial se quedan en el dispositivo.
 - **El QR de la Story Card se cubre con una capa opaca, no se difumina.** Un QR
@@ -192,7 +197,7 @@ EXPO_PUBLIC_API_URL=https://otro-endpoint.com/dev npx expo run:android
 Sin esa variable se usa `expo.extra.apiBaseUrl` de `app.json`.
 
 > **Consecuencia que conviene tener presente:** si el backend se cae, la app no
-> tiene de dónde sacar un veredicto. Degrada a "incierto" honesto —no se rompe—
+> tiene de dónde sacar un veredicto. Muestra un aviso de error —no se rompe—
 > pero no hay demo de respaldo. Fue una decisión explícita: el mock era la red
 > de seguridad y se quitó a cambio de que la app no pueda mentir.
 
@@ -322,7 +327,8 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 - [ ] Prueba 1.4 corrida y métricas anotadas (§6).
 - [ ] [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md)
   corrida: arranque en frío, geocodificación, Story Card, sin conexión.
-- [ ] Probado con wifi apagado: debe dar "incierto", no fallar.
+- [ ] Probado con wifi apagado: debe salir el pop-up "verifica tu conexión a
+  internet" y volver al escáner, sin guardar nada en el historial.
 - [ ] **El QR de la Story Card no se puede escanear** desde otro teléfono
   (§C4 de la prueba). Es el chequeo de seguridad que no se puede saltar.
 
@@ -390,8 +396,8 @@ dato concreto, no una advertencia genérica que ya nadie lee— y pone
    pantalla de QRisk; fuera, la barra de direcciones del navegador es una
    defensa más.
 
-Si el análisis falló, el veredicto es "incierto" y también pide confirmación:
-ante la duda, la fricción se queda.
+Si el análisis falló no hay veredicto ni botón de abrir: la app avisa con un
+pop-up y vuelve al escáner.
 
 ---
 
@@ -407,8 +413,8 @@ Estado medido el **2026-09-30**:
 | Nada reporta nada              | **`PENDIENTE`**      | Deriva el veredicto del puntaje |
 
 El caso `PENDIENTE` sigue siendo el más común —`github.com` y `google.com` caen
-ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos dirían
-"incierto" y los veredictos serían indemostrables.
+ahí— y es el que hace falta cubrir: sin la derivación, esos escaneos terminarían
+en un error de "no se pudo analizar".
 
 > **Techo conocido:** hoy el backend **nunca devuelve `MALICIOSO`**, ni con 18
 > motores de VirusTotal marcando el sitio. Ver §8.
@@ -620,8 +626,9 @@ están verificados contra el endpoint real el 2026-09-20** — no son inventados
 color, el medidor de riesgo y —lo más convincente— los criterios del acordeón,
 que son texto real del backend: *"Host es una IP: 192.168.1.1"*.
 
-**La segunda mejor:** apagá el wifi y escaneá. La app devuelve "incierto" con el
-aviso de degradación, en vez de colgarse o mentir.
+**La segunda mejor:** apagá el wifi y escaneá. La app muestra el pop-up
+*"Error, verifica tu conexión a internet"* y vuelve al escáner, en vez de
+colgarse o mentir.
 
 ---
 
@@ -768,8 +775,9 @@ apagado, la conserva en el `AnalysisResult`. Solo la pantalla decide no pintarla
 
 > **Nota de diseño:** `VerdictKey` vive en `design-system/tokens.ts`, así que el
 > servicio depende del design system y no al revés. Si el backend agrega un
-> quinto veredicto, el cambio entra ahí. Hoy `PENDIENTE` se traduce a
-> `incierto` en el adaptador para no romper la app en tiempo de ejecución.
+> cuarto veredicto, el cambio entra ahí. Hoy `PENDIENTE` e `INCIERTO` no se
+> muestran: el adaptador deduce del puntaje y, si no hay, lanza
+> `ApiError('INCONCLUSIVE')` y la pantalla de carga avisa con un pop-up.
 
 ---
 
@@ -862,8 +870,8 @@ Hoy esos casos explican lo que de verdad pasó
 Ya no suple una ausencia total de veredictos. Suple el tramo que el umbral del
 backend deja sin cubrir: F2.1 corta con `score > 60` **estricto**, así que un
 score de 55 —TLD de riesgo + sin HTTPS + palabra clave, tres señales
-simultáneas— devuelve PENDIENTE. Sin la derivación, esa URL se vería "incierta"
-con la evidencia a la vista.
+simultáneas— devuelve PENDIENTE. Sin la derivación, esa URL terminaría en un
+error de "no se pudo analizar" con la evidencia a la vista.
 
 ### Verificación tras la integración
 
@@ -899,8 +907,8 @@ Por prioridad, con lo que desbloquea cada uno.
    límite duro de API Gateway y **ningún timeout del cliente puede superarlo**.
    El camino normal tarda 24-35 s, así que el margen es escaso.
    → **Mitigado de este lado:** el tope subió a 40 s (no 45: por encima de 36 s
-   el 504 ya llegó) y el aviso de espera pasó a los 20 s. Un 504 degrada a
-   "incierto" honesto.
+   el 504 ya llegó) y el aviso de espera pasó a los 20 s. Un 504 muestra un
+   pop-up de error y vuelve al escáner.
    → **Desbloquea:** Fabi. Devolver el veredicto primero y la captura aparte,
    o subir el límite de Gateway. Es el pendiente de backend más importante que
    queda.
@@ -952,12 +960,11 @@ Por prioridad, con lo que desbloquea cada uno.
 10. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
     finalización del flujo y T_learn.
     → **Desbloquea:** agendar a los participantes.
-11. **Sin detección de conectividad.** La app no distingue "modo avión" de
-    "servidor caído": las dos degradan a `incierto` con el mismo mensaje
-    genérico. Es honesto pero poco específico. Distinguirlas pide una dependencia
-    nueva (`@react-native-community/netinfo`), que quedó fuera del alcance de
-    esta entrega.
-    → **Desbloquea:** decidir si vale la dependencia.
+11. **Conectividad detectada por el fallo de red, no de antemano.** Sin
+    internet, la petición al servidor falla con `NETWORK` y la app muestra el
+    pop-up *"Error, verifica tu conexión a internet"*; un servidor caído muestra
+    otro aviso. Saberlo antes de escanear pediría una dependencia nativa nueva
+    (`expo-network`), que quedó fuera del alcance de esta entrega.
 
 ### Deuda técnica menor
 
@@ -990,7 +997,7 @@ silencioso y en el peor momento. Ninguno cambia lo que se ve hoy:
 
 | Qué                                                                                       | Antes                                                                                                        | Ahora                                                                                                                                      |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Puntaje fuera de 0-100 ([verdictThresholds.ts](src/services/analysis/verdictThresholds.ts)) | Un`-20` daba **"seguro"** y un `150` pintaba el medidor desbordado                                 | Fuera de escala → "incierto" y medidor neutro. Un puntaje así significa que el backend cambió de escala, no que el sitio sea inofensivo |
+| Puntaje fuera de 0-100 ([verdictThresholds.ts](src/services/analysis/verdictThresholds.ts)) | Un`-20` daba **"seguro"** y un `150` pintaba el medidor desbordado                                 | Fuera de escala → sin veredicto (aviso de error) o medidor neutro. Un puntaje así significa que el backend cambió de escala, no que el sitio sea inofensivo |
 | `sections[]` sin validar ([adaptAnalysis.ts](src/services/analysis/adaptAnalysis.ts))     | Se confiaba en un`as`: un `findings` que no fuera arreglo rompía la pantalla de detalle                 | Se valida la forma mínima y se descarta lo que no se puede pintar, igual que`isHistoryEntry` con lo que sale del disco                  |
 | Cancelar ≠ timeout ([httpClient.ts](src/services/api/httpClient.ts))                       | Salir de la pantalla reportaba*"El análisis tardó demasiado"*, marcado reintentable                      | Código`CANCELLED` propio, no reintentable: nadie espera ya esa respuesta                                                                |
 | Atrás desde el historial ([result.tsx](app/analysis/result.tsx))                           | `replace('/scanner')` **destruía** el historial: abrir una fila y tocar atrás dejaba en la cámara | `back()` vuelve a donde se vino. Desde el escáner se comporta igual que antes                                                           |
@@ -1025,9 +1032,9 @@ Decisiones conscientes de **no** arreglar en esta entrega:
   responsabilidad que pertenece al backend, y está así porque él no concluye.
   Aislado en un archivo propio y se desmonta solo cuando Fabi lo conecte.
 - **Sin respaldo si el backend se cae.** Al eliminar el mock, la app depende por
-  completo del endpoint. Degrada a "incierto" honesto en vez de romperse, pero
+  completo del endpoint. Muestra un aviso de error en vez de romperse, pero
   no hay demo alternativa. Fue una decisión explícita.
 - **El `timeout` de análisis es de 25 s, no de los 5 s de la métrica T_F1.** No
   es lo mismo: T_F1 mide lo que tarda el backend, no cuándo la app se rinde. El
   backend tarda 14.5 s en una URL nueva (§8.2), así que cortar antes convertiría
-  análisis buenos en "inciertos". Hay que bajarlo cuando Fabi mejore la latencia.
+  análisis buenos en errores. Hay que bajarlo cuando Fabi mejore la latencia.

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Accordion,
@@ -18,6 +18,7 @@ import {
   text,
   VerdictShield,
   verdicts,
+  ZoomableImageViewer,
 } from '../../src/design-system';
 import { isFilterEnabled } from '../../src/services/analysis/enabledFilters';
 import type { AnalysisStageKey } from '../../src/services/analysis/types';
@@ -44,6 +45,8 @@ export default function DetailsRoute() {
   // dejar un hueco gris con un icono de imagen rota.
   const [shotFailed, setShotFailed] = useState(false);
   const screenshotUrl = shotFailed ? undefined : result.screenshotUrl;
+  // Visor a pantalla completa para hacer zoom sobre la captura.
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   // Solo se pintan las secciones de los filtros que esta version anuncia. El
   // mock trae las tres del mockup y el backend puede mandar las que quiera; la
@@ -106,15 +109,27 @@ export default function DetailsRoute() {
             <View style={styles.previewHeader}>
               <Text style={text.badge}>VISTA PREVIA</Text>
               <Text style={[text.caption, styles.previewHint]}>
-                Capturada en un entorno aislado
+                Toca para ampliar · Entorno aislado
               </Text>
             </View>
-            <Image
-              source={{ uri: screenshotUrl }}
-              style={styles.previewImage}
-              resizeMode="cover"
+            <Pressable
+              onPress={() => setViewerOpen(true)}
+              accessibilityRole="button"
               accessibilityLabel={`Captura de pantalla de ${result.domain}`}
-              onError={() => setShotFailed(true)}
+              accessibilityHint="Abre la captura a pantalla completa para hacer zoom"
+            >
+              <Image
+                source={{ uri: screenshotUrl }}
+                style={styles.previewImage}
+                resizeMode="cover"
+                onError={() => setShotFailed(true)}
+              />
+            </Pressable>
+            <ZoomableImageViewer
+              uri={screenshotUrl}
+              visible={viewerOpen}
+              onClose={() => setViewerOpen(false)}
+              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
             />
           </View>
         ) : null}

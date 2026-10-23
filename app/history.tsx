@@ -29,14 +29,12 @@ const FILTERS: readonly FilterChipOption<FilterValue>[] = [
   { value: 'seguro', label: 'Seguros' },
   { value: 'sospechoso', label: 'Sospechosos' },
   { value: 'malicioso', label: 'Maliciosos' },
-  { value: 'incierto', label: 'Inciertos' },
 ];
 
 /**
  * 08 · Historial. Filtro por veredicto y busqueda por dominio o lugar.
  * Los registros salen del disco, asi que la lista funciona sin conexion. Un
- * analisis que no se pudo completar queda como "incierto", que es el caso mas
- * frecuente cuando el backend no responde.
+ * analisis que no se pudo completar no se guarda: solo muestra un aviso.
  */
 export default function HistoryRoute() {
   const router = useRouter();
@@ -69,7 +67,7 @@ export default function HistoryRoute() {
       <ScreenHeader
         title="Historial"
         onBack={() => router.replace('/scanner')}
-        trailingText="Últimos 20 · sin internet"
+        trailingText="Últimos 20 sitios · sin internet"
       />
 
       <View style={styles.controls}>
@@ -130,7 +128,7 @@ export default function HistoryRoute() {
           <EmptyState
             icon={<ClockIcon size={36} color="#B9B4A8" />}
             title="Nada por aquí"
-            description="No hay escaneos con este veredicto. Tus últimos 20 escaneos se guardan en tu teléfono, incluso sin internet."
+            description="No hay escaneos con este veredicto. Tus últimos 20 sitios escaneados se guardan en tu teléfono, incluso sin internet."
           />
         }
       />

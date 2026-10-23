@@ -14,15 +14,13 @@ describe('detectionMetrics · muestra de URLs maliciosas', () => {
       ...sample('malicioso', 3),
       ...sample('sospechoso', 5),
       ...sample('seguro', 1),
-      ...sample('incierto', 1),
     ]);
 
     expect(m).toMatchObject({
-      total: 10,
+      total: 9,
       malicious: 3,
       suspicious: 5,
       safe: 1,
-      inconclusive: 1,
     });
   });
 
@@ -48,14 +46,6 @@ describe('detectionMetrics · muestra de URLs maliciosas', () => {
     const m = detectionMetrics([...sample('malicioso', 9), ...sample('seguro', 1)]);
 
     expect(m.falseNegativePct).toBe(10);
-  });
-
-  it('un incierto no cuenta como advertencia ni como falso negativo', () => {
-    const m = detectionMetrics([...sample('malicioso', 5), ...sample('incierto', 5)]);
-
-    expect(m.warningRatePct).toBe(50);
-    expect(m.falseNegativePct).toBe(0);
-    expect(m.inconclusive).toBe(5);
   });
 
   it('redondea a un decimal', () => {

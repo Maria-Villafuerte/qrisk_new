@@ -1,4 +1,5 @@
 import Storage from 'expo-sqlite/kv-store';
+import { verdicts } from '../../design-system/tokens';
 import type { AnalysisResult, ScanRecord } from '../analysis/types';
 
 /**
@@ -13,7 +14,7 @@ import type { AnalysisResult, ScanRecord } from '../analysis/types';
 /** Clave unica. Lleva version para poder migrar el formato sin romper. */
 const HISTORY_KEY = 'qrisk.history.v1';
 
-/** Tope del historial. El mas viejo se descarta al pasarse. */
+/** Tope del historial, en sitios. El mas viejo se descarta al pasarse. */
 export const HISTORY_LIMIT = 20;
 
 /**
@@ -37,7 +38,9 @@ export function loadHistory(): HistoryEntry[] {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.filter(isHistoryEntry).slice(0, HISTORY_LIMIT);
+    // Se deduplica tambien al leer: los historiales guardados antes de agrupar
+    // por sitio pueden traer el mismo dominio varias veces.
+    return uniqueBySite(parsed.filter(isHistoryEntry)).slice(0, HISTORY_LIMIT);
   } catch {
     return [];
   }
@@ -71,8 +74,34 @@ function withoutExpiring(analysis: AnalysisResult): AnalysisResult {
 }
 
 /**
+ * Clave con la que se agrupa el historial: un sitio, no un escaneo.
+ *
+ * `www.banco.com` y `Banco.com` son el mismo sitio para quien lee la lista.
+ * Si el analisis fallo sin dominio se usa la URL, para no fusionar en una sola
+ * fila escaneos que no tienen nada que ver.
+ */
+export function siteKey(entry: HistoryEntry): string {
+  const domain = entry.record.domain.trim().toLowerCase().replace(/^www\./, '');
+  return domain || `url:${entry.analysis.url}`;
+}
+
+/** Conserva la primera aparicion de cada sitio (la mas reciente). */
+function uniqueBySite(entries: HistoryEntry[]): HistoryEntry[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    const key = siteKey(entry);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * Agrega un escaneo al frente y devuelve la lista resultante, SIN tocar el
  * disco. El mas reciente primero, que es el orden en que se pinta.
+ *
+ * El historial es por SITIO: si el dominio ya estaba, su fila vieja se quita y
+ * el sitio sube al frente con el veredicto, la fecha y el lugar nuevos.
  *
  * Existe separada de `appendScan` para que quien la llame pueda calcular la
  * lista nueva dentro de un updater de `setState` —donde React puede invocar la
@@ -85,7 +114,9 @@ export function withScanAppended(
   entry: HistoryEntry,
 ): HistoryEntry[] {
   const stored: HistoryEntry = { ...entry, analysis: withoutExpiring(entry.analysis) };
-  return [stored, ...entries].slice(0, HISTORY_LIMIT);
+  const key = siteKey(stored);
+  const others = entries.filter((existing) => siteKey(existing) !== key);
+  return [stored, ...others].slice(0, HISTORY_LIMIT);
 }
 
 /**
@@ -114,6 +145,10 @@ export function clearHistory(): void {
 /**
  * Validacion defensiva de lo que sale del disco. Solo comprueba la forma
  * minima que las pantallas necesitan; un registro incompleto se descarta.
+ *
+ * El veredicto tiene que ser uno de los que la app sabe pintar: las entradas
+ * "incierto" de versiones anteriores se descartan, porque `verdicts[...]` no
+ * tiene tema para ellas y la pantalla se romperia.
  */
 function isHistoryEntry(value: unknown): value is HistoryEntry {
   if (typeof value !== 'object' || value === null) return false;
@@ -126,9 +161,11 @@ function isHistoryEntry(value: unknown): value is HistoryEntry {
     typeof record?.id === 'string' &&
     typeof record.domain === 'string' &&
     typeof record.verdict === 'string' &&
+    Object.hasOwn(verdicts, record.verdict) &&
     typeof record.scannedAt === 'string' &&
     (record.place === null || typeof record.place === 'string') &&
     typeof analysis?.verdict === 'string' &&
+    Object.hasOwn(verdicts, analysis.verdict) &&
     Array.isArray(analysis.sections)
   );
 }

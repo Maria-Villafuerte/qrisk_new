@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +16,7 @@ import {
   spacing,
 } from '../src/design-system';
 import { ScannerFrame, SCANNER_FRAME_SIZE } from '../src/features/scanner/ScannerFrame';
+import { hasConnection } from '../src/services/api/connectivity';
 import { classifyQr } from '../src/services/qr';
 import { markScanDetected, markScanStarted } from '../src/services/qr/scanMetrics';
 import { useAppState } from '../src/store/AppStateContext';
@@ -41,16 +42,28 @@ export default function ScannerRoute() {
    */
   const lockedRef = useRef(false);
 
+  // Si la pantalla sigue a la vista. La comprobacion de red es asincrona: si la
+  // persona se fue al historial mientras tanto, no se navega por detras.
+  const focusedRef = useRef(false);
+
+  /** Vuelve a dejar el escaner listo para leer, tras un aviso. */
+  const rearm = useCallback(() => {
+    lockedRef.current = false;
+    setDetected(false);
+  }, []);
+
   // Al volver al escaner (por ejemplo desde el historial) hay que rearmarlo:
   // la pantalla queda montada y sin esto no volveria a leer nunca.
   useFocusEffect(
     useCallback(() => {
+      focusedRef.current = true;
       lockedRef.current = false;
       setDetected(false);
       setTorchOn(false);
       markScanStarted();
 
       return () => {
+        focusedRef.current = false;
         lockedRef.current = true;
       };
     }, []),
@@ -69,14 +82,31 @@ export default function ScannerRoute() {
       const classified = classifyQr(data);
 
       if (classified.kind === 'url') {
-        router.push({ pathname: '/analysis/loading', params: { url: classified.url } });
+        /*
+         * Sin internet el analisis no puede hacerse: la persona se queda en el
+         * escaner con un aviso, en vez de entrar a "Analizando el enlace" y
+         * esperar algo que no va a llegar. Al cerrar el aviso se rearma.
+         */
+        void hasConnection().then((online) => {
+          if (!focusedRef.current) return;
+          if (!online) {
+            Alert.alert(
+              'Error: Sin conexión',
+              'Error, verifica tu conexión a internet e intenta de nuevo.',
+              [{ text: 'Entendido', onPress: rearm }],
+              { cancelable: false },
+            );
+            return;
+          }
+          router.push({ pathname: '/analysis/loading', params: { url: classified.url } });
+        });
         return;
       }
 
       setNonUrlContent(classified.content);
       router.push('/qr/non-url');
     },
-    [router, setNonUrlContent],
+    [router, setNonUrlContent, rearm],
   );
 
   // Primer render: el hook aun no sabe el estado del permiso.

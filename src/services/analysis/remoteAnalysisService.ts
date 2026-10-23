@@ -1,7 +1,7 @@
 import { ApiError } from '../api/errors';
 import { timeouts } from '../api/config';
 import { postJson } from '../api/httpClient';
-import { adaptAnalysisResponse, degradedResult, type RemoteAnalysisResponse } from './adaptAnalysis';
+import { adaptAnalysisResponse, type RemoteAnalysisResponse } from './adaptAnalysis';
 import { f1Verdict, type F1Outcome } from './f1Filter';
 import type { AnalysisResult, AnalysisService } from './types';
 
@@ -12,8 +12,11 @@ import type { AnalysisResult, AnalysisService } from './types';
  * obliga a tocar ninguna pantalla.
  */
 
-/** Motivo legible para el usuario, segun por que fallo el analisis. */
-function reasonFor(error: ApiError): string {
+/**
+ * Texto del aviso que ve la persona cuando el analisis falla. Lo usa la
+ * pantalla de carga: un analisis fallido no produce veredicto, solo el aviso.
+ */
+export function analysisErrorMessage(error: ApiError): string {
   switch (error.code) {
     case 'TIMEOUT':
       return 'El servidor tardó demasiado en responder durante el análisis.';
@@ -27,11 +30,13 @@ function reasonFor(error: ApiError): string {
     case 'FILTER_TIMEOUT':
       return 'El servidor tardó demasiado en analizar el enlace y cortó la respuesta.';
     case 'NETWORK':
-      return 'No hubo conexión para completar esta parte del análisis.';
+      return 'Error, verifica tu conexión a internet e intenta de nuevo.';
     case 'RATE_LIMITED':
       return 'Se alcanzó el límite de consultas; intenta de nuevo en un momento.';
     case 'CANCELLED':
       return 'El análisis se canceló antes de terminar.';
+    case 'INCONCLUSIVE':
+      return 'El servidor no pudo concluir un veredicto para este enlace. Intenta de nuevo.';
     default:
       return 'El servicio de análisis no respondió correctamente.';
   }
@@ -76,9 +81,6 @@ async function analyzeWithRetry(
 
 class RemoteAnalysisService implements AnalysisService {
   async analyze(url: string): Promise<AnalysisResult> {
-    // Fuera del `try` para que el resultado degradado tambien pueda contar lo
-    // que F1 alcanzo a consultar. `f1Verdict` no lanza nunca.
-    let f1: F1Outcome | undefined;
     try {
       /*
        * `resultadoF1` es el resultado del primer filtro de la cascada, y el
@@ -90,7 +92,7 @@ class RemoteAnalysisService implements AnalysisService {
        * la lista local de dominios confiables y Google Safe Browsing. Ver
        * `f1Filter.ts` para el orden en que se consultan y por que.
        */
-      f1 = await f1Verdict(url);
+      const f1: F1Outcome = await f1Verdict(url);
 
       if (__DEV__) {
         // Mismo formato que `[T_scan]`, para poder medir T_F1 en la prueba de
@@ -102,15 +104,14 @@ class RemoteAnalysisService implements AnalysisService {
 
       return adaptAnalysisResponse(response, url, f1);
     } catch (cause) {
-      const error = cause instanceof ApiError ? cause : null;
-
-      // Una URL que el backend rechaza no es un fallo del analisis: se deja
-      // subir para que la pantalla la trate como contenido no analizable.
-      if (error?.code === 'INVALID_URL') throw error;
-
-      // Todo lo demas degrada a un veredicto honesto en vez de dejar al
-      // usuario sin respuesta despues de escanear.
-      return degradedResult(url, error ? reasonFor(error) : 'El análisis no pudo completarse.', f1);
+      /*
+       * Un analisis que no llego a un veredicto no se disfraza de resultado:
+       * sube como ApiError y la pantalla de carga avisa con un pop-up (sin red,
+       * "verifica tu conexion"). INVALID_URL tambien sube, y la pantalla lo
+       * trata como contenido no analizable.
+       */
+      if (cause instanceof ApiError) throw cause;
+      throw new ApiError('UNKNOWN', 'El análisis no pudo completarse.', true, null);
     }
   }
 }

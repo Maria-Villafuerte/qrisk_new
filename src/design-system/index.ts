@@ -19,4 +19,5 @@ export { ToastProvider, useToast } from './components/Toast';
 export { UrlChip } from './components/UrlChip';
 export { IconEmblem, VerdictEmblem } from './components/VerdictEmblem';
 export { VerdictPill } from './components/VerdictPill';
+export { ZoomableImageViewer } from './components/ZoomableImageViewer';
 export * from './components/icons';
