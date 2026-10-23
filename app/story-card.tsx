@@ -166,7 +166,7 @@ export default function StoryCardRoute() {
           ) : (
             <View style={styles.photoHint}>
               <CameraIcon size={10} color="rgba(255,255,255,0.65)" strokeWidth={2} />
-              <Text style={styles.photoHintText}>Agrega una foto de contexto</Text>
+              <Text style={styles.photoHintText}>Agrega una foto de contexto (opcional)</Text>
             </View>
           )}
 
@@ -243,7 +243,7 @@ export default function StoryCardRoute() {
           />
         </View>
         <Text style={styles.photoActionsHint}>
-          Muestra dónde está este QR en tu entorno para que otros lo reconozcan
+          Foto opcional: muestra dónde está este QR para que otros lo reconozcan.
         </Text>
       </View>
 

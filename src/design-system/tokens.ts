@@ -117,9 +117,9 @@ export const sizing = {
   buttonHeight: 52,
   buttonHeightSm: 42,
   inputHeight: 48,
-  headerHeight: 52,
+  headerHeight: 60,
   /** Boton circular de retroceso */
-  backButton: 36,
+  backButton: 44,
   /** Area tactil minima recomendada */
   minTouchTarget: 44,
 } as const;

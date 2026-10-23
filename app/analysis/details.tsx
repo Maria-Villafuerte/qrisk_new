@@ -83,58 +83,64 @@ export default function DetailsRoute() {
         </View>
 
         {/*
-          El medidor muestra el puntaje de la estructura del enlace (F2.1), que
-          es el unico puntaje que produce el sistema. Se nombra asi para que no
-          se lea como el veredicto: un MALICIOSO por VirusTotal puede tener una
-          estructura de 30/100. Cuando F1 decide no hay puntaje, y un 50 de
-          relleno pintado igual en un SEGURO y en un MALICIOSO no mide nada:
-          se esconde.
+          Que filtro decidio y con que umbral. Va arriba, justo bajo el
+          veredicto: en la prueba de usabilidad, al final del scroll no se
+          leia. Las entradas del historial anteriores a este campo no lo traen.
         */}
-        {result.riskScoreMissing ? null : (
-          <RiskMeter
-            score={result.riskScore}
-            verdict={result.verdict}
-            title="Riesgo por estructura del enlace"
-          />
-        )}
+        {result.verdictReason ? (
+          <Card style={styles.reason}>
+            <Text style={text.badge}>POR QUÉ ESTE VEREDICTO</Text>
+            <Text style={text.body}>{result.verdictReason}</Text>
+          </Card>
+        ) : null}
 
         {/*
           Vista previa (F2.3). La captura la toma el backend en su entorno
           aislado: es la prueba visible de que alguien ya entro al sitio por
           vos. Se muestra como imagen estatica —nunca un WebView— para que la
-          pagina no pueda ejecutar nada ni hacerse pasar por la app.
+          pagina no pueda ejecutar nada ni hacerse pasar por la app. Sin
+          captura se dice, en vez de dejar el hueco sin explicar.
         */}
-        {screenshotUrl ? (
-          <View style={styles.preview}>
-            <View style={styles.previewHeader}>
-              <Text style={text.badge}>VISTA PREVIA</Text>
-              <Text style={[text.caption, styles.previewHint]}>
-                Toca para ampliar · Entorno aislado
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setViewerOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
-              accessibilityHint="Abre la captura a pantalla completa para hacer zoom"
-            >
-              <Image
-                source={{ uri: screenshotUrl }}
-                style={styles.previewImage}
-                resizeMode="cover"
-                onError={() => setShotFailed(true)}
-              />
-            </Pressable>
-            <ZoomableImageViewer
-              uri={screenshotUrl}
-              visible={viewerOpen}
-              onClose={() => setViewerOpen(false)}
-              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
-            />
+        <View style={styles.preview}>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewTitle}>Vista previa</Text>
+            {screenshotUrl ? (
+              <Text style={styles.previewHint}>Toca para ampliar la imagen</Text>
+            ) : null}
           </View>
-        ) : null}
+          {screenshotUrl ? (
+            <>
+              <Pressable
+                onPress={() => setViewerOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+                accessibilityHint="Abre la captura a pantalla completa para hacer zoom"
+              >
+                <Image
+                  source={{ uri: screenshotUrl }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                  onError={() => setShotFailed(true)}
+                />
+              </Pressable>
+              <Text style={[text.caption, styles.previewCaption]}>
+                Captura tomada en nuestro servidor
+              </Text>
+              <ZoomableImageViewer
+                uri={screenshotUrl}
+                visible={viewerOpen}
+                onClose={() => setViewerOpen(false)}
+                accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+              />
+            </>
+          ) : (
+            <Text style={[text.bodySm, styles.previewEmpty]}>
+              No pudimos obtener una vista previa de este sitio
+            </Text>
+          )}
+        </View>
 
-        {sections.map((section, index) => {
+        {sections.map((section) => {
           const Icon = sectionIcons[section.key];
           // El backend puede mandar una seccion que esta version no conoce
           // (por ejemplo 'preview', que todavia no esta implementado). Se
@@ -149,11 +155,24 @@ export default function DetailsRoute() {
               icon={<Icon size={19} />}
               badgeText={section.badgeText}
               badgeTone={section.badgeTone}
-              // Llegan abiertas la primera seccion y las que traen alertas:
-              // progressive disclosure, pero sin esconder la evidencia que
-              // explica el veredicto detras de un toque.
-              defaultOpen={index === 0 || section.badgeTone === 'warn'}
+              // Todas abiertas: es la vista extendida, y en la prueba de
+              // usabilidad nadie abria las que llegaban cerradas.
+              defaultOpen
             >
+              {/*
+                El medidor es el puntaje de la estructura del enlace (F2.1), asi
+                que vive en su seccion y no arriba, donde se leia como el
+                veredicto: un MALICIOSO por VirusTotal puede tener una
+                estructura de 30/100. Cuando F1 decide no hay puntaje, y un 50
+                de relleno no mide nada: se esconde.
+              */}
+              {section.key === 'heuristics' && !result.riskScoreMissing ? (
+                <RiskMeter
+                  score={result.riskScore}
+                  verdict={result.verdict}
+                  title="Riesgo por estructura del enlace"
+                />
+              ) : null}
               {section.findings.map((finding) => (
                 <Finding key={finding.text} tone={finding.tone}>
                   {finding.text}
@@ -165,17 +184,6 @@ export default function DetailsRoute() {
             </Accordion>
           );
         })}
-
-        {/*
-          Cierra el desglose: que filtro decidio y con que umbral. Las entradas
-          del historial anteriores a este campo no lo traen y se omite.
-        */}
-        {result.verdictReason ? (
-          <Card style={styles.reason}>
-            <Text style={text.badge}>POR QUÉ ESTE VEREDICTO</Text>
-            <Text style={text.body}>{result.verdictReason}</Text>
-          </Card>
-        ) : null}
 
         <Button
           label="Volver a la vista simple"
@@ -231,12 +239,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
+  },
+  previewTitle: {
+    fontFamily: text.cardTitle.fontFamily,
+    fontSize: 16,
+    lineHeight: 21,
+    color: palette.textPrimary,
   },
   previewHint: {
     flexShrink: 1,
     textAlign: 'right',
+    fontFamily: text.cardTitle.fontFamily,
+    fontSize: 13,
+    lineHeight: 17,
+    color: palette.textPrimary,
+  },
+  previewCaption: {
+    paddingHorizontal: 14,
+    paddingVertical: spacing.sm,
+  },
+  previewEmpty: {
+    paddingHorizontal: 14,
+    paddingBottom: spacing.md,
   },
   previewImage: {
     width: '100%',

@@ -8,6 +8,7 @@ import {
   FlagIcon,
   InfoBanner,
   palette,
+  radius,
   Screen,
   ScreenHeader,
   spacing,
@@ -135,6 +136,16 @@ export default function ResultRoute() {
 
         <Text style={[text.body, styles.summary]}>{result.summary}</Text>
 
+        {/*
+          Lo que la persona tiene que llevarse de un sospechoso. Va aparte y en
+          grande: dentro del resumen, en la prueba de usabilidad, se perdia.
+        */}
+        {result.verdict === 'sospechoso' ? (
+          <Text style={[styles.advice, { color: theme.color }]}>
+            Ábrelo solo si confías en quien puso el código.
+          </Text>
+        ) : null}
+
         {/* El analisis no llego hasta el final: se dice, no se disimula. */}
         {result.degraded ? (
           <InfoBanner icon={<WarningCircleIcon size={16} />} style={styles.degraded}>
@@ -175,12 +186,12 @@ export default function ResultRoute() {
 
         <View style={styles.secondaryActions}>
           <SecondaryAction
-            icon={<FlagIcon />}
+            icon={<FlagIcon size={20} color={palette.textPrimary} />}
             label="Reportar QR"
             onPress={() => router.push('/report')}
           />
           <SecondaryAction
-            icon={<StoryCardIcon />}
+            icon={<StoryCardIcon size={20} color={palette.textPrimary} />}
             label="Crear afiche de advertencia"
             onPress={() => router.push('/story-card')}
           />
@@ -233,7 +244,9 @@ function SecondaryAction({
       style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}
     >
       {icon}
-      <Text style={styles.secondaryLabel}>{label}</Text>
+      <Text style={styles.secondaryLabel} numberOfLines={2}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -270,21 +283,39 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: 24,
   },
+  advice: {
+    fontFamily: text.cardTitle.fontFamily,
+    fontSize: 17,
+    lineHeight: 23,
+    textAlign: 'center',
+    maxWidth: 295,
+  },
+  // Antes eran texto gris de 13.5 px y en la prueba de usabilidad no se
+  // encontraban: ahora son dos botones con borde, del mismo ancho.
   secondaryActions: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 26,
+    gap: 10,
     paddingTop: 6,
   },
   secondaryAction: {
-    flexDirection: 'row',
+    flex: 1,
+    minHeight: 64,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.lg,
+    backgroundColor: palette.surface,
   },
   secondaryLabel: {
-    fontFamily: text.buttonSm.fontFamily,
-    fontSize: 13.5,
-    color: palette.textSecondary,
+    fontFamily: text.cardTitle.fontFamily,
+    fontSize: 14.5,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: palette.textPrimary,
   },
   pressed: {
     opacity: 0.7,

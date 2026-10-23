@@ -113,7 +113,7 @@ describe('analyze · camino feliz', () => {
 describe('analyze · fallos', () => {
   const cases: [string, ApiError, string][] = [
     ['timeout', new ApiError('TIMEOUT', 'x', true, null), 'tardó demasiado'],
-    ['sin red', new ApiError('NETWORK', 'x', true, null), 'verifica tu conexión a internet'],
+    ['sin red', new ApiError('NETWORK', 'x', true, null), 'Esto no significa que sea seguro'],
     ['500 del servidor', new ApiError('INTERNAL', 'x', true, 500), 'no respondió correctamente'],
     ['limite de consultas', new ApiError('RATE_LIMITED', 'x', true, 429), 'límite de consultas'],
     // Cancelado tiene motivo propio: decirle "tardo demasiado" a quien salio

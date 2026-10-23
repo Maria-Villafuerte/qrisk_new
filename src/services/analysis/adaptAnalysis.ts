@@ -703,8 +703,10 @@ function placeholderSections(
 /** Resumen en lenguaje llano para cada veredicto deducido del puntaje. */
 const SUMMARY_BY_VERDICT: Record<VerdictKey, string> = {
   seguro: 'No encontramos señales de riesgo en este enlace.',
+  // La recomendacion ("abrelo solo si confias...") la pinta aparte la
+  // pantalla de resultado, en negrita: es la idea que la persona debe llevarse.
   sospechoso:
-    'Este enlace tiene señales de riesgo. Ábrelo solo si confías en quien puso el código.',
+    'Encontramos señales de riesgo, pero no suficiente evidencia para confirmar que sea peligroso.',
   malicioso:
     'Este enlace es peligroso. No lo abras ni ingreses datos personales en ese sitio.',
 };

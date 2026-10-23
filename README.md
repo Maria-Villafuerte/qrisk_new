@@ -24,7 +24,8 @@ analiza en un entorno aislado y devuelve un veredicto en lenguaje llano:
 
 Si el análisis no llega a un veredicto (sin internet, servidor caído o sin
 conclusión), la app **no muestra resultado**: avisa con un pop-up —sin red,
-*"Error, verifica tu conexión a internet"*— y vuelve al escáner. Ese escaneo no
+*"Error: Sin conexión · No pudimos revisar este código porque no hay conexión.
+Esto no significa que sea seguro."*— y vuelve al escáner. Ese escaneo no
 se guarda en el historial.
 
 ### Regla de seguridad fundamental
@@ -327,8 +328,8 @@ generadas y cualquier edición manual ahí se pierde en el próximo prebuild.
 - [ ] Prueba 1.4 corrida y métricas anotadas (§6).
 - [ ] [prueba_telefono_fisico.md](TAREAS_POR_HACER/prueba_telefono_fisico.md)
   corrida: arranque en frío, geocodificación, Story Card, sin conexión.
-- [ ] Probado con wifi apagado: debe salir el pop-up "verifica tu conexión a
-  internet" y volver al escáner, sin guardar nada en el historial.
+- [ ] Probado con wifi apagado: debe salir el pop-up "Error: Sin conexión" sin
+  salir del escáner, y no guardar nada en el historial.
 - [ ] **El QR de la Story Card no se puede escanear** desde otro teléfono
   (§C4 de la prueba). Es el chequeo de seguridad que no se puede saltar.
 
@@ -627,7 +628,7 @@ color, el medidor de riesgo y —lo más convincente— los criterios del acorde
 que son texto real del backend: *"Host es una IP: 192.168.1.1"*.
 
 **La segunda mejor:** apagá el wifi y escaneá. La app muestra el pop-up
-*"Error, verifica tu conexión a internet"* y vuelve al escáner, en vez de
+*"Error: Sin conexión"* sin salir del escáner, en vez de
 colgarse o mentir.
 
 ---
@@ -960,11 +961,12 @@ Por prioridad, con lo que desbloquea cada uno.
 10. **Pruebas de usabilidad** (5 participantes) para comprensión del veredicto,
     finalización del flujo y T_learn.
     → **Desbloquea:** agendar a los participantes.
-11. **Conectividad detectada por el fallo de red, no de antemano.** Sin
-    internet, la petición al servidor falla con `NETWORK` y la app muestra el
-    pop-up *"Error, verifica tu conexión a internet"*; un servidor caído muestra
-    otro aviso. Saberlo antes de escanear pediría una dependencia nativa nueva
-    (`expo-network`), que quedó fuera del alcance de esta entrega.
+11. **Conectividad comprobada al escanear, sin librería nativa.** Antes de
+    pasar al análisis, el escáner hace un `HEAD` al servidor
+    ([connectivity.ts](src/services/api/connectivity.ts), tope de 4 s). Sin
+    respuesta, la persona se queda en el escáner con el pop-up *"Error: Sin
+    conexión"*. Una red muy lenta (más de 4 s) cuenta como sin conexión. Si la
+    red se cae a mitad del análisis, la pantalla de carga muestra el mismo aviso.
 
 ### Deuda técnica menor
 

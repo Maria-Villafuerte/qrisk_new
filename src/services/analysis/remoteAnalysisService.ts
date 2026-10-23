@@ -30,7 +30,7 @@ export function analysisErrorMessage(error: ApiError): string {
     case 'FILTER_TIMEOUT':
       return 'El servidor tardó demasiado en analizar el enlace y cortó la respuesta.';
     case 'NETWORK':
-      return 'Error, verifica tu conexión a internet e intenta de nuevo.';
+      return 'No pudimos revisar este código porque no hay conexión. Esto no significa que sea seguro.';
     case 'RATE_LIMITED':
       return 'Se alcanzó el límite de consultas; intenta de nuevo en un momento.';
     case 'CANCELLED':

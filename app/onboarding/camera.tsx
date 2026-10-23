@@ -5,6 +5,9 @@ import { useCameraPermissions } from 'expo-camera';
 import { CameraIcon, LockIcon, palette, useToast } from '../../src/design-system';
 import { PermissionScreen } from '../../src/features/onboarding/PermissionScreen';
 
+/** Para que sirve la app. Es la primera pantalla que ve una persona nueva. */
+const TAGLINE = 'Revisa si un código QR es seguro antes de abrirlo';
+
 /**
  * 01 · Permiso de camara. Pide el permiso real del sistema y contempla los
  * tres estados posibles: concedido, denegado (se puede volver a preguntar) y
@@ -48,6 +51,7 @@ export default function CameraPermissionRoute() {
     return (
       <PermissionScreen
         step={1}
+        tagline={TAGLINE}
         icon={<CameraIcon size={46} color={palette.brand} />}
         title="Activa la cámara desde ajustes"
         description="El permiso de cámara está bloqueado. Para escanear códigos QR, actívalo en los ajustes del sistema y vuelve a QRisk."
@@ -66,6 +70,7 @@ export default function CameraPermissionRoute() {
   return (
     <PermissionScreen
       step={1}
+      tagline={TAGLINE}
       icon={<CameraIcon size={46} color={palette.brand} />}
       title="Permite el acceso a la cámara"
       description="QRisk usa la cámara únicamente para leer códigos QR. Sin este permiso no es posible escanear."

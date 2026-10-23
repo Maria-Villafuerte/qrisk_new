@@ -183,7 +183,7 @@ export default function LoadingRoute() {
         <Text style={[text.caption, styles.centered]}>
           {takingLong
             ? 'Esto está tardando un poco más de lo normal. Seguimos revisando el enlace en un entorno aislado.'
-            : 'El enlace se analiza en un entorno aislado, no en tu teléfono.'}
+            : 'Revisamos el enlace desde nuestro servidor. El sitio no se abre en tu teléfono.'}
         </Text>
 
         <Card style={styles.stages}>

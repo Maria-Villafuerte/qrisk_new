@@ -27,6 +27,8 @@ export interface PermissionScreenProps {
   onSecondary: () => void;
   /** Paso actual del onboarding, base 1. */
   step: 1 | 2;
+  /** Para que sirve la app, en una frase, bajo la marca. */
+  tagline?: string;
 }
 
 const TOTAL_STEPS = 2;
@@ -46,6 +48,7 @@ export function PermissionScreen({
   onPrimary,
   onSecondary,
   step,
+  tagline,
 }: PermissionScreenProps) {
   return (
     <Screen>
@@ -64,6 +67,8 @@ export function PermissionScreen({
           ))}
         </View>
       </View>
+
+      {tagline ? <Text style={styles.tagline}>{tagline}</Text> : null}
 
       <View style={styles.body}>
         <IconEmblem
@@ -113,6 +118,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: -0.15,
     color: palette.textPrimary,
+  },
+  tagline: {
+    fontFamily: text.cardTitle.fontFamily,
+    fontSize: 16,
+    lineHeight: 22,
+    color: palette.textBody,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    paddingTop: spacing.lg,
   },
   dots: {
     flexDirection: 'row',

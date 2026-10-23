@@ -92,7 +92,7 @@ export default function ScannerRoute() {
           if (!online) {
             Alert.alert(
               'Error: Sin conexión',
-              'Error, verifica tu conexión a internet e intenta de nuevo.',
+              'No pudimos revisar este código porque no hay conexión. Esto no significa que sea seguro.',
               [{ text: 'Entendido', onPress: rearm }],
               { cancelable: false },
             );
@@ -166,17 +166,25 @@ export default function ScannerRoute() {
             <Text style={styles.brandName}>QRisk</Text>
           </View>
 
+          {/*
+            Con texto y no solo el reloj: en la prueba de usabilidad el icono
+            solo no se reconocia como la entrada al historial.
+          */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Ver historial"
             onPress={() => router.push('/history')}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            hitSlop={6}
+            style={({ pressed }) => [styles.historyButton, pressed && styles.pressed]}
           >
             <ClockIcon size={20} color="#FFFFFF" />
+            <Text style={styles.historyLabel}>Historial</Text>
           </Pressable>
         </View>
 
         <View style={styles.center}>
+          <Text style={styles.tagline}>Revisa si un código QR es seguro antes de abrirlo</Text>
+
           {/* Ventana del marco: el video se ve a traves del velo mas claro. */}
           <View style={styles.window}>
             <ScannerFrame paused={detected} />
@@ -248,13 +256,27 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: '#FFFFFF',
   },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  historyButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 46,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  historyLabel: {
+    fontFamily: fontFamily.bold,
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  tagline: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   pressed: {
     opacity: 0.7,

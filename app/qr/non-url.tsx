@@ -60,31 +60,32 @@ export default function NonUrlRoute() {
         <Text style={[text.displaySm, styles.centered]}>{nonUrlContent.title}</Text>
         <Text style={[text.bodySm, styles.centered]}>{nonUrlContent.description}</Text>
 
+        {/*
+          La etiqueta va arriba, chica, y el contenido debajo, grande: en la
+          prueba de usabilidad, en la misma linea se leian como una sola cosa.
+          "Copiar" va dentro de la tarjeta, junto a lo que copia.
+        */}
         <Card style={styles.details}>
-          {nonUrlContent.rows.map((row, index) => (
-            <View
-              key={row.label}
-              style={[
-                styles.detailRow,
-                index < nonUrlContent.rows.length - 1 && styles.detailDivider,
-              ]}
-            >
-              <Text style={text.rowLabel}>{row.label}</Text>
-              <Text style={[text.rowValue, row.mono && styles.monoValue]}>{row.value}</Text>
+          {nonUrlContent.rows.map((row) => (
+            <View key={row.label} style={[styles.detailRow, styles.detailDivider]}>
+              <Text style={styles.rowLabel}>{row.label}</Text>
+              <Text style={[styles.rowValue, row.mono && styles.monoValue]} selectable>
+                {row.value}
+              </Text>
             </View>
           ))}
-        </Card>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Copiar contenido"
-          onPress={copy}
-          hitSlop={8}
-          style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
-        >
-          <CopyIcon size={15} />
-          <Text style={styles.copyLabel}>Copiar contenido</Text>
-        </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Copiar contenido"
+            onPress={copy}
+            hitSlop={8}
+            style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
+          >
+            <CopyIcon size={18} color={palette.brand} />
+            <Text style={styles.copyLabel}>Copiar</Text>
+          </Pressable>
+        </Card>
       </View>
 
       <View style={styles.footer}>
@@ -122,10 +123,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: spacing.xs,
     paddingVertical: spacing.md,
+  },
+  rowLabel: {
+    fontFamily: text.fieldLabel.fontFamily,
+    fontSize: 11.5,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: palette.textTertiary,
+  },
+  rowValue: {
+    fontFamily: text.rowValue.fontFamily,
+    fontSize: 17,
+    lineHeight: 23,
+    color: palette.textPrimary,
   },
   detailDivider: {
     borderBottomWidth: 1,
@@ -138,11 +150,16 @@ const styles = StyleSheet.create({
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 46,
+    marginVertical: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: palette.brandTint,
   },
   copyLabel: {
     fontFamily: text.buttonSm.fontFamily,
-    fontSize: 13.5,
+    fontSize: 15,
     color: palette.brand,
   },
   pressed: {

@@ -31,7 +31,7 @@ export function ScreenHeader({
             hitSlop={8}
             style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
           >
-            <ChevronLeftIcon />
+            <ChevronLeftIcon size={24} strokeWidth={2.4} />
           </Pressable>
         ) : null)}
 
