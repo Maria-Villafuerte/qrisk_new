@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import {
   BrandMark,
   Button,
   CameraIcon,
+  CloseIcon,
   DownloadIcon,
   fontFamily,
   GalleryIcon,
@@ -43,19 +44,20 @@ const CARD_HEIGHT = 423;
 export default function StoryCardRoute() {
   const router = useRouter();
   const toast = useToast();
-  const { result, locationEnabled, history } = useAppState();
+  const { result, locationEnabled, activeRecord } = useAppState();
   const theme = verdicts[result.verdict];
 
   /** Referencia a la tarjeta: es lo que se captura como imagen. */
   const cardRef = useRef<View>(null);
   /** Foto de contexto elegida. Nunca sale del telefono. */
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  /** Accion en curso: bloquea las dos y muestra el spinner en la que se toco. */
+  const [busy, setBusy] = useState<'share' | 'save' | null>(null);
 
-  // El escaneo mas reciente es el que corresponde a esta tarjeta.
-  const lastScan = history[0]?.record;
-  const scannedLabel = lastScan ? formatScanTime(lastScan.scannedAt) : formatScanTime(new Date().toISOString());
-  const place = lastScan?.place ?? null;
+  // El registro del escaneo que se esta viendo, venga del escaner o del
+  // historial: no el mas reciente, que puede ser otro.
+  const scannedLabel = formatScanTime(activeRecord?.scannedAt ?? new Date().toISOString());
+  const place = activeRecord?.place ?? null;
 
   /** Toma la foto con la camara. */
   const takePhoto = async () => {
@@ -103,7 +105,7 @@ export default function StoryCardRoute() {
   /** Comparte la tarjeta con la hoja del sistema. */
   const share = async () => {
     if (busy) return;
-    setBusy(true);
+    setBusy('share');
     try {
       if (!(await Sharing.isAvailableAsync())) {
         toast.show('Compartir no está disponible en este dispositivo');
@@ -116,14 +118,14 @@ export default function StoryCardRoute() {
     } catch {
       toast.show('No se pudo compartir el afiche');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
   /** Guarda la tarjeta en la galeria del telefono. */
   const save = async () => {
     if (busy) return;
-    setBusy(true);
+    setBusy('save');
     try {
       // Solo hace falta permiso de escritura: la app no lee la galeria.
       const permission = await runExternal(() => MediaLibrary.requestPermissionsAsync(true));
@@ -138,7 +140,7 @@ export default function StoryCardRoute() {
     } catch {
       toast.show('No se pudo guardar el afiche');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -146,7 +148,15 @@ export default function StoryCardRoute() {
     <Screen>
       <ScreenHeader title="Afiche de advertencia" onBack={() => router.back()} />
 
-      <View style={styles.body}>
+      {/*
+        Con scroll: el afiche mide 423 de alto fijo (es lo que se exporta), y en
+        un telefono de 640 de alto los botones de foto quedaban cortados.
+      */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card} ref={cardRef} collapsable={false}>
           <LinearGradient
             colors={[palette.storyTop, palette.storyMid, palette.storyBottom]}
@@ -154,14 +164,10 @@ export default function StoryCardRoute() {
             style={StyleSheet.absoluteFill}
           />
 
-          <View style={styles.cardBrand}>
-            <BrandMark size={13} color="#FFFFFF" moduleColor={palette.brand} />
-            <Text style={styles.cardBrandName}>QRisk</Text>
-          </View>
-
           {photoUri ? (
             // La foto de contexto se pinta dentro de la tarjeta; el degradado
-            // inferior mantiene legible el texto que va encima.
+            // inferior mantiene legible el texto que va encima. Va ANTES de la
+            // marca: pintada despues la tapaba y el afiche salia sin QRisk.
             <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           ) : (
             <View style={styles.photoHint}>
@@ -169,6 +175,11 @@ export default function StoryCardRoute() {
               <Text style={styles.photoHintText}>Agrega una foto de contexto (opcional)</Text>
             </View>
           )}
+
+          <View style={styles.cardBrand}>
+            <BrandMark size={13} color="#FFFFFF" moduleColor={palette.brand} />
+            <Text style={styles.cardBrandName}>QRisk</Text>
+          </View>
 
           {/*
             El QR se muestra pero queda inservible: React Native no aplica
@@ -245,14 +256,25 @@ export default function StoryCardRoute() {
         <Text style={styles.photoActionsHint}>
           Foto opcional: muestra dónde está este QR para que otros lo reconozcan.
         </Text>
-      </View>
+        {/* Sin esto, una foto elegida por error solo se podia cambiar por otra. */}
+        {photoUri ? (
+          <Button
+            label="Quitar foto"
+            variant="ghost"
+            compact
+            icon={<CloseIcon size={15} color={palette.textSecondary} />}
+            onPress={() => setPhotoUri(null)}
+          />
+        ) : null}
+      </ScrollView>
 
       <View style={styles.footer}>
         <Button
           label="Compartir"
           icon={<ShareIcon size={17} />}
           onPress={share}
-          disabled={busy}
+          loading={busy === 'share'}
+          disabled={busy !== null}
           style={styles.flex}
         />
         <Button
@@ -260,7 +282,8 @@ export default function StoryCardRoute() {
           variant="secondary"
           icon={<DownloadIcon size={17} />}
           onPress={save}
-          disabled={busy}
+          loading={busy === 'save'}
+          disabled={busy !== null}
           style={styles.flex}
         />
       </View>
@@ -269,12 +292,16 @@ export default function StoryCardRoute() {
 }
 
 const styles = StyleSheet.create({
-  body: {
+  scroll: {
     flex: 1,
+  },
+  body: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.md,
     paddingHorizontal: 24,
+    paddingVertical: spacing.sm,
   },
   card: {
     width: CARD_WIDTH,

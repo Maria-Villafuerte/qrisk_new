@@ -155,6 +155,21 @@ export function CloseIcon({ size = 20, color = DEFAULT_COLOR, strokeWidth = 2 }:
   );
 }
 
+/** Papelera. No esta en el diseno: se dibujo con el mismo trazo de 24px. */
+export function TrashIcon({ size = 18, color = DEFAULT_COLOR, strokeWidth = 1.8 }: StrokeIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 7h16M9.5 7V4.8c0-.4.4-.8.8-.8h3.4c.4 0 .8.4.8.8V7M6.5 7l.8 12.2c.1.9.8 1.6 1.7 1.6h6c.9 0 1.6-.7 1.7-1.6L17.5 7M10 11v6M14 11v6"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function ChevronLeftIcon({
   size = 18,
   color = palette.textPrimary,

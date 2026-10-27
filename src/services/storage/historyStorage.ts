@@ -132,6 +132,14 @@ export function appendScan(entries: HistoryEntry[], entry: HistoryEntry): Histor
   return next;
 }
 
+/**
+ * Quita un escaneo por su id y devuelve la lista resultante, SIN tocar el
+ * disco. Pura, por la misma razon que `withScanAppended`.
+ */
+export function withoutScan(entries: HistoryEntry[], id: string): HistoryEntry[] {
+  return entries.filter((entry) => entry.record.id !== id);
+}
+
 /** Vacia el historial. */
 export function clearHistory(): void {
   try {

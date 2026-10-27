@@ -4,6 +4,7 @@ import {
   clearHistory as clearStoredHistory,
   loadHistory,
   saveHistory,
+  withoutScan,
   withScanAppended,
   type HistoryEntry,
 } from '../services/storage/historyStorage';
@@ -40,6 +41,14 @@ interface AppStateValue {
   addScan: (analysis: AnalysisResult, place?: string | null) => void;
   /** Abre un escaneo guardado: repone su analisis como resultado activo. */
   openHistoryEntry: (entry: HistoryEntry) => void;
+  /**
+   * Registro (fecha y lugar) del escaneo que corresponde a `result`. Lo usa el
+   * afiche: antes tomaba `history[0]`, y al abrir una fila vieja del historial
+   * pintaba la hora y el lugar del escaneo mas reciente, no los de esa fila.
+   */
+  activeRecord: ScanRecord | null;
+  /** Borra un escaneo del historial, por su id, y lo persiste. */
+  removeScan: (id: string) => void;
   clearHistory: () => void;
 }
 
@@ -117,6 +126,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
    */
   const historyRef = useRef(history);
 
+  const [activeRecord, setActiveRecord] = useState<ScanRecord | null>(null);
+
   const addScan = useCallback((analysis: AnalysisResult, place: string | null = null) => {
     const entry: HistoryEntry = {
       record: {
@@ -134,10 +145,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     // Una sola escritura, fuera del updater.
     saveHistory(next);
     setHistory(next);
+    setActiveRecord(entry.record);
   }, []);
 
   const openHistoryEntry = useCallback((entry: HistoryEntry) => {
     setResult(entry.analysis);
+    setActiveRecord(entry.record);
+  }, []);
+
+  const removeScan = useCallback((id: string) => {
+    const next = withoutScan(historyRef.current, id);
+    historyRef.current = next;
+    saveHistory(next);
+    setHistory(next);
   }, []);
 
   const clearHistory = useCallback(() => {
@@ -157,6 +177,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       history,
       addScan,
       openHistoryEntry,
+      activeRecord,
+      removeScan,
       clearHistory,
     }),
     [
@@ -167,6 +189,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       history,
       addScan,
       openHistoryEntry,
+      activeRecord,
+      removeScan,
       clearHistory,
     ],
   );

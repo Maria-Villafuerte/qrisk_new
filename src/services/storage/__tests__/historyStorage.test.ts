@@ -5,6 +5,7 @@ import {
   HISTORY_LIMIT,
   loadHistory,
   saveHistory,
+  withoutScan,
   withScanAppended,
   type HistoryEntry,
 } from '../historyStorage';
@@ -101,6 +102,26 @@ describe('clearHistory', () => {
     saveHistory([makeEntry(1)]);
     clearHistory();
     expect(loadHistory()).toEqual([]);
+  });
+});
+
+describe('withoutScan', () => {
+  it('quita solo el escaneo con ese id y conserva el orden', () => {
+    const entries = [makeEntry(3), makeEntry(2), makeEntry(1)];
+    expect(withoutScan(entries, 'scn_2').map((e) => e.record.id)).toEqual(['scn_3', 'scn_1']);
+  });
+
+  it('no toca el disco ni la lista original', () => {
+    const entries = [makeEntry(1)];
+    saveHistory(entries);
+    withoutScan(entries, 'scn_1');
+    expect(entries).toHaveLength(1);
+    expect(loadHistory()).toHaveLength(1);
+  });
+
+  it('con un id que no existe devuelve la misma lista', () => {
+    const entries = [makeEntry(1)];
+    expect(withoutScan(entries, 'scn_99')).toEqual(entries);
   });
 });
 
