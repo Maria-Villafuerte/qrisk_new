@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { palette, radius, shadows } from '../tokens';
 import { fontFamily } from '../typography';
@@ -12,6 +12,16 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const VISIBLE_MS = 2600;
+/** Tope de permanencia: un aviso no debe quedarse tapando la pantalla. */
+const MAX_VISIBLE_MS = 6000;
+
+/**
+ * Cuanto se muestra un mensaje. Con un tiempo fijo, los avisos largos ("Reporte
+ * enviado de forma anonima. ¡Gracias por...!") desaparecian antes de leerse.
+ */
+function visibleMsFor(message: string): number {
+  return Math.min(MAX_VISIBLE_MS, Math.max(VISIBLE_MS, message.length * 60));
+}
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
@@ -23,6 +33,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (next: string) => {
       if (timer.current) clearTimeout(timer.current);
       setMessage(next);
+      // `accessibilityLiveRegion` solo existe en Android; en iOS se anuncia a mano.
+      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(next);
       Animated.timing(opacity, {
         toValue: 1,
         duration: 180,
@@ -37,7 +49,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         }).start(({ finished }) => {
           if (finished) setMessage(null);
         });
-      }, VISIBLE_MS);
+      }, visibleMsFor(next));
     },
     [opacity],
   );

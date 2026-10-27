@@ -8,7 +8,7 @@ export interface ScreenHeaderProps {
   title: string;
   /** Omitir para pantallas sin retroceso. */
   onBack?: () => void;
-  /** Texto discreto alineado a la derecha (ej. "Ultimos 20 · sin internet"). */
+  /** Texto discreto alineado a la derecha (ej. "Ultimos 20 · en tu telefono"). */
   trailingText?: string;
   /** Sustituye el boton de retroceso (ej. el spinner del analisis). */
   leading?: React.ReactNode;
@@ -35,7 +35,8 @@ export function ScreenHeader({
           </Pressable>
         ) : null)}
 
-      <Text style={[text.header, styles.title]} numberOfLines={1}>
+      {/* `header`: el lector de pantalla lo anuncia y permite saltar entre titulos. */}
+      <Text style={[text.header, styles.title]} numberOfLines={2} accessibilityRole="header">
         {title}
       </Text>
 
@@ -49,8 +50,10 @@ export function ScreenHeader({
 }
 
 const styles = StyleSheet.create({
+  // Altura minima, no fija: con la letra grande del sistema el titulo ocupa
+  // dos lineas en vez de cortarse.
   root: {
-    height: sizing.headerHeight,
+    minHeight: sizing.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,

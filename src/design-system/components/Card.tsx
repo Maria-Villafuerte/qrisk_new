@@ -9,10 +9,19 @@ export interface CardProps {
   flush?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  /** Que pasa al tocarla, para el lector de pantalla. */
+  accessibilityHint?: string;
 }
 
 /** Tarjeta blanca con borde suave — la superficie base de casi todo el diseno. */
-export function Card({ children, onPress, flush = false, style, accessibilityLabel }: CardProps) {
+export function Card({
+  children,
+  onPress,
+  flush = false,
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+}: CardProps) {
   const content = [styles.root, flush && styles.flush, style];
 
   if (!onPress) {
@@ -23,6 +32,7 @@ export function Card({ children, onPress, flush = false, style, accessibilityLab
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       onPress={onPress}
       style={({ pressed }) => [...content, pressed && styles.pressed]}
     >

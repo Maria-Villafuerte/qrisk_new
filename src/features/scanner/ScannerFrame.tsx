@@ -20,7 +20,6 @@ export interface ScannerFrameProps {
 
 /** Lado del area de escaneo, para que el llamante alinee la camara. */
 export const SCANNER_FRAME_SIZE = FRAME_SIZE;
-
 /**
  * Marco de escaneo: cuatro esquinas y una linea que recorre el area de
  * arriba abajo en bucle. Es solo la capa visual; la camara va debajo.

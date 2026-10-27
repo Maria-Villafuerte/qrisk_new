@@ -8,7 +8,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { palette, radius, shadows, sizing } from '../tokens';
+import { palette, radius, shadows, sizing, verdicts } from '../tokens';
 import { text } from '../typography';
 
 export type ButtonVariant =
@@ -35,7 +35,7 @@ export interface ButtonProps {
   accentBorderColor?: string;
   loading?: boolean;
   disabled?: boolean;
-  /** Compacto (42px), usado en la fila Tomar foto / Galeria. */
+  /** Compacto (44px), usado en la fila Tomar foto / Galeria. */
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }
@@ -60,7 +60,7 @@ export function Button({
     (variant === 'primary'
       ? '#FFFFFF'
       : variant === 'dangerGhost'
-        ? palette.textPrimary
+        ? verdicts.malicioso.color
         : variant === 'ghost'
           ? palette.textSecondary
           : palette.textPrimary);
@@ -94,10 +94,13 @@ export function Button({
           <Text
             style={[
               compact ? text.buttonSm : text.button,
+              styles.label,
               { color: labelColor },
-              variant === 'dangerGhost' && { color: accentColor ?? palette.textPrimary },
+              variant === 'dangerGhost' && { color: accentColor ?? verdicts.malicioso.color },
             ]}
-            numberOfLines={1}
+            // Dos lineas: con la letra grande del sistema la etiqueta se parte
+            // en vez de cortarse con "…" (WCAG 1.4.4).
+            numberOfLines={2}
           >
             {label}
           </Text>
@@ -108,8 +111,9 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
+  // Alturas minimas, no fijas: el boton crece si la letra del sistema es grande.
   base: {
-    height: sizing.buttonHeight,
+    minHeight: sizing.buttonHeight,
     borderRadius: radius.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,7 +122,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   compact: {
-    height: sizing.buttonHeightSm,
+    minHeight: sizing.buttonHeightSm,
     borderRadius: radius.sm,
   },
   primary: {
@@ -131,7 +135,7 @@ const styles = StyleSheet.create({
   },
   ghost: {
     backgroundColor: 'transparent',
-    height: 46,
+    minHeight: 46,
   },
   pressed: {
     opacity: 0.85,
@@ -143,5 +147,10 @@ const styles = StyleSheet.create({
   icon: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** Centrada y encogible, para que la segunda linea no desborde el boton. */
+  label: {
+    flexShrink: 1,
+    textAlign: 'center',
   },
 });

@@ -18,8 +18,15 @@ export const palette = {
   textPrimary: '#191C22',
   textBody: '#3A3F4C',
   textSecondary: '#5A6072',
-  textTertiary: '#8A8F9C',
-  textPlaceholder: '#9AA0AE',
+  // Oscurecidos para cumplir WCAG AA (4.5:1) en texto chico. Los valores del
+  // diseno (#8A8F9C y #9AA0AE) daban 3.1:1 y 2.5:1, y con ellos se pintan las
+  // fechas del historial, las captions y la URL completa del resultado.
+  textTertiary: '#676C7B',
+  textPlaceholder: '#6B7080',
+  /** Iconos decorativos apagados (estado vacio, etapa pendiente). */
+  iconMuted: '#B9B4A8',
+  /** Puntos inactivos del indicador de pasos. */
+  dotIdle: '#DDD9D0',
 
   // Marca
   brand: '#2757D6',
@@ -115,7 +122,8 @@ export const radius = {
 export const sizing = {
   /** Alto de los botones principales del diseno */
   buttonHeight: 52,
-  buttonHeightSm: 42,
+  /** Compacto, pero sin bajar del area tactil minima. */
+  buttonHeightSm: 44,
   inputHeight: 48,
   headerHeight: 60,
   /** Boton circular de retroceso */

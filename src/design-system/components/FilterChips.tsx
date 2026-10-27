@@ -33,6 +33,9 @@ export function FilterChips<T extends string>({
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             onPress={() => onSelect(option.value)}
+            // El chip mide 36 de alto; el hitSlop completa los 44 de area tactil
+            // sin engordar la fila visualmente.
+            hitSlop={{ top: 4, bottom: 4 }}
             style={({ pressed }) => [
               styles.chip,
               active ? styles.chipActive : styles.chipIdle,
@@ -55,6 +58,8 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   chip: {
+    minHeight: 36,
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: radius.pill,

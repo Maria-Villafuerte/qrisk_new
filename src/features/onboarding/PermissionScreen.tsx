@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   BrandMark,
   Button,
@@ -70,7 +70,16 @@ export function PermissionScreen({
 
       {tagline ? <Text style={styles.tagline}>{tagline}</Text> : null}
 
-      <View style={styles.body}>
+      {/*
+        Con scroll: centrado cuando cabe, pero con la letra grande del sistema o
+        en un telefono bajo, el texto se puede leer entero en vez de quedar
+        cortado detras de los botones.
+      */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <IconEmblem
           size={136}
           innerSize={96}
@@ -86,11 +95,13 @@ export function PermissionScreen({
           </View>
         ) : null}
 
-        <Text style={[text.display, styles.centered]}>{title}</Text>
+        <Text style={[text.display, styles.centered]} accessibilityRole="header">
+          {title}
+        </Text>
         <Text style={[text.body, styles.centered]}>{description}</Text>
 
         {note ? <InfoBanner icon={note.icon}>{note.text}</InfoBanner> : null}
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         <Button label={primaryLabel} onPress={onPrimary} />
@@ -142,14 +153,18 @@ const styles = StyleSheet.create({
   },
   dotIdle: {
     width: 6,
-    backgroundColor: '#DDD9D0',
+    backgroundColor: palette.dotIdle,
+  },
+  scroll: {
+    flex: 1,
   },
   body: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,
     paddingHorizontal: 32,
+    paddingVertical: spacing.lg,
   },
   badge: {
     backgroundColor: palette.brandTint,

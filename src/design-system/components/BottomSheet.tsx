@@ -22,8 +22,14 @@ export function BottomSheet({ visible, onDismiss, children }: BottomSheetProps) 
       statusBarTranslucent
       onRequestClose={onDismiss}
     >
-      <Pressable style={styles.backdrop} onPress={onDismiss} accessibilityLabel="Cerrar" />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
+      <Pressable
+        style={styles.backdrop}
+        onPress={onDismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Cerrar"
+      />
+      {/* Modal para el lector de pantalla: no deja recorrer lo que hay detras. */}
+      <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.handle} />
         {children}
       </View>
