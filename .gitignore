@@ -47,3 +47,4 @@ yarn-error.*
 
 # test coverage
 /coverage
+src/services/analysis/qrisk-app.code-workspace
