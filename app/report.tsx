@@ -26,8 +26,11 @@ import {
   UrlChip,
   VerdictPill,
   verdicts,
+  WarningCircleIcon,
 } from '../src/design-system';
 import {
+  COMMENT_MAX,
+  PLACE_MAX,
   submitReport,
   validateReport,
   type ReportValidation,
@@ -48,6 +51,19 @@ export default function ReportRoute() {
   const [place, setPlace] = useState('');
   const [errors, setErrors] = useState<ReportValidation>({});
   const [sending, setSending] = useState(false);
+  /**
+   * Fallo del ultimo envio. Va fijo sobre el boton y no en un toast: el toast
+   * desaparecia en pocos segundos y la persona no sabia si reintentar.
+   */
+  const [sendError, setSendError] = useState<string | null>(null);
+  /** Campo con el foco, para resaltar su borde. */
+  const [focused, setFocused] = useState<'comment' | 'place' | null>(null);
+
+  /** Borde del campo: rojo si tiene error, azul si tiene el foco. */
+  const inputState = (field: 'comment' | 'place') => [
+    focused === field && styles.inputFocused,
+    errors[field] ? styles.inputError : null,
+  ];
 
   const submit = async () => {
     if (sending) return;
@@ -58,6 +74,7 @@ export default function ReportRoute() {
     if (Object.keys(validation).length > 0) return;
 
     setSending(true);
+    setSendError(null);
     try {
       const outcome = await submitReport(result, draft);
 
@@ -69,7 +86,7 @@ export default function ReportRoute() {
 
       // No se limpia el formulario ni se sale de la pantalla: lo que la
       // persona escribio se conserva para que pueda reintentar.
-      toast.show(outcome.message);
+      setSendError(outcome.message);
     } finally {
       setSending(false);
     }
@@ -104,28 +121,45 @@ export default function ReportRoute() {
             <VerdictPill verdict={result.verdict} />
           </Field>
 
-          <Field label="COMENTARIO" optional error={errors.comment}>
+          <Field
+            label="COMENTARIO"
+            optional
+            error={errors.comment}
+            count={{ value: comment.length, max: COMMENT_MAX }}
+          >
             <TextInput
               value={comment}
               onChangeText={setComment}
+              // El tope se impone al escribir: antes solo se sabia al enviar.
+              maxLength={COMMENT_MAX}
               placeholder="Ej. El código estaba pegado encima del QR original del parqueo…"
               placeholderTextColor={palette.textPlaceholder}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              style={[styles.input, styles.textarea]}
+              onFocus={() => setFocused('comment')}
+              onBlur={() => setFocused(null)}
+              style={[styles.input, styles.textarea, ...inputState('comment')]}
               accessibilityLabel="Comentario opcional"
             />
           </Field>
 
-          <Field label="¿DÓNDE ESTABA EL QR?" optional error={errors.place}>
-            <View style={[styles.input, styles.inputRow]}>
+          <Field
+            label="¿DÓNDE ESTABA EL QR?"
+            optional
+            error={errors.place}
+            count={{ value: place.length, max: PLACE_MAX }}
+          >
+            <View style={[styles.input, styles.inputRow, ...inputState('place')]}>
               <LocationIcon size={16} color={palette.textTertiary} />
               <TextInput
                 value={place}
                 onChangeText={setPlace}
+                maxLength={PLACE_MAX}
                 placeholder="Ej. Parqueo Plaza Sol, Zona 10"
                 placeholderTextColor={palette.textPlaceholder}
+                onFocus={() => setFocused('place')}
+                onBlur={() => setFocused(null)}
                 style={styles.inputRowText}
                 accessibilityLabel="Lugar del código QR, opcional"
               />
@@ -134,8 +168,14 @@ export default function ReportRoute() {
         </ScrollView>
 
         <View style={styles.footer}>
+          {sendError ? (
+            <View style={styles.sendError} accessibilityLiveRegion="polite" accessibilityRole="alert">
+              <WarningCircleIcon size={16} color={verdicts.malicioso.color} />
+              <Text style={styles.sendErrorText}>{sendError}</Text>
+            </View>
+          ) : null}
           <Button
-            label={sending ? 'Enviando…' : 'Enviar reporte'}
+            label={sending ? 'Enviando…' : sendError ? 'Reintentar envío' : 'Enviar reporte'}
             onPress={submit}
             loading={sending}
             disabled={sending}
@@ -150,22 +190,41 @@ function Field({
   label,
   optional = false,
   error,
+  count,
   children,
 }: {
   label: string;
   optional?: boolean;
   /** Mensaje de validacion; se pinta debajo del campo. */
   error?: string;
+  /** Caracteres usados y tope del campo; se pinta a la derecha de la etiqueta. */
+  count?: { value: number; max: number };
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.field}>
-      <Text style={text.fieldLabel}>
-        {label}
-        {optional ? <Text style={styles.optional}> (opcional)</Text> : null}
-      </Text>
+      <View style={styles.fieldHeader}>
+        <Text style={[text.fieldLabel, styles.fieldLabel]}>
+          {label}
+          {optional ? <Text style={styles.optional}> (opcional)</Text> : null}
+        </Text>
+        {count ? (
+          <Text
+            style={[text.caption, count.value >= count.max && styles.countFull]}
+            accessibilityLabel={`${count.value} de ${count.max} caracteres`}
+          >
+            {count.value}/{count.max}
+          </Text>
+        ) : null}
+      </View>
       {children}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        // Se anuncia al aparecer: si no, quien usa lector de pantalla solo
+        // nota que el boton "no hizo nada".
+        <Text style={styles.error} accessibilityLiveRegion="polite" accessibilityRole="alert">
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -182,6 +241,18 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 7,
+  },
+  fieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
+  fieldLabel: {
+    flex: 1,
+  },
+  /** Tope alcanzado: el contador pasa al color de error. */
+  countFull: {
+    color: verdicts.malicioso.color,
   },
   error: {
     ...text.caption,
@@ -200,6 +271,12 @@ const styles = StyleSheet.create({
     fontFamily: text.bodySm.fontFamily,
     fontSize: 14,
     color: palette.textPrimary,
+  },
+  inputFocused: {
+    borderColor: palette.brand,
+  },
+  inputError: {
+    borderColor: verdicts.malicioso.color,
   },
   textarea: {
     minHeight: 108,
@@ -222,8 +299,23 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   footer: {
+    gap: 10,
     paddingHorizontal: spacing.xl,
     paddingTop: 10,
     paddingBottom: 24,
+  },
+  sendError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: verdicts.malicioso.tint,
+    borderRadius: radius.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  sendErrorText: {
+    ...text.captionMd,
+    flex: 1,
+    color: verdicts.malicioso.color,
   },
 });

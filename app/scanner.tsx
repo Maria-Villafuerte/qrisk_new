@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +29,7 @@ import { useAppState } from '../src/store/AppStateContext';
 export default function ScannerRoute() {
   const router = useRouter();
   const { setNonUrlContent } = useAppState();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
 
   const [torchOn, setTorchOn] = useState(false);
   const [detected, setDetected] = useState(false);
@@ -69,6 +69,34 @@ export default function ScannerRoute() {
     }, []),
   );
 
+  /*
+   * Sin internet el analisis no puede hacerse: la persona se queda en el
+   * escaner con un aviso, en vez de entrar a "Analizando el enlace" y esperar
+   * algo que no va a llegar. "Reintentar" vuelve a comprobar la red con la
+   * misma URL, sin tener que apuntar otra vez al codigo; "Cancelar" rearma.
+   */
+  const analyzeWhenOnline = useCallback(
+    (url: string) => {
+      void hasConnection().then((online) => {
+        if (!focusedRef.current) return;
+        if (!online) {
+          Alert.alert(
+            'Sin conexión',
+            'No pudimos revisar este código porque no hay conexión. Esto no significa que sea seguro.',
+            [
+              { text: 'Cancelar', style: 'cancel', onPress: rearm },
+              { text: 'Reintentar', onPress: () => analyzeWhenOnline(url) },
+            ],
+            { cancelable: false },
+          );
+          return;
+        }
+        router.push({ pathname: '/analysis/loading', params: { url } });
+      });
+    },
+    [router, rearm],
+  );
+
   const handleScan = useCallback(
     ({ data }: BarcodeScanningResult) => {
       if (lockedRef.current) return;
@@ -82,32 +110,25 @@ export default function ScannerRoute() {
       const classified = classifyQr(data);
 
       if (classified.kind === 'url') {
-        /*
-         * Sin internet el analisis no puede hacerse: la persona se queda en el
-         * escaner con un aviso, en vez de entrar a "Analizando el enlace" y
-         * esperar algo que no va a llegar. Al cerrar el aviso se rearma.
-         */
-        void hasConnection().then((online) => {
-          if (!focusedRef.current) return;
-          if (!online) {
-            Alert.alert(
-              'Error: Sin conexión',
-              'No pudimos revisar este código porque no hay conexión. Esto no significa que sea seguro.',
-              [{ text: 'Entendido', onPress: rearm }],
-              { cancelable: false },
-            );
-            return;
-          }
-          router.push({ pathname: '/analysis/loading', params: { url: classified.url } });
-        });
+        analyzeWhenOnline(classified.url);
         return;
       }
 
       setNonUrlContent(classified.content);
       router.push('/qr/non-url');
     },
-    [router, setNonUrlContent, rearm],
+    [router, setNonUrlContent, analyzeWhenOnline],
   );
+
+  // El permiso se puede conceder fuera de la app (en ajustes). El hook no se
+  // entera solo: se relee al volver a primer plano para que la camara arranque
+  // sin tener que salir y entrar de la pantalla.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void getPermission();
+    });
+    return () => subscription.remove();
+  }, [getPermission]);
 
   // Primer render: el hook aun no sabe el estado del permiso.
   if (!permission) {
@@ -115,6 +136,9 @@ export default function ScannerRoute() {
   }
 
   if (!permission.granted) {
+    // Tras la segunda negativa el sistema ya no muestra el dialogo: pedir el
+    // permiso no haria nada y el boton quedaba muerto. Solo queda ir a ajustes.
+    const blocked = !permission.canAskAgain;
     return (
       <View style={styles.root}>
         <LinearGradient
@@ -127,12 +151,24 @@ export default function ScannerRoute() {
             <CameraIcon size={46} color="#FFFFFF" />
             <Text style={styles.deniedTitle}>La cámara está apagada</Text>
             <Text style={styles.deniedText}>
-              QRisk necesita el permiso de cámara para leer códigos QR. Las imágenes no salen
-              de tu teléfono ni se guardan.
+              {blocked
+                ? 'El permiso de cámara está bloqueado. Actívalo en los ajustes del sistema y vuelve a QRisk.'
+                : 'QRisk necesita el permiso de cámara para leer códigos QR. Las imágenes no salen de tu teléfono ni se guardan.'}
             </Text>
           </View>
           <View style={styles.deniedFooter}>
-            <Button label="Permitir la cámara" onPress={() => void requestPermission()} />
+            {blocked ? (
+              <Button label="Abrir ajustes" onPress={() => void Linking.openSettings()} />
+            ) : (
+              <Button label="Permitir la cámara" onPress={() => void requestPermission()} />
+            )}
+            {/* Sin camara, el historial seguia siendo util pero no habia como llegar. */}
+            <Button
+              label="Ver historial"
+              variant="ghost"
+              accentColor="#FFFFFF"
+              onPress={() => router.push('/history')}
+            />
           </View>
         </Screen>
       </View>
@@ -151,7 +187,11 @@ export default function ScannerRoute() {
         onBarcodeScanned={detected ? undefined : handleScan}
       />
 
-      {/* Vela el video fuera del marco para que el QR sea el foco visual. */}
+      {/*
+        Velo uniforme sobre todo el video, ventana incluida. Se probo recortar
+        un hueco sin velo dentro del marco y se descarto: el cuadrado de otro
+        tono en el centro se veia peor que el fondo parejo.
+      */}
       <LinearGradient
         colors={[palette.scannerTop, palette.scannerMid, palette.scannerBottom]}
         locations={[0, 0.45, 1]}
@@ -334,7 +374,8 @@ const styles = StyleSheet.create({
   torchLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 11.5,
-    color: 'rgba(255,255,255,0.6)',
+    // Va sobre el video de la camara: con 0.6 se perdia sobre fondos claros.
+    color: 'rgba(255,255,255,0.85)',
   },
   deniedBody: {
     flex: 1,
@@ -357,6 +398,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deniedFooter: {
+    gap: spacing.sm,
     paddingHorizontal: spacing.xl,
     paddingBottom: 24,
   },

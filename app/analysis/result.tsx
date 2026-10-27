@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import {
@@ -23,6 +23,9 @@ import {
 import { isFilterEnabled } from '../../src/services/analysis/enabledFilters';
 import { runExternal } from '../../src/services/navigation/resumePolicy';
 import { useAppState } from '../../src/store/AppStateContext';
+
+/** La recomendacion de un sospechoso, la idea que la persona debe llevarse. */
+const SUSPICIOUS_ADVICE = 'Ábrelo solo si confías en quien puso el código.';
 
 /**
  * 06 · Resultado del analisis.
@@ -49,6 +52,14 @@ export default function ResultRoute() {
 
   const theme = verdicts[result.verdict];
   const isSafe = result.verdict === 'seguro';
+  const isSuspicious = result.verdict === 'sospechoso';
+
+  // Los sospechosos guardados antes de la 2.1 traen la recomendacion dentro
+  // del resumen. Se quita de ahi para que no salga dos veces: ya la pinta
+  // aparte la linea en negrita.
+  const summary = isSuspicious
+    ? result.summary.replace(SUSPICIOUS_ADVICE, '').trim()
+    : result.summary;
 
   /**
    * Cuenta las alertas reales que trajo el analisis, para el copy de la hoja.
@@ -119,7 +130,16 @@ export default function ResultRoute() {
     <Screen>
       <ScreenHeader title="Resultado del análisis" onBack={goBack} />
 
-      <View style={styles.body}>
+      {/*
+        Con scroll: una URL de rastreo larga, el aviso de analisis incompleto o
+        la letra grande del sistema no caben en un telefono bajo, y sin scroll
+        el texto quedaba cortado justo encima de los botones de decision.
+      */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <VerdictEmblem verdict={result.verdict} />
         {/*
           La pildora trae `alignSelf: 'flex-start'` para no estirarse en las
@@ -131,19 +151,20 @@ export default function ResultRoute() {
 
         <View style={styles.identity}>
           <Text style={[text.domain, styles.centered]}>{result.domain}</Text>
-          <Text style={[text.monoSm, styles.centered]}>{result.url}</Text>
+          {/* Seleccionable: para copiar el enlace sin tener que abrirlo. */}
+          <Text style={[text.monoSm, styles.centered]} selectable>
+            {result.url}
+          </Text>
         </View>
 
-        <Text style={[text.body, styles.summary]}>{result.summary}</Text>
+        <Text style={[text.body, styles.summary]}>{summary}</Text>
 
         {/*
           Lo que la persona tiene que llevarse de un sospechoso. Va aparte y en
           grande: dentro del resumen, en la prueba de usabilidad, se perdia.
         */}
-        {result.verdict === 'sospechoso' ? (
-          <Text style={[styles.advice, { color: theme.color }]}>
-            Ábrelo solo si confías en quien puso el código.
-          </Text>
+        {isSuspicious ? (
+          <Text style={[styles.advice, { color: theme.color }]}>{SUSPICIOUS_ADVICE}</Text>
         ) : null}
 
         {/* El analisis no llego hasta el final: se dice, no se disimula. */}
@@ -153,7 +174,7 @@ export default function ResultRoute() {
             información incompleta.
           </InfoBanner>
         ) : null}
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         {/*
@@ -215,12 +236,8 @@ export default function ResultRoute() {
 
         {/* Cancelar es la accion primaria: el diseno empuja a no continuar. */}
         <Button label="Cancelar" onPress={() => setConfirmVisible(false)} style={styles.sheetCta} />
-        <Button
-          label="Abrir de todos modos"
-          variant="dangerGhost"
-          accentColor={palette.textPrimary}
-          onPress={openSite}
-        />
+        {/* En rojo: es la salida arriesgada y tiene que verse como tal. */}
+        <Button label="Abrir de todos modos" variant="dangerGhost" onPress={openSite} />
       </BottomSheet>
     </Screen>
   );
@@ -252,12 +269,16 @@ function SecondaryAction({
 }
 
 const styles = StyleSheet.create({
-  body: {
+  scroll: {
     flex: 1,
+  },
+  body: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 15,
     paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.sm,
   },
   centeredPill: {
     alignSelf: 'center',

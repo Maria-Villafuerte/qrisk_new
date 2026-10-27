@@ -83,62 +83,46 @@ export default function DetailsRoute() {
         </View>
 
         {/*
-          Que filtro decidio y con que umbral. Va arriba, justo bajo el
-          veredicto: en la prueba de usabilidad, al final del scroll no se
-          leia. Las entradas del historial anteriores a este campo no lo traen.
-        */}
-        {result.verdictReason ? (
-          <Card style={styles.reason}>
-            <Text style={text.badge}>POR QUÉ ESTE VEREDICTO</Text>
-            <Text style={text.body}>{result.verdictReason}</Text>
-          </Card>
-        ) : null}
-
-        {/*
           Vista previa (F2.3). La captura la toma el backend en su entorno
           aislado: es la prueba visible de que alguien ya entro al sitio por
           vos. Se muestra como imagen estatica —nunca un WebView— para que la
-          pagina no pueda ejecutar nada ni hacerse pasar por la app. Sin
-          captura se dice, en vez de dejar el hueco sin explicar.
+          pagina no pueda ejecutar nada ni hacerse pasar por la app.
+
+          Sin captura no se pinta nada: el backend solo la entrega dentro de
+          POST /analyze y no hay un endpoint aparte para pedirla despues.
         */}
-        <View style={styles.preview}>
-          <View style={styles.previewHeader}>
-            <Text style={styles.previewTitle}>Vista previa</Text>
-            {screenshotUrl ? (
-              <Text style={styles.previewHint}>Toca para ampliar la imagen</Text>
-            ) : null}
-          </View>
-          {screenshotUrl ? (
-            <>
-              <Pressable
-                onPress={() => setViewerOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Captura de pantalla de ${result.domain}`}
-                accessibilityHint="Abre la captura a pantalla completa para hacer zoom"
-              >
-                <Image
-                  source={{ uri: screenshotUrl }}
-                  style={styles.previewImage}
-                  resizeMode="cover"
-                  onError={() => setShotFailed(true)}
-                />
-              </Pressable>
-              <Text style={[text.caption, styles.previewCaption]}>
-                Captura tomada en nuestro servidor
+        {screenshotUrl ? (
+          <View style={styles.preview}>
+            <View style={styles.previewHeader}>
+              <Text style={styles.previewTitle} accessibilityRole="header">
+                Vista previa
               </Text>
-              <ZoomableImageViewer
-                uri={screenshotUrl}
-                visible={viewerOpen}
-                onClose={() => setViewerOpen(false)}
-                accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+              <Text style={styles.previewHint}>Toca para ampliar la imagen</Text>
+            </View>
+            <Pressable
+              onPress={() => setViewerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+              accessibilityHint="Abre la captura a pantalla completa para hacer zoom"
+            >
+              <Image
+                source={{ uri: screenshotUrl }}
+                style={styles.previewImage}
+                resizeMode="cover"
+                onError={() => setShotFailed(true)}
               />
-            </>
-          ) : (
-            <Text style={[text.bodySm, styles.previewEmpty]}>
-              No pudimos obtener una vista previa de este sitio
+            </Pressable>
+            <Text style={[text.caption, styles.previewCaption]}>
+              Captura tomada en nuestro servidor
             </Text>
-          )}
-        </View>
+            <ZoomableImageViewer
+              uri={screenshotUrl}
+              visible={viewerOpen}
+              onClose={() => setViewerOpen(false)}
+              accessibilityLabel={`Captura de pantalla de ${result.domain}`}
+            />
+          </View>
+        ) : null}
 
         {sections.map((section) => {
           const Icon = sectionIcons[section.key];
@@ -155,9 +139,8 @@ export default function DetailsRoute() {
               icon={<Icon size={19} />}
               badgeText={section.badgeText}
               badgeTone={section.badgeTone}
-              // Todas abiertas: es la vista extendida, y en la prueba de
-              // usabilidad nadie abria las que llegaban cerradas.
-              defaultOpen
+              // Sin `defaultOpen`: todas llegan cerradas y cada seccion se
+              // abre solo si la persona la toca.
             >
               {/*
                 El medidor es el puntaje de la estructura del enlace (F2.1), asi
@@ -184,6 +167,18 @@ export default function DetailsRoute() {
             </Accordion>
           );
         })}
+
+        {/*
+          Cierra el desglose, debajo de Comportamiento: que filtro decidio y
+          con que umbral. Las entradas del historial anteriores a este campo no
+          lo traen y se omite.
+        */}
+        {result.verdictReason ? (
+          <Card style={styles.reason}>
+            <Text style={[text.badge, styles.centered]}>POR QUÉ ESTE VEREDICTO</Text>
+            <Text style={[text.body, styles.centered]}>{result.verdictReason}</Text>
+          </Card>
+        ) : null}
 
         <Button
           label="Volver a la vista simple"
@@ -248,21 +243,18 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: palette.textPrimary,
   },
+  // Pista secundaria: mas liviana que el titulo para no competir con el.
   previewHint: {
     flexShrink: 1,
     textAlign: 'right',
-    fontFamily: text.cardTitle.fontFamily,
+    fontFamily: text.captionMd.fontFamily,
     fontSize: 13,
     lineHeight: 17,
-    color: palette.textPrimary,
+    color: palette.textSecondary,
   },
   previewCaption: {
     paddingHorizontal: 14,
     paddingVertical: spacing.sm,
-  },
-  previewEmpty: {
-    paddingHorizontal: 14,
-    paddingBottom: spacing.md,
   },
   previewImage: {
     width: '100%',
@@ -276,6 +268,9 @@ const styles = StyleSheet.create({
   },
   reason: {
     gap: spacing.xs,
+  },
+  centered: {
+    textAlign: 'center',
   },
   backButton: {
     marginTop: spacing.xs,

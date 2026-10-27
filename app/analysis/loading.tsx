@@ -3,13 +3,13 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import {
+  Button,
   Card,
   CheckCircleIcon,
   palette,
   radius,
   Screen,
   ScreenHeader,
-  sizing,
   Skeleton,
   spacing,
   Spinner,
@@ -31,14 +31,14 @@ type StageStatus = 'done' | 'running' | 'pending';
 /**
  * Cuanto se espera antes de avisar que el analisis esta tardando.
  *
- * Son 20 s, no los 8 de antes. Con la cascada completa (medida el 2026-10-11:
- * 24-35 s en el camino normal) un aviso a los 8 s salia practicamente siempre,
- * y un aviso que aparece en casi todos los analisis deja de informar: se
- * vuelve parte del fondo y la persona ya no distingue el caso lento del
- * normal. A los 20 s ya se paso la mitad del peor caso medido y la espera si
- * es inusual.
+ * Son 40 s. Con la cascada completa (medida el 2026-10-11: 24-35 s en el
+ * camino normal) cualquier umbral por debajo de 35 s hacia salir el aviso en
+ * casi todos los analisis, y un aviso que aparece siempre deja de informar y
+ * ademas miente ("mas de lo normal"). La duracion normal ya se anuncia desde
+ * el principio en el texto de la pantalla; esto queda para el caso que de
+ * verdad pasa del peor tiempo medido.
  */
-const LONG_WAIT_NOTICE_MS = 20_000;
+const LONG_WAIT_NOTICE_MS = 40_000;
 
 /**
  * 05 · Analisis en curso. Recorre la cascada de filtros mientras el servicio
@@ -58,6 +58,12 @@ export default function LoadingRoute() {
   const [stageIndex, setStageIndex] = useState(0);
   const [takingLong, setTakingLong] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /**
+   * Intento en curso. "Reintentar" en el aviso de error lo incrementa, y los
+   * tres efectos de abajo dependen de el: la cascada vuelve a empezar con la
+   * misma URL, sin tener que volver a apuntar la camara al codigo.
+   */
+  const [attempt, setAttempt] = useState(0);
 
   /**
    * Aviso de espera larga.
@@ -65,12 +71,14 @@ export default function LoadingRoute() {
    * Un sitio que el backend no vio antes tarda ~15 s, porque F2.3 le toma una
    * captura con un navegador headless. Sin decir nada, quince segundos de
    * spinner se leen como "la app se colgo" y la persona cierra o reintenta.
-   * A los 8 s se explica que sigue trabajando y por que tarda.
+   * Si pasa de LONG_WAIT_NOTICE_MS se explica que sigue trabajando y por que
+   * tarda.
    */
   useEffect(() => {
+    setTakingLong(false);
     const timer = setTimeout(() => setTakingLong(true), LONG_WAIT_NOTICE_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [attempt]);
 
   /**
    * Avance visual de la cascada.
@@ -88,6 +96,7 @@ export default function LoadingRoute() {
    * mientras la peticion sigue en vuelo.
    */
   useEffect(() => {
+    setStageIndex(0);
     let elapsed = 0;
     analysisStages.slice(0, -1).forEach((stage, index) => {
       elapsed += stage.durationMs;
@@ -98,7 +107,7 @@ export default function LoadingRoute() {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, []);
+  }, [attempt]);
 
   // Analisis y navegacion al resultado.
   useEffect(() => {
@@ -151,13 +160,20 @@ export default function LoadingRoute() {
 
         /*
          * Cualquier otro fallo (sin internet, servidor caido o sin veredicto):
-         * un aviso y de vuelta al escaner. No hay resultado ni entrada en el
-         * historial: un veredicto que no se pudo calcular no se muestra.
+         * un aviso. No hay resultado ni entrada en el historial: un veredicto
+         * que no se pudo calcular no se muestra. Si el fallo es pasajero se
+         * ofrece reintentar con la misma URL: el QR puede ya no estar a mano.
          */
+        const backToScanner = () => router.replace('/scanner');
         Alert.alert(
-          error.code === 'NETWORK' ? 'Error: Sin conexión' : 'No pudimos analizar el enlace',
+          error.code === 'NETWORK' ? 'Sin conexión' : 'No pudimos analizar el enlace',
           analysisErrorMessage(error),
-          [{ text: 'Entendido', onPress: () => router.replace('/scanner') }],
+          error.retryable
+            ? [
+                { text: 'Volver al escáner', style: 'cancel', onPress: backToScanner },
+                { text: 'Reintentar', onPress: () => setAttempt((n) => n + 1) },
+              ]
+            : [{ text: 'Entendido', onPress: backToScanner }],
           { cancelable: false },
         );
       });
@@ -165,7 +181,15 @@ export default function LoadingRoute() {
     return () => {
       active = false;
     };
-  }, [analyzedUrl, router, setResult, addScan, locationEnabled, setNonUrlContent]);
+  }, [analyzedUrl, attempt, router, setResult, addScan, locationEnabled, setNonUrlContent]);
+
+  const cancel = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/scanner');
+  };
 
   const statusOf = (index: number): StageStatus => {
     if (index < stageIndex) return 'done';
@@ -183,7 +207,7 @@ export default function LoadingRoute() {
         <Text style={[text.caption, styles.centered]}>
           {takingLong
             ? 'Esto está tardando un poco más de lo normal. Seguimos revisando el enlace en un entorno aislado.'
-            : 'Revisamos el enlace desde nuestro servidor. El sitio no se abre en tu teléfono.'}
+            : 'Suele tardar unos 30 segundos. Revisamos el enlace desde nuestro servidor; el sitio no se abre en tu teléfono.'}
         </Text>
 
         <Card style={styles.stages}>
@@ -210,9 +234,14 @@ export default function LoadingRoute() {
         <Skeleton width={220} height={13} borderRadius={7} />
       </View>
 
+      {/*
+        Salida explicita. El analisis tarda 24-35 s y la pantalla no tiene boton
+        de retroceso (el spinner ocupa su lugar): en iOS no habia forma visible
+        de arrepentirse. Al desmontar, el efecto descarta la respuesta, asi que
+        no se guarda nada en el historial.
+      */}
       <View style={styles.footer}>
-        <Skeleton height={sizing.buttonHeight} borderRadius={radius.lg} />
-        <Skeleton height={sizing.buttonHeight} borderRadius={radius.lg} style={styles.faded} />
+        <Button label="Cancelar análisis" variant="secondary" onPress={cancel} />
       </View>
     </Screen>
   );
@@ -231,7 +260,7 @@ function StageIndicator({ status }: { status: StageStatus }) {
         cx={9}
         cy={9}
         r={7.5}
-        stroke="#D5D0C6"
+        stroke={palette.iconMuted}
         strokeWidth={2}
         strokeDasharray="3 3"
         fill="none"
@@ -284,8 +313,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     paddingBottom: 24,
-  },
-  faded: {
-    opacity: 0.6,
   },
 });
