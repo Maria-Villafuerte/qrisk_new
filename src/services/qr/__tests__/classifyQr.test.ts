@@ -119,8 +119,17 @@ describe('classifyQr · Wi-Fi', () => {
       const pass = result.content.rows.find((r) => r.label === 'Contraseña');
       expect(pass?.value).toBe('••••••••');
       expect(pass?.value).not.toContain('secreto');
-      // El texto real solo sale por el boton de copiar.
+      // El texto real va aparte, para mostrarlo o copiarlo a peticion.
+      expect(pass?.secret).toBe('secreto');
       expect(result.content.raw).toContain('secreto');
+    }
+  });
+
+  it('guarda la contrasena sin los escapes del formato', () => {
+    const result = classifyQr('WIFI:T:WPA2;S:red;P:a\\;b;;');
+    if (result.kind === 'wifi') {
+      const pass = result.content.rows.find((r) => r.label === 'Contraseña');
+      expect(pass?.secret).toBe('a;b');
     }
   });
 

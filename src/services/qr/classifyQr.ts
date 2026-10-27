@@ -137,10 +137,11 @@ function buildWifiContent(raw: string): NonUrlContent {
     { label: 'Seguridad', value: securityLabel(wifi.security) },
   ];
 
-  // La contrasena se enmascara en pantalla; el texto real solo sale por el
-  // boton de copiar, igual que en el diseno.
+  // La contrasena llega enmascarada; la persona puede mostrarla o copiarla
+  // sola. Antes solo salia dentro de la cadena WIFI:... completa, y quien la
+  // pegaba en el campo de contrasena no conseguia conectarse.
   if (wifi.password) {
-    rows.push({ label: 'Contraseña', value: '•'.repeat(8), mono: true });
+    rows.push({ label: 'Contraseña', value: '•'.repeat(8), mono: true, secret: wifi.password });
   }
   if (wifi.hidden) {
     rows.push({ label: 'Red oculta', value: 'Sí' });

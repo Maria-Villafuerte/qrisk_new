@@ -85,7 +85,17 @@ export interface NonUrlContent {
   label: string;
   title: string;
   description: string;
-  rows: { label: string; value: string; mono?: boolean }[];
+  rows: {
+    label: string;
+    value: string;
+    mono?: boolean;
+    /**
+     * Valor real de una fila enmascarada (la contrasena de una red Wi-Fi).
+     * `value` lleva los puntos; esto solo se pinta si la persona pide verlo,
+     * y es lo que copia "Copiar contraseña".
+     */
+    secret?: string;
+  }[];
   /** Texto plano que se copia al portapapeles. */
   raw: string;
 }

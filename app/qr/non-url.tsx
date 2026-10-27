@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -26,13 +27,16 @@ export default function NonUrlRoute() {
   const router = useRouter();
   const toast = useToast();
   const { nonUrlContent } = useAppState();
+  /** Si la contrasena de la red se ve en claro. Siempre arranca oculta. */
+  const [revealed, setRevealed] = useState(false);
 
-  const copy = async () => {
-    // Se copia el texto tal como venia en el QR: en una red Wi-Fi eso incluye
-    // la contrasena, que en pantalla se muestra enmascarada.
+  // La contrasena de una red Wi-Fi, si el QR trae una.
+  const secret = nonUrlContent.rows.find((row) => row.secret)?.secret;
+
+  const copy = async (value: string, done: string) => {
     try {
-      await Clipboard.setStringAsync(nonUrlContent.raw);
-      toast.show('Contenido copiado al portapapeles');
+      await Clipboard.setStringAsync(value);
+      toast.show(done);
     } catch {
       // Confirmar una copia que no ocurrio es peor que avisar del fallo: la
       // persona pegaria algo viejo sin darse cuenta.
@@ -44,7 +48,12 @@ export default function NonUrlRoute() {
     <Screen>
       <ScreenHeader title="Contenido del QR" onBack={() => router.replace('/scanner')} />
 
-      <View style={styles.body}>
+      {/* Con scroll: una red Wi-Fi trae tres filas y no caben en un telefono bajo. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <IconEmblem size={104} outerColor={palette.brandTint}>
           {nonUrlContent.kind === 'wifi' ? (
             <WifiIcon size={44} />
@@ -57,7 +66,9 @@ export default function NonUrlRoute() {
           <Text style={styles.badgeText}>{nonUrlContent.label}</Text>
         </View>
 
-        <Text style={[text.displaySm, styles.centered]}>{nonUrlContent.title}</Text>
+        <Text style={[text.displaySm, styles.centered]} accessibilityRole="header">
+          {nonUrlContent.title}
+        </Text>
         <Text style={[text.bodySm, styles.centered]}>{nonUrlContent.description}</Text>
 
         {/*
@@ -69,24 +80,66 @@ export default function NonUrlRoute() {
           {nonUrlContent.rows.map((row) => (
             <View key={row.label} style={[styles.detailRow, styles.detailDivider]}>
               <Text style={styles.rowLabel}>{row.label}</Text>
-              <Text style={[styles.rowValue, row.mono && styles.monoValue]} selectable>
-                {row.value}
-              </Text>
+              {row.secret ? (
+                <View style={styles.secretRow}>
+                  <Text
+                    style={[styles.rowValue, styles.secretValue, row.mono && styles.monoValue]}
+                    selectable={revealed}
+                  >
+                    {revealed ? row.secret : row.value}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={revealed ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    onPress={() => setRevealed((shown) => !shown)}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.revealButton, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.revealLabel}>{revealed ? 'Ocultar' : 'Mostrar'}</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={[styles.rowValue, row.mono && styles.monoValue]} selectable>
+                  {row.value}
+                </Text>
+              )}
             </View>
           ))}
 
+          {/*
+            Con contrasena, copiarla sola es lo que la persona quiere casi
+            siempre: es lo que se pega en el campo de la red. El contenido
+            completo (la cadena WIFI:...) queda como segunda opcion.
+          */}
+          {secret ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Copiar contraseña"
+              onPress={() => void copy(secret, 'Contraseña copiada al portapapeles')}
+              hitSlop={8}
+              style={({ pressed }) => [styles.copyButton, styles.copyButtonFirst, pressed && styles.pressed]}
+            >
+              <CopyIcon size={18} color={palette.brand} />
+              <Text style={styles.copyLabel}>Copiar contraseña</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Copiar contenido"
-            onPress={copy}
+            accessibilityLabel={secret ? 'Copiar contenido completo' : 'Copiar contenido'}
+            onPress={() => void copy(nonUrlContent.raw, 'Contenido copiado al portapapeles')}
             hitSlop={8}
-            style={({ pressed }) => [styles.copyButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.copyButton,
+              secret ? styles.copyButtonSecondary : null,
+              pressed && styles.pressed,
+            ]}
           >
             <CopyIcon size={18} color={palette.brand} />
-            <Text style={styles.copyLabel}>Copiar</Text>
+            <Text style={styles.copyLabel}>{secret ? 'Copiar contenido completo' : 'Copiar'}</Text>
           </Pressable>
         </Card>
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         <Button label="Escanear otro QR" onPress={() => router.replace('/scanner')} />
@@ -96,12 +149,15 @@ export default function NonUrlRoute() {
 }
 
 const styles = StyleSheet.create({
-  body: {
+  scroll: {
     flex: 1,
+  },
+  body: {
     alignItems: 'center',
     gap: spacing.lg,
     paddingHorizontal: 24,
     paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
   },
   badge: {
     backgroundColor: palette.brandTint,
@@ -147,6 +203,24 @@ const styles = StyleSheet.create({
     fontFamily: text.mono.fontFamily,
     letterSpacing: 2,
   },
+  secretRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  secretValue: {
+    flex: 1,
+  },
+  revealButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  revealLabel: {
+    fontFamily: text.buttonSm.fontFamily,
+    fontSize: 15,
+    color: palette.brand,
+  },
   copyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,6 +230,17 @@ const styles = StyleSheet.create({
     marginVertical: spacing.md,
     borderRadius: radius.lg,
     backgroundColor: palette.brandTint,
+  },
+  // Dos botones seguidos: el margen entre ellos se reparte para no duplicarlo.
+  copyButtonFirst: {
+    marginBottom: 0,
+  },
+  /** La copia completa pasa a segundo plano cuando hay contrasena. */
+  copyButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: palette.brandBorder,
+    marginTop: spacing.sm,
   },
   copyLabel: {
     fontFamily: text.buttonSm.fontFamily,
