@@ -49,6 +49,15 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/android-icon-foreground.png",
+          "backgroundColor": "#FFC23D",
+          "imageWidth": 300,
+          "resizeMode": "contain"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "QRisk usa la camara unicamente para leer codigos QR. Las imagenes no salen de tu telefono ni se guardan.",
